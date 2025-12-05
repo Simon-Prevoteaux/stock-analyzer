@@ -17,6 +17,338 @@
 </div>
 {% endif %}
 
+<!-- Data Indicators Info Section -->
+<div class="data-info-section">
+    <div class="info-header" onclick="toggleDataInfo()">
+        <h2>
+            <span class="toggle-icon" id="toggle-icon">▼</span>
+            Data Indicators Reference
+        </h2>
+        <p class="subtitle">See what data we fetch and what's available</p>
+    </div>
+
+    <div class="info-content" id="data-info-content">
+        <div class="indicators-grid">
+            <!-- Currently Fetched -->
+            <div class="indicators-section fetched">
+                <h3>✓ Currently Fetched ({{ fetched_count }})</h3>
+                <p class="section-desc">These metrics are automatically fetched and stored for each stock</p>
+
+                <div class="category">
+                    <h4>Basic Information</h4>
+                    <ul>
+                        <li><strong>Ticker:</strong> Stock symbol (e.g., AAPL)</li>
+                        <li><strong>Company Name:</strong> Full legal name</li>
+                        <li><strong>Sector:</strong> Industry sector</li>
+                        <li><strong>Industry:</strong> Specific industry classification</li>
+                        <li><strong>Current Price:</strong> Latest trading price</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Valuation Metrics</h4>
+                    <ul>
+                        <li><strong>Market Cap:</strong> Total market value</li>
+                        <li><strong>P/E Ratio:</strong> Price-to-Earnings (trailing)</li>
+                        <li><strong>Forward P/E:</strong> Forward Price-to-Earnings</li>
+                        <li><strong>P/S Ratio:</strong> Price-to-Sales (calculated)</li>
+                        <li><strong>EPS:</strong> Earnings Per Share</li>
+                        <li><strong>Price to Book:</strong> Market value vs book value</li>
+                        <li><strong>Enterprise Value:</strong> Market cap + debt - cash</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Financial Metrics</h4>
+                    <ul>
+                        <li><strong>Revenue:</strong> Total revenue (TTM)</li>
+                        <li><strong>Earnings:</strong> Net income</li>
+                        <li><strong>Profit Margin:</strong> Net profit as % of revenue</li>
+                        <li><strong>Operating Margin:</strong> Operating income as % of revenue</li>
+                        <li><strong>Is Profitable:</strong> Whether company has positive earnings</li>
+                        <li><strong>Free Cash Flow:</strong> Operating cash flow minus CapEx</li>
+                        <li><strong>Current Ratio:</strong> Current assets / current liabilities</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Growth Metrics</h4>
+                    <ul>
+                        <li><strong>Revenue Growth:</strong> YoY revenue growth rate</li>
+                        <li><strong>Earnings Growth:</strong> YoY earnings growth rate</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Analyst & Calculated</h4>
+                    <ul>
+                        <li><strong>Bubble Score:</strong> 0-10 overvaluation risk score (custom)</li>
+                        <li><strong>Risk Level:</strong> LOW/MEDIUM/HIGH/VERY HIGH/EXTREME</li>
+                        <li><strong>Classification:</strong> Value/Growth/Overvalued classification</li>
+                        <li><strong>Target Price:</strong> Average analyst price target</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Available But Not Fetched -->
+            <div class="indicators-section not-fetched">
+                <h3>○ Available But Not Fetched ({{ not_fetched_count }})</h3>
+                <p class="section-desc">These metrics are available from Yahoo Finance but not currently stored</p>
+
+                <div class="category">
+                    <h4>Balance Sheet</h4>
+                    <ul>
+                        <li><strong>Book Value:</strong> Net asset value per share</li>
+                        <li><strong>Debt to Equity:</strong> Leverage ratio</li>
+                        <li><strong>Quick Ratio:</strong> Liquidity without inventory</li>
+                        <li><strong>Total Cash:</strong> Cash and cash equivalents</li>
+                        <li><strong>Total Debt:</strong> Total outstanding debt</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Cash Flow</h4>
+                    <ul>
+                        <li><strong>Operating Cash Flow:</strong> Cash from operations</li>
+                        <li><strong>CapEx:</strong> Capital expenditures</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Returns & Efficiency</h4>
+                    <ul>
+                        <li><strong>Return on Equity (ROE):</strong> Profitability vs shareholder equity</li>
+                        <li><strong>Return on Assets (ROA):</strong> Profitability vs total assets</li>
+                        <li><strong>Return on Investment (ROI):</strong> Investment efficiency</li>
+                        <li><strong>Asset Turnover:</strong> Revenue generation from assets</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Dividends</h4>
+                    <ul>
+                        <li><strong>Dividend Yield:</strong> Annual dividend as % of price</li>
+                        <li><strong>Payout Ratio:</strong> Dividends as % of earnings</li>
+                        <li><strong>Dividend Rate:</strong> Annual dividend per share</li>
+                        <li><strong>Ex-Dividend Date:</strong> Last date to receive dividend</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Enterprise Value Ratios</h4>
+                    <ul>
+                        <li><strong>EV/Revenue:</strong> Enterprise value to revenue ratio</li>
+                        <li><strong>EV/EBITDA:</strong> Enterprise value to EBITDA ratio</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Trading & Risk</h4>
+                    <ul>
+                        <li><strong>Beta:</strong> Volatility vs market</li>
+                        <li><strong>52 Week High:</strong> Highest price in 52 weeks</li>
+                        <li><strong>52 Week Low:</strong> Lowest price in 52 weeks</li>
+                        <li><strong>Average Volume:</strong> Average trading volume</li>
+                        <li><strong>Shares Outstanding:</strong> Total shares issued</li>
+                        <li><strong>Float:</strong> Publicly tradeable shares</li>
+                        <li><strong>Short Ratio:</strong> Days to cover short positions</li>
+                        <li><strong>Short % of Float:</strong> Percentage of float sold short</li>
+                    </ul>
+                </div>
+
+                <div class="category">
+                    <h4>Analyst Data</h4>
+                    <ul>
+                        <li><strong>Recommendation:</strong> Buy/Hold/Sell consensus</li>
+                        <li><strong>Number of Analysts:</strong> Analyst coverage count</li>
+                        <li><strong>PEG Ratio:</strong> P/E relative to growth rate</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-info-footer">
+            <p><strong>Note:</strong> Yahoo Finance API provides 100+ data points. The metrics above are the most commonly used for fundamental analysis. To add more metrics, update the <code>stock_fetcher.py</code> file.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.data-info-section {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    border-radius: 12px;
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.info-header {
+    padding: 20px 25px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.info-header:hover {
+    background: rgba(0, 255, 136, 0.05);
+}
+
+.info-header h2 {
+    margin: 0 0 5px 0;
+    color: #00ff88;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toggle-icon {
+    font-size: 0.8em;
+    transition: transform 0.3s;
+}
+
+.toggle-icon.collapsed {
+    transform: rotate(-90deg);
+}
+
+.info-header .subtitle {
+    margin: 0;
+    color: #a8b2d1;
+    font-size: 0.9rem;
+}
+
+.info-content {
+    max-height: 800px;
+    overflow-y: auto;
+    transition: max-height 0.3s ease-out, padding 0.3s;
+    padding: 0 25px 25px 25px;
+}
+
+.info-content.collapsed {
+    max-height: 0;
+    padding: 0 25px;
+    overflow: hidden;
+}
+
+.indicators-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.indicators-section {
+    background: rgba(10, 14, 39, 0.6);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.indicators-section.fetched {
+    border: 2px solid rgba(0, 255, 136, 0.3);
+}
+
+.indicators-section.not-fetched {
+    border: 2px solid rgba(255, 215, 0, 0.3);
+}
+
+.indicators-section h3 {
+    color: #00ff88;
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+.indicators-section.not-fetched h3 {
+    color: #ffd700;
+}
+
+.section-desc {
+    color: #a8b2d1;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+    font-style: italic;
+}
+
+.category {
+    margin-bottom: 20px;
+}
+
+.category h4 {
+    color: #e0e6ed;
+    font-size: 1rem;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.category ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.category li {
+    color: #a8b2d1;
+    padding: 6px 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.category li strong {
+    color: #e0e6ed;
+    font-weight: 600;
+}
+
+.data-info-footer {
+    margin-top: 20px;
+    padding: 15px;
+    background: rgba(0, 255, 136, 0.1);
+    border-radius: 6px;
+    border-left: 3px solid #00ff88;
+}
+
+.data-info-footer p {
+    margin: 0;
+    color: #e0e6ed;
+    font-size: 0.9rem;
+}
+
+.data-info-footer code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #00ff88;
+    font-family: 'Courier New', monospace;
+}
+
+@media (max-width: 1024px) {
+    .indicators-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+function toggleDataInfo() {
+    const content = document.getElementById('data-info-content');
+    const icon = document.getElementById('toggle-icon');
+
+    if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        icon.classList.remove('collapsed');
+    } else {
+        content.classList.add('collapsed');
+        icon.classList.add('collapsed');
+    }
+}
+
+// Start collapsed
+document.addEventListener('DOMContentLoaded', function() {
+    const content = document.getElementById('data-info-content');
+    const icon = document.getElementById('toggle-icon');
+    content.classList.add('collapsed');
+    icon.classList.add('collapsed');
+});
+</script>
+
 <div class="form-container">
     <form method="POST">
         <div class="form-group">
@@ -29,11 +361,37 @@
     </form>
 </div>
 
-<div class="info-box">
-    <h3>Example Tickers</h3>
-    <p><strong>Tech Giants:</strong> AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA</p>
-    <p><strong>Software:</strong> CRM, NOW, SNOW, PLTR, CRWD, DDOG</p>
-    <p><strong>Finance:</strong> JPM, BAC, GS, MS, V, MA</p>
-    <p><strong>Healthcare:</strong> UNH, JNJ, PFE, ABBV, TMO</p>
+<div class="refresh-container">
+    <h2>Refresh Existing Data</h2>
+    <p class="subtitle">Update all stocks in your database with the latest data</p>
+    <form method="POST" action="{{ url_for('refresh_all_stocks') }}" onsubmit="return confirm('This will refresh all stocks in your database. Continue?');">
+        <button type="submit" class="btn btn-secondary">Refresh All Stocks</button>
+    </form>
 </div>
+
+<div class="stock-suggestions">
+    <h2>Quick Add Stock Lists</h2>
+    <p class="subtitle">Click on a list to automatically populate the ticker field</p>
+
+    <div class="suggestions-grid">
+        {% for list_id, list_data in stock_lists.items() %}
+        <div class="suggestion-card">
+            <h4>{{ list_data.name }}</h4>
+            <p class="description">{{ list_data.description }}</p>
+            <p class="ticker-count">{{ list_data.tickers|length }} stocks</p>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="fillTickers('{{ list_data.tickers|join(', ') }}')">
+                Add to Field
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function fillTickers(tickers) {
+    document.getElementById('tickers').value = tickers;
+    // Scroll to the form
+    document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
 {% endblock %}

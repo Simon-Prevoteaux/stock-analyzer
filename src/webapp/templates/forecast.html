@@ -1,0 +1,1229 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Forecast{% endblock %}
+
+{% block content %}
+<h1>Stock Price Forecast</h1>
+
+<div class="forecast-selector">
+    <form method="GET" class="stock-select-form" id="stock-search-form">
+        <div class="form-group">
+            <label for="ticker-search">Search for a Stock:</label>
+            <div class="search-container">
+                <input type="text"
+                       id="ticker-search"
+                       placeholder="Type ticker symbol (e.g., AAPL, MSFT)..."
+                       autocomplete="off"
+                       value="{{ selected_ticker or '' }}">
+                <input type="hidden" name="ticker" id="ticker-hidden" value="{{ selected_ticker or '' }}">
+                <div class="search-results" id="search-results"></div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+(function() {
+    const availableStocks = {{ available_stocks | tojson | safe }};
+    const searchInput = document.getElementById('ticker-search');
+    const hiddenInput = document.getElementById('ticker-hidden');
+    const resultsDiv = document.getElementById('search-results');
+    const form = document.getElementById('stock-search-form');
+
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toUpperCase().trim();
+        resultsDiv.innerHTML = '';
+
+        if (query.length === 0) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        const matches = availableStocks.filter(stock =>
+            stock.toUpperCase().includes(query)
+        ).slice(0, 10);
+
+        if (matches.length > 0) {
+            resultsDiv.style.display = 'block';
+            matches.forEach(stock => {
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.textContent = stock;
+                div.addEventListener('click', function() {
+                    searchInput.value = stock;
+                    hiddenInput.value = stock;
+                    resultsDiv.style.display = 'none';
+                    form.submit();
+                });
+                resultsDiv.appendChild(div);
+            });
+        } else {
+            resultsDiv.style.display = 'none';
+        }
+    });
+
+    searchInput.addEventListener('keydown', function(e) {
+        const items = resultsDiv.querySelectorAll('.search-result-item');
+        const active = resultsDiv.querySelector('.search-result-item.active');
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (!active && items.length > 0) {
+                items[0].classList.add('active');
+            } else if (active && active.nextElementSibling) {
+                active.classList.remove('active');
+                active.nextElementSibling.classList.add('active');
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (active && active.previousElementSibling) {
+                active.classList.remove('active');
+                active.previousElementSibling.classList.add('active');
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (active) {
+                searchInput.value = active.textContent;
+                hiddenInput.value = active.textContent;
+                resultsDiv.style.display = 'none';
+                form.submit();
+            } else if (availableStocks.includes(searchInput.value.toUpperCase())) {
+                hiddenInput.value = searchInput.value.toUpperCase();
+                form.submit();
+            }
+        } else if (e.key === 'Escape') {
+            resultsDiv.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+            resultsDiv.style.display = 'none';
+        }
+    });
+})();
+</script>
+
+{% if error %}
+<div class="alert alert-error">
+    {{ error }}
+</div>
+{% endif %}
+
+{% if results %}
+<div class="forecast-header">
+    <h2>{{ results.company_name }} ({{ results.ticker }})</h2>
+    <div class="current-price">
+        <span class="label">Current Price:</span>
+        <span class="value">${{ "%.2f"|format(results.current_price) }}</span>
+    </div>
+</div>
+
+<!-- Parameter Controls -->
+<div class="parameters-section">
+    <h2>Adjust Parameters <button type="button" class="info-btn" onclick="showInfo('params-general')">i</button></h2>
+    <p class="subtitle">Modify assumptions to see how they affect the forecast</p>
+
+    <form method="GET" id="forecast-form">
+        <input type="hidden" name="ticker" value="{{ selected_ticker }}">
+
+        <div class="params-grid">
+            <div class="param-group">
+                <h4>General</h4>
+                <div class="param-item">
+                    <label for="years">Forecast Years: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('forecast-years')">i</button></label>
+                    <input type="range" id="years" name="years" min="1" max="10" value="{{ request.args.get('years', 5) }}" oninput="updateLabel('years', this.value)">
+                    <span id="years-label">{{ request.args.get('years', 5) }} years</span>
+                </div>
+            </div>
+
+            <div class="param-group">
+                <h4>Earnings Model <button type="button" class="info-btn info-btn-sm" onclick="showInfo('earnings-model')">i</button></h4>
+                <div class="param-item">
+                    <label for="earnings_growth">EPS Growth Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('eps-growth')">i</button></label>
+                    <input type="range" id="earnings_growth" name="earnings_growth" min="0" max="0.5" step="0.01" value="{{ request.args.get('earnings_growth', results.earnings_model.details.get('initial_growth_rate', 15) / 100) }}" oninput="updatePercent('earnings_growth', this.value)">
+                    <span id="earnings_growth-label">{{ "%.0f"|format((request.args.get('earnings_growth', results.earnings_model.details.get('initial_growth_rate', 15) / 100)|float) * 100) }}%</span>
+                </div>
+                <div class="param-item">
+                    <label for="terminal_pe">Terminal P/E: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('terminal-pe')">i</button></label>
+                    <input type="range" id="terminal_pe" name="terminal_pe" min="5" max="50" step="1" value="{{ request.args.get('terminal_pe', results.earnings_model.details.get('terminal_pe', 20)) }}" oninput="updateLabel('terminal_pe', this.value + 'x')">
+                    <span id="terminal_pe-label">{{ request.args.get('terminal_pe', results.earnings_model.details.get('terminal_pe', 20)) }}x</span>
+                </div>
+            </div>
+
+            <div class="param-group">
+                <h4>DCF Model <button type="button" class="info-btn info-btn-sm" onclick="showInfo('dcf-model')">i</button></h4>
+                <div class="param-item">
+                    <label for="fcf_growth">FCF Growth: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('fcf-growth')">i</button></label>
+                    <input type="range" id="fcf_growth" name="fcf_growth" min="0" max="0.3" step="0.01" value="{{ request.args.get('fcf_growth', 0.10) }}" oninput="updatePercent('fcf_growth', this.value)">
+                    <span id="fcf_growth-label">{{ "%.0f"|format((request.args.get('fcf_growth', 0.10)|float) * 100) }}%</span>
+                </div>
+                <div class="param-item">
+                    <label for="discount_rate">Discount Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('discount-rate')">i</button></label>
+                    <input type="range" id="discount_rate" name="discount_rate" min="0.05" max="0.20" step="0.01" value="{{ request.args.get('discount_rate', 0.10) }}" oninput="updatePercent('discount_rate', this.value)">
+                    <span id="discount_rate-label">{{ "%.0f"|format((request.args.get('discount_rate', 0.10)|float) * 100) }}%</span>
+                </div>
+            </div>
+
+            <div class="param-group">
+                <h4>Monte Carlo <button type="button" class="info-btn info-btn-sm" onclick="showInfo('monte-carlo')">i</button></h4>
+                <div class="param-item">
+                    <label for="volatility">Volatility: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('volatility')">i</button></label>
+                    <input type="range" id="volatility" name="volatility" min="0.1" max="0.8" step="0.05" value="{{ request.args.get('volatility', 0.30) }}" oninput="updatePercent('volatility', this.value)">
+                    <span id="volatility-label">{{ "%.0f"|format((request.args.get('volatility', 0.30)|float) * 100) }}%</span>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Update Forecast</button>
+    </form>
+</div>
+
+<!-- Scenario Analysis -->
+<div class="forecast-section scenarios-section">
+    <h2>Scenario Analysis <button type="button" class="info-btn" onclick="showInfo('scenario-analysis')">i</button></h2>
+    <p class="subtitle">Bull, Base, and Bear case projections for {{ results.scenarios.years }} years</p>
+
+    <div class="scenarios-grid">
+        {% for scenario_name, scenario in results.scenarios.scenarios.items() %}
+        <div class="scenario-card scenario-{{ scenario_name }}">
+            <h3>{{ scenario_name|upper }} Case</h3>
+            <div class="target-price">${{ "%.2f"|format(scenario.target_price) }}</div>
+            <div class="upside {% if scenario.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(scenario.upside_percent) }}%
+            </div>
+            <div class="scenario-details">
+                <p>Growth: {{ scenario.growth_rate }}%/yr</p>
+                {% if scenario.terminal_pe %}
+                <p>P/E: {{ scenario.terminal_pe }}x</p>
+                {% endif %}
+                {% if scenario.terminal_ps %}
+                <p>P/S: {{ scenario.terminal_ps }}x</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Model Results Grid -->
+<div class="models-grid">
+    <!-- Earnings Growth Model -->
+    <div class="model-card">
+        <h3>Earnings Growth Model <button type="button" class="info-btn" onclick="showInfo('earnings-model-detail')">i</button></h3>
+        {% if results.earnings_model.details.get('error') %}
+        <p class="model-error">{{ results.earnings_model.details.error }}</p>
+        {% else %}
+        <div class="model-result">
+            <div class="target-price">${{ "%.2f"|format(results.earnings_model.target_price) }}</div>
+            <div class="upside {% if results.earnings_model.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(results.earnings_model.upside_percent) }}% upside
+            </div>
+            <div class="annual-return">
+                {{ "%.1f"|format(results.earnings_model.annual_return) }}% annual return
+            </div>
+        </div>
+        <div class="model-details">
+            <table>
+                <tr><td>Starting EPS</td><td>${{ results.earnings_model.details.starting_eps }}</td></tr>
+                <tr><td>Ending EPS</td><td>${{ results.earnings_model.details.ending_eps }}</td></tr>
+                <tr><td>Growth Rate</td><td>{{ results.earnings_model.details.initial_growth_rate }}%</td></tr>
+                <tr><td>Growth Decay</td><td>{{ results.earnings_model.details.growth_decay }}%/yr</td></tr>
+                <tr><td>Terminal P/E</td><td>{{ results.earnings_model.details.terminal_pe }}x</td></tr>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Revenue Growth Model -->
+    <div class="model-card">
+        <h3>Revenue Growth Model <button type="button" class="info-btn" onclick="showInfo('revenue-model-detail')">i</button></h3>
+        {% if results.revenue_model.details.get('error') %}
+        <p class="model-error">{{ results.revenue_model.details.error }}</p>
+        {% else %}
+        <div class="model-result">
+            <div class="target-price">${{ "%.2f"|format(results.revenue_model.target_price) }}</div>
+            <div class="upside {% if results.revenue_model.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(results.revenue_model.upside_percent) }}% upside
+            </div>
+            <div class="annual-return">
+                {{ "%.1f"|format(results.revenue_model.annual_return) }}% annual return
+            </div>
+        </div>
+        <div class="model-details">
+            <table>
+                <tr><td>Starting Revenue</td><td>{{ results.revenue_model.details.starting_revenue|format_number }}</td></tr>
+                <tr><td>Ending Revenue</td><td>{{ results.revenue_model.details.ending_revenue|format_number }}</td></tr>
+                <tr><td>Revenue CAGR</td><td>{{ results.revenue_model.details.revenue_cagr }}%</td></tr>
+                <tr><td>Terminal P/S</td><td>{{ results.revenue_model.details.terminal_ps }}x</td></tr>
+                <tr><td>Target Margin</td><td>{{ results.revenue_model.details.target_margin }}%</td></tr>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- DCF Model -->
+    <div class="model-card">
+        <h3>DCF Model <button type="button" class="info-btn" onclick="showInfo('dcf-model-detail')">i</button></h3>
+        {% if results.dcf_model.details.get('error') %}
+        <p class="model-error">{{ results.dcf_model.details.error }}</p>
+        {% else %}
+        <div class="model-result">
+            <div class="target-price">${{ "%.2f"|format(results.dcf_model.target_price) }}</div>
+            <div class="upside {% if results.dcf_model.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(results.dcf_model.upside_percent) }}% upside
+            </div>
+            <div class="annual-return">
+                {{ "%.1f"|format(results.dcf_model.annual_return) }}% annual return
+            </div>
+        </div>
+        <div class="model-details">
+            <table>
+                <tr><td>Base FCF</td><td>${{ results.dcf_model.details.base_fcf }}B</td></tr>
+                <tr><td>FCF Growth</td><td>{{ results.dcf_model.details.fcf_growth }}%</td></tr>
+                <tr><td>Discount Rate</td><td>{{ results.dcf_model.details.discount_rate }}%</td></tr>
+                <tr><td>Terminal Growth</td><td>{{ results.dcf_model.details.terminal_growth }}%</td></tr>
+                <tr><td>Intrinsic Value</td><td>${{ results.dcf_model.details.intrinsic_value }}B</td></tr>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Monte Carlo -->
+    <div class="model-card monte-carlo-card">
+        <h3>Monte Carlo Simulation <button type="button" class="info-btn" onclick="showInfo('monte-carlo-detail')">i</button></h3>
+        {% if results.monte_carlo.get('error') %}
+        <p class="model-error">{{ results.monte_carlo.error }}</p>
+        {% else %}
+        <div class="model-result">
+            <div class="target-price">${{ "%.2f"|format(results.monte_carlo.median_target) }}</div>
+            <div class="upside {% if results.monte_carlo.median_upside >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(results.monte_carlo.median_upside) }}% median upside
+            </div>
+            <div class="simulation-info">
+                {{ results.monte_carlo.simulations }} simulations
+            </div>
+        </div>
+
+        <div class="percentiles">
+            <h4>Price Distribution</h4>
+            <div class="percentile-bar">
+                <div class="percentile-range" style="left: 10%; width: 80%;">
+                    <span class="p10">${{ results.monte_carlo.percentiles.p10 }}</span>
+                    <span class="p50">${{ results.monte_carlo.percentiles.p50 }}</span>
+                    <span class="p90">${{ results.monte_carlo.percentiles.p90 }}</span>
+                </div>
+            </div>
+            <div class="percentile-labels">
+                <span>10th %ile</span>
+                <span>Median</span>
+                <span>90th %ile</span>
+            </div>
+        </div>
+
+        <div class="probabilities">
+            <h4>Outcome Probabilities</h4>
+            <div class="prob-grid">
+                <div class="prob-item">
+                    <span class="prob-value positive">{{ results.monte_carlo.probabilities.profit }}%</span>
+                    <span class="prob-label">Profit</span>
+                </div>
+                <div class="prob-item">
+                    <span class="prob-value positive">{{ results.monte_carlo.probabilities.up_50_percent }}%</span>
+                    <span class="prob-label">+50%</span>
+                </div>
+                <div class="prob-item">
+                    <span class="prob-value positive">{{ results.monte_carlo.probabilities.double }}%</span>
+                    <span class="prob-label">2x</span>
+                </div>
+                <div class="prob-item">
+                    <span class="prob-value negative">{{ results.monte_carlo.probabilities.down_50_percent }}%</span>
+                    <span class="prob-label">-50%</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Summary -->
+<div class="forecast-summary">
+    <h2>Forecast Summary</h2>
+    <p class="subtitle">Average of all models over {{ results.earnings_model.years }} years</p>
+
+    {% set valid_targets = [] %}
+    {% if results.earnings_model.target_price > 0 %}
+        {% set _ = valid_targets.append(results.earnings_model.target_price) %}
+    {% endif %}
+    {% if results.revenue_model.target_price > 0 %}
+        {% set _ = valid_targets.append(results.revenue_model.target_price) %}
+    {% endif %}
+    {% if results.dcf_model.target_price > 0 %}
+        {% set _ = valid_targets.append(results.dcf_model.target_price) %}
+    {% endif %}
+    {% if results.monte_carlo.median_target %}
+        {% set _ = valid_targets.append(results.monte_carlo.median_target) %}
+    {% endif %}
+
+    {% if valid_targets %}
+    {% set avg_target = (valid_targets|sum) / (valid_targets|length) %}
+    {% set avg_upside = ((avg_target / results.current_price) - 1) * 100 %}
+
+    <div class="summary-grid">
+        <div class="summary-item">
+            <span class="label">Current Price</span>
+            <span class="value">${{ "%.2f"|format(results.current_price) }}</span>
+        </div>
+        <div class="summary-item">
+            <span class="label">Average Target</span>
+            <span class="value">${{ "%.2f"|format(avg_target) }}</span>
+        </div>
+        <div class="summary-item">
+            <span class="label">Average Upside</span>
+            <span class="value {% if avg_upside >= 0 %}positive{% else %}negative{% endif %}">{{ "%.1f"|format(avg_upside) }}%</span>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="disclaimer">
+    <p><strong>Disclaimer:</strong> These forecasts are for educational purposes only and should not be considered investment advice. Stock prices are inherently unpredictable and actual results may differ significantly from these projections.</p>
+</div>
+
+<!-- Info Modal -->
+<div class="info-modal-overlay" id="info-modal-overlay" onclick="closeInfo()">
+    <div class="info-modal" onclick="event.stopPropagation()">
+        <button class="info-modal-close" onclick="closeInfo()">&times;</button>
+        <h3 id="info-modal-title"></h3>
+        <div id="info-modal-content"></div>
+    </div>
+</div>
+
+<script>
+function updateLabel(id, value) {
+    document.getElementById(id + '-label').textContent = value;
+}
+
+function updatePercent(id, value) {
+    document.getElementById(id + '-label').textContent = Math.round(value * 100) + '%';
+}
+
+const infoContent = {
+    'params-general': {
+        title: 'About Parameters',
+        content: `<p>These parameters allow you to adjust the assumptions used in each forecasting model. By changing these values, you can see how sensitive the price forecast is to different assumptions.</p>
+        <p><strong>Tip:</strong> Try adjusting parameters to create optimistic and pessimistic scenarios. If the stock looks attractive even with conservative assumptions, it may be a stronger investment candidate.</p>`
+    },
+    'forecast-years': {
+        title: 'Forecast Years',
+        content: `<p>The number of years into the future to project the stock price.</p>
+        <p><strong>Shorter periods (1-3 years):</strong> More reliable but less potential upside shown.</p>
+        <p><strong>Longer periods (5-10 years):</strong> More speculative but shows long-term potential. Compound growth has more time to work.</p>
+        <p><strong>Common choice:</strong> 5 years is a standard investment horizon for fundamental analysis.</p>`
+    },
+    'earnings-model': {
+        title: 'Earnings Model Parameters',
+        content: `<p>The Earnings Growth Model projects future stock prices based on earnings per share (EPS) growth.</p>
+        <p><strong>How it works:</strong> Current EPS grows at your specified rate, then a P/E multiple is applied to get the future price.</p>
+        <p>Formula: Future Price = Future EPS × Terminal P/E</p>`
+    },
+    'eps-growth': {
+        title: 'EPS Growth Rate',
+        content: `<p><strong>What it is:</strong> The annual rate at which earnings per share (EPS) are expected to grow.</p>
+        <p><strong>How to think about it:</strong></p>
+        <ul>
+            <li><strong>0-10%:</strong> Mature, slow-growth companies (utilities, banks)</li>
+            <li><strong>10-20%:</strong> Solid growth companies (most S&P 500)</li>
+            <li><strong>20-30%:</strong> High-growth companies (tech leaders)</li>
+            <li><strong>30%+:</strong> Very aggressive, usually unsustainable long-term</li>
+        </ul>
+        <p><strong>Tip:</strong> Look at the company's historical EPS growth and analyst estimates. Be conservative - high growth rates are hard to maintain.</p>`
+    },
+    'terminal-pe': {
+        title: 'Terminal P/E Ratio',
+        content: `<p><strong>What it is:</strong> The Price-to-Earnings ratio you expect the stock to trade at in the future.</p>
+        <p><strong>How to think about it:</strong></p>
+        <ul>
+            <li><strong>10-15x:</strong> Value stocks, slow growers, cyclicals</li>
+            <li><strong>15-20x:</strong> Average market valuation</li>
+            <li><strong>20-30x:</strong> Quality growth companies</li>
+            <li><strong>30x+:</strong> High-growth tech, premium valuations</li>
+        </ul>
+        <p><strong>Tip:</strong> Higher P/E ratios are justified by higher growth rates. As growth slows, P/E typically compresses toward market average (~18x).</p>`
+    },
+    'dcf-model': {
+        title: 'DCF Model Parameters',
+        content: `<p>Discounted Cash Flow (DCF) values a company based on the present value of its future cash flows.</p>
+        <p><strong>How it works:</strong> Projects future free cash flows, then discounts them back to today's value using a required rate of return.</p>
+        <p><strong>Why it matters:</strong> DCF is considered one of the most theoretically sound valuation methods because it focuses on actual cash generation, not accounting earnings.</p>`
+    },
+    'fcf-growth': {
+        title: 'Free Cash Flow Growth',
+        content: `<p><strong>What it is:</strong> The expected annual growth rate of the company's free cash flow (FCF).</p>
+        <p><strong>Free Cash Flow:</strong> Cash from operations minus capital expenditures. It's the cash available to pay dividends, buy back shares, or reinvest.</p>
+        <p><strong>Typical ranges:</strong></p>
+        <ul>
+            <li><strong>3-5%:</strong> Mature, stable companies</li>
+            <li><strong>5-10%:</strong> Steady growers</li>
+            <li><strong>10-15%:</strong> Growth companies</li>
+            <li><strong>15%+:</strong> High growth, usually moderates over time</li>
+        </ul>`
+    },
+    'discount-rate': {
+        title: 'Discount Rate',
+        content: `<p><strong>What it is:</strong> Your required rate of return, used to calculate what future cash flows are worth today.</p>
+        <p><strong>How to think about it:</strong></p>
+        <ul>
+            <li><strong>8-10%:</strong> Large, stable, blue-chip companies</li>
+            <li><strong>10-12%:</strong> Average risk stocks</li>
+            <li><strong>12-15%:</strong> Higher risk, smaller companies</li>
+            <li><strong>15%+:</strong> High risk, speculative stocks</li>
+        </ul>
+        <p><strong>Key insight:</strong> Higher discount rate = lower present value = more conservative valuation. Use higher rates for riskier companies.</p>`
+    },
+    'monte-carlo': {
+        title: 'Monte Carlo Parameters',
+        content: `<p>Monte Carlo simulation runs thousands of random scenarios to show the range of possible outcomes.</p>
+        <p><strong>Why it's useful:</strong> Instead of a single price target, you see probabilities - like "60% chance of profit" or "20% chance of doubling."</p>
+        <p><strong>How it works:</strong> Uses random variations based on volatility to simulate many possible price paths, then summarizes the distribution of outcomes.</p>`
+    },
+    'volatility': {
+        title: 'Volatility',
+        content: `<p><strong>What it is:</strong> A measure of how much the stock price fluctuates, expressed as an annual percentage.</p>
+        <p><strong>Typical ranges:</strong></p>
+        <ul>
+            <li><strong>15-20%:</strong> Low volatility (utilities, consumer staples)</li>
+            <li><strong>20-30%:</strong> Average volatility (most stocks)</li>
+            <li><strong>30-50%:</strong> High volatility (tech, growth stocks)</li>
+            <li><strong>50%+:</strong> Very high volatility (speculative, small caps)</li>
+        </ul>
+        <p><strong>Impact:</strong> Higher volatility means wider range of possible outcomes in the Monte Carlo simulation.</p>`
+    },
+    'scenario-analysis': {
+        title: 'Scenario Analysis',
+        content: `<p>Shows three possible futures: optimistic (Bull), base case, and pessimistic (Bear).</p>
+        <p><strong>Bull Case:</strong> Everything goes right - strong growth, multiple expansion, favorable conditions.</p>
+        <p><strong>Base Case:</strong> Reasonable expectations based on current trends and analyst estimates.</p>
+        <p><strong>Bear Case:</strong> Things go wrong - slower growth, multiple compression, headwinds.</p>
+        <p><strong>How to use it:</strong> Consider the probability of each scenario. If the bear case still offers acceptable returns, the investment has a margin of safety.</p>`
+    },
+    'earnings-model-detail': {
+        title: 'Earnings Growth Model',
+        content: `<p><strong>What it does:</strong> Projects future stock price by growing current earnings and applying a P/E multiple.</p>
+        <p><strong>Formula:</strong> Future Price = Current EPS × (1 + Growth Rate)^Years × Terminal P/E</p>
+        <p><strong>Best for:</strong> Profitable companies with stable, predictable earnings.</p>
+        <p><strong>Limitations:</strong> Doesn't work for unprofitable companies. Assumes P/E ratio is the right valuation metric.</p>
+        <p><strong>Key metrics shown:</strong></p>
+        <ul>
+            <li><strong>Starting/Ending EPS:</strong> Earnings per share now vs. projected</li>
+            <li><strong>Growth Decay:</strong> How much growth rate slows each year (high growth doesn't last forever)</li>
+        </ul>`
+    },
+    'revenue-model-detail': {
+        title: 'Revenue Growth Model',
+        content: `<p><strong>What it does:</strong> Values the company based on revenue growth and a Price-to-Sales (P/S) multiple.</p>
+        <p><strong>Best for:</strong> High-growth companies that aren't yet profitable, or where earnings are volatile.</p>
+        <p><strong>Key metrics:</strong></p>
+        <ul>
+            <li><strong>Revenue CAGR:</strong> Compound annual growth rate of revenue</li>
+            <li><strong>Terminal P/S:</strong> Price-to-Sales ratio at the end of the forecast period</li>
+            <li><strong>Target Margin:</strong> Expected profit margin as the company matures</li>
+        </ul>
+        <p><strong>Caution:</strong> Revenue without profits isn't sustainable long-term. Look for a path to profitability.</p>`
+    },
+    'dcf-model-detail': {
+        title: 'Discounted Cash Flow (DCF) Model',
+        content: `<p><strong>What it does:</strong> Calculates the intrinsic value of a company by discounting future cash flows to present value.</p>
+        <p><strong>Why it's important:</strong> DCF is considered the gold standard of valuation because it focuses on actual cash generation.</p>
+        <p><strong>Key metrics:</strong></p>
+        <ul>
+            <li><strong>Base FCF:</strong> Current free cash flow (cash from operations minus CapEx)</li>
+            <li><strong>FCF Growth:</strong> Expected annual growth in free cash flow</li>
+            <li><strong>Discount Rate:</strong> Your required return (higher = more conservative)</li>
+            <li><strong>Terminal Growth:</strong> Long-term perpetual growth rate (usually 2-3%)</li>
+            <li><strong>Intrinsic Value:</strong> The calculated fair value of the entire company</li>
+        </ul>
+        <p><strong>Tip:</strong> If market price is well below intrinsic value, the stock may be undervalued.</p>`
+    },
+    'monte-carlo-detail': {
+        title: 'Monte Carlo Simulation',
+        content: `<p><strong>What it does:</strong> Runs thousands of simulated price paths to show the probability distribution of outcomes.</p>
+        <p><strong>Why it's useful:</strong> Shows the range of possible outcomes and their likelihood, rather than a single point estimate.</p>
+        <p><strong>How to read the results:</strong></p>
+        <ul>
+            <li><strong>Median Target:</strong> The middle outcome - half of simulations end higher, half lower</li>
+            <li><strong>10th Percentile:</strong> Pessimistic outcome (only 10% of simulations were worse)</li>
+            <li><strong>90th Percentile:</strong> Optimistic outcome (only 10% of simulations were better)</li>
+        </ul>
+        <p><strong>Probabilities explained:</strong></p>
+        <ul>
+            <li><strong>Profit:</strong> Chance of any positive return</li>
+            <li><strong>+50%:</strong> Chance of 50%+ gain</li>
+            <li><strong>2x:</strong> Chance of doubling your money</li>
+            <li><strong>-50%:</strong> Chance of losing half (risk indicator)</li>
+        </ul>`
+    }
+};
+
+function showInfo(key) {
+    const info = infoContent[key];
+    if (!info) return;
+
+    document.getElementById('info-modal-title').textContent = info.title;
+    document.getElementById('info-modal-content').innerHTML = info.content;
+    document.getElementById('info-modal-overlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeInfo() {
+    document.getElementById('info-modal-overlay').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeInfo();
+});
+</script>
+
+<style>
+.forecast-selector {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+/* Search Input */
+.search-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+}
+
+.forecast-selector input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    background: rgba(10, 14, 39, 0.6);
+    color: #e0e6ed;
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 6px;
+    transition: all 0.3s;
+}
+
+.forecast-selector input[type="text"]:focus {
+    outline: none;
+    border-color: #00ff88;
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+}
+
+.forecast-selector input[type="text"]::placeholder {
+    color: #a8b2d1;
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.search-result-item {
+    padding: 12px;
+    cursor: pointer;
+    color: #e0e6ed;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+    transition: all 0.3s;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover,
+.search-result-item.active {
+    background: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+}
+
+.forecast-header {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.forecast-header h2 {
+    color: #00ff88;
+    margin: 0;
+}
+
+.current-price {
+    text-align: right;
+}
+
+.current-price .label {
+    display: block;
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.current-price .value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #ffd700;
+    font-family: 'Courier New', monospace;
+}
+
+/* Parameters Section */
+.parameters-section {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.parameters-section h2 {
+    color: #00ff88;
+    margin-bottom: 10px;
+}
+
+.params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+    margin-bottom: 25px;
+}
+
+.param-group {
+    background: rgba(10, 14, 39, 0.4);
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.param-group h4 {
+    color: #00ff88;
+    margin-bottom: 15px;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.param-item {
+    margin-bottom: 15px;
+}
+
+.param-item label {
+    display: block;
+    color: #a8b2d1;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+}
+
+.param-item input[type="range"] {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 255, 136, 0.2);
+    border-radius: 3px;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.param-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #00ff88;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+.param-item span {
+    display: inline-block;
+    margin-top: 5px;
+    color: #ffd700;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+/* Scenarios */
+.scenarios-section {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.scenarios-section h2 {
+    color: #00ff88;
+    margin-bottom: 10px;
+}
+
+.scenarios-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.scenario-card {
+    padding: 25px;
+    border-radius: 10px;
+    text-align: center;
+    border: 2px solid;
+}
+
+.scenario-bear {
+    background: rgba(255, 51, 102, 0.1);
+    border-color: #ff3366;
+}
+
+.scenario-base {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: #ffd700;
+}
+
+.scenario-bull {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: #00ff88;
+}
+
+.scenario-card h3 {
+    margin-bottom: 15px;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.scenario-bear h3 { color: #ff3366; }
+.scenario-base h3 { color: #ffd700; }
+.scenario-bull h3 { color: #00ff88; }
+
+.scenario-card .target-price {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #e0e6ed;
+    font-family: 'Courier New', monospace;
+}
+
+.scenario-card .upside {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 10px 0;
+}
+
+.scenario-details {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scenario-details p {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    margin: 5px 0;
+}
+
+/* Models Grid */
+.models-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+.model-card {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.model-card h3 {
+    color: #00ff88;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #00ff88;
+    padding-bottom: 10px;
+}
+
+.model-result {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.model-result .target-price {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #ffd700;
+    font-family: 'Courier New', monospace;
+}
+
+.model-result .upside {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 10px 0;
+}
+
+.model-result .annual-return,
+.model-result .simulation-info {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+}
+
+.positive { color: #00ff88; }
+.negative { color: #ff3366; }
+
+.model-details table {
+    width: 100%;
+    font-size: 0.9rem;
+}
+
+.model-details td {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.model-details td:first-child {
+    color: #a8b2d1;
+}
+
+.model-details td:last-child {
+    text-align: right;
+    color: #e0e6ed;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+.model-error {
+    color: #ff3366;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Monte Carlo Specific */
+.percentiles {
+    margin: 20px 0;
+}
+
+.percentiles h4,
+.probabilities h4 {
+    color: #a8b2d1;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    margin-bottom: 15px;
+}
+
+.percentile-bar {
+    background: rgba(0, 255, 136, 0.1);
+    height: 40px;
+    border-radius: 20px;
+    position: relative;
+    margin: 10px 0;
+}
+
+.percentile-range {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 20px;
+}
+
+.percentile-range span {
+    color: #ffd700;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+}
+
+.percentile-labels {
+    display: flex;
+    justify-content: space-between;
+    color: #a8b2d1;
+    font-size: 0.8rem;
+    padding: 0 10px;
+}
+
+.prob-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    text-align: center;
+}
+
+.prob-item {
+    background: rgba(10, 14, 39, 0.4);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.prob-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+}
+
+.prob-label {
+    display: block;
+    color: #a8b2d1;
+    font-size: 0.8rem;
+    margin-top: 5px;
+}
+
+/* Summary */
+.forecast-summary {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 2px solid #00ff88;
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.2);
+}
+
+.forecast-summary h2 {
+    color: #00ff88;
+    margin-bottom: 10px;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+    margin-top: 25px;
+}
+
+.summary-item {
+    text-align: center;
+}
+
+.summary-item .label {
+    display: block;
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.summary-item .value {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+}
+
+.disclaimer {
+    background: rgba(255, 215, 0, 0.1);
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #ffd700;
+    margin-top: 30px;
+}
+
+.disclaimer p {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .scenarios-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .prob-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .forecast-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 20px;
+    }
+}
+
+/* Info Button */
+.info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(0, 255, 136, 0.5);
+    color: #00ff88;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-style: italic;
+    font-family: Georgia, serif;
+    cursor: pointer;
+    transition: all 0.3s;
+    vertical-align: middle;
+    margin-left: 8px;
+    padding: 0;
+    line-height: 1;
+}
+
+.info-btn:hover {
+    background: rgba(0, 255, 136, 0.4);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    transform: scale(1.1);
+}
+
+.info-btn-sm {
+    width: 16px;
+    height: 16px;
+    font-size: 0.7rem;
+    margin-left: 5px;
+}
+
+/* Info Modal */
+.info-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(10, 14, 39, 0.9);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.info-modal-overlay.active {
+    display: flex;
+}
+
+.info-modal {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    border: 2px solid #00ff88;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 30px;
+    position: relative;
+    box-shadow: 0 0 40px rgba(0, 255, 136, 0.3);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.info-modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 51, 102, 0.2);
+    border: 1px solid rgba(255, 51, 102, 0.5);
+    color: #ff3366;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.info-modal-close:hover {
+    background: rgba(255, 51, 102, 0.4);
+    box-shadow: 0 0 10px rgba(255, 51, 102, 0.5);
+}
+
+.info-modal h3 {
+    color: #00ff88;
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+    padding-right: 40px;
+    border-bottom: 2px solid #00ff88;
+    padding-bottom: 15px;
+}
+
+.info-modal p {
+    color: #e0e6ed;
+    line-height: 1.7;
+    margin-bottom: 15px;
+}
+
+.info-modal ul {
+    color: #e0e6ed;
+    margin: 15px 0;
+    padding-left: 20px;
+}
+
+.info-modal li {
+    margin-bottom: 10px;
+    line-height: 1.6;
+}
+
+.info-modal strong {
+    color: #ffd700;
+}
+</style>
+
+{% else %}
+<div class="info-section">
+    <h2>How to Use the Forecaster</h2>
+    <p>Select a stock from the dropdown above to see price forecasts using multiple valuation methods:</p>
+    <ul>
+        <li><strong>Earnings Growth Model:</strong> Projects future EPS and applies a terminal P/E multiple</li>
+        <li><strong>Revenue Growth Model:</strong> Projects revenue and applies a P/S multiple (good for growth stocks)</li>
+        <li><strong>DCF Model:</strong> Discounted Cash Flow analysis with customizable parameters</li>
+        <li><strong>Monte Carlo Simulation:</strong> Probabilistic forecasting with outcome distributions</li>
+        <li><strong>Scenario Analysis:</strong> Bull, Base, and Bear case projections</li>
+    </ul>
+
+    <div class="info-box">
+        <h3>Adjust Parameters</h3>
+        <p>After selecting a stock, you can adjust various parameters like growth rates, multiples, and discount rates to see how they affect the forecast. This helps you understand the sensitivity of the valuation to different assumptions.</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

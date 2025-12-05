@@ -48,7 +48,13 @@ class StockFetcher:
                 'sector': info.get('sector', 'Unknown'),
                 'industry': info.get('industry', 'Unknown'),
                 'is_profitable': info.get('netIncomeToCommon', 0) > 0,
-                'last_updated': datetime.now().isoformat()
+                'last_updated': datetime.now().isoformat(),
+                # New metrics
+                'price_to_book': info.get('priceToBook', 0),
+                'current_ratio': info.get('currentRatio', 0),
+                'free_cash_flow': info.get('freeCashflow', 0),
+                'enterprise_value': info.get('enterpriseValue', 0),
+                'target_price': info.get('targetMeanPrice', 0)
             }
 
             # Calculate bubble score (simple heuristic)

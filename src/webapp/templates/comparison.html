@@ -6,14 +6,324 @@
 <h1>Compare Stocks</h1>
 
 <div class="comparison-search">
-    <form method="GET">
+    <form method="GET" id="comparison-form">
         <div class="form-group">
-            <label for="tickers">Enter tickers to compare (comma-separated):</label>
-            <input type="text" id="tickers" name="tickers" placeholder="AAPL, MSFT, GOOGL" required>
+            <label for="ticker-search">Search and select stocks to compare:</label>
+            <div class="search-container">
+                <input type="text"
+                       id="ticker-search"
+                       placeholder="Type ticker symbol (e.g., AAPL, MSFT)..."
+                       autocomplete="off">
+                <input type="hidden" name="tickers" id="tickers-hidden" value="">
+                <div class="search-results" id="search-results"></div>
+            </div>
         </div>
-        <button type="submit" class="btn btn-primary">Compare</button>
+
+        <div class="selected-stocks" id="selected-stocks">
+            <div class="selected-label">Selected stocks:</div>
+            <div class="selected-chips" id="selected-chips"></div>
+        </div>
+
+        <div class="comparison-actions">
+            <button type="submit" class="btn btn-primary" id="compare-btn" disabled>Compare</button>
+            <button type="button" class="btn btn-secondary" id="clear-btn" style="display: none;">Clear All</button>
+        </div>
     </form>
 </div>
+
+<script>
+(function() {
+    const availableStocks = {{ available_stocks | tojson | safe }};
+    const searchInput = document.getElementById('ticker-search');
+    const hiddenInput = document.getElementById('tickers-hidden');
+    const resultsDiv = document.getElementById('search-results');
+    const chipsContainer = document.getElementById('selected-chips');
+    const selectedContainer = document.getElementById('selected-stocks');
+    const compareBtn = document.getElementById('compare-btn');
+    const clearBtn = document.getElementById('clear-btn');
+
+    let selectedStocks = [];
+
+    // Pre-populate from URL if present
+    const urlParams = new URLSearchParams(window.location.search);
+    const existingTickers = urlParams.get('tickers');
+    if (existingTickers) {
+        existingTickers.split(',').forEach(ticker => {
+            const trimmed = ticker.trim().toUpperCase();
+            if (trimmed && !selectedStocks.includes(trimmed)) {
+                selectedStocks.push(trimmed);
+            }
+        });
+        updateUI();
+    }
+
+    function updateUI() {
+        // Update chips
+        chipsContainer.innerHTML = '';
+        selectedStocks.forEach(stock => {
+            const chip = document.createElement('div');
+            chip.className = 'stock-chip';
+            chip.innerHTML = `
+                <span class="chip-text">${stock}</span>
+                <span class="chip-remove" data-stock="${stock}">&times;</span>
+            `;
+            chipsContainer.appendChild(chip);
+        });
+
+        // Update hidden input
+        hiddenInput.value = selectedStocks.join(',');
+
+        // Update buttons
+        const hasSelection = selectedStocks.length > 0;
+        compareBtn.disabled = selectedStocks.length < 2;
+        clearBtn.style.display = hasSelection ? 'inline-block' : 'none';
+        selectedContainer.style.display = hasSelection ? 'block' : 'none';
+
+        // Add remove listeners
+        document.querySelectorAll('.chip-remove').forEach(btn => {
+            btn.addEventListener('click', function() {
+                removeStock(this.dataset.stock);
+            });
+        });
+    }
+
+    function addStock(stock) {
+        if (!selectedStocks.includes(stock)) {
+            selectedStocks.push(stock);
+            updateUI();
+        }
+        searchInput.value = '';
+        resultsDiv.style.display = 'none';
+    }
+
+    function removeStock(stock) {
+        selectedStocks = selectedStocks.filter(s => s !== stock);
+        updateUI();
+    }
+
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toUpperCase().trim();
+        resultsDiv.innerHTML = '';
+
+        if (query.length === 0) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        const matches = availableStocks
+            .filter(stock => stock.toUpperCase().includes(query) && !selectedStocks.includes(stock))
+            .slice(0, 10);
+
+        if (matches.length > 0) {
+            resultsDiv.style.display = 'block';
+            matches.forEach(stock => {
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
+                div.textContent = stock;
+                div.addEventListener('click', function() {
+                    addStock(stock);
+                });
+                resultsDiv.appendChild(div);
+            });
+        } else {
+            resultsDiv.style.display = 'none';
+        }
+    });
+
+    searchInput.addEventListener('keydown', function(e) {
+        const items = resultsDiv.querySelectorAll('.search-result-item');
+        const active = resultsDiv.querySelector('.search-result-item.active');
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (!active && items.length > 0) {
+                items[0].classList.add('active');
+            } else if (active && active.nextElementSibling) {
+                active.classList.remove('active');
+                active.nextElementSibling.classList.add('active');
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (active && active.previousElementSibling) {
+                active.classList.remove('active');
+                active.previousElementSibling.classList.add('active');
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (active) {
+                addStock(active.textContent);
+            }
+        } else if (e.key === 'Escape') {
+            resultsDiv.style.display = 'none';
+        }
+    });
+
+    clearBtn.addEventListener('click', function() {
+        selectedStocks = [];
+        updateUI();
+        searchInput.focus();
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+            resultsDiv.style.display = 'none';
+        }
+    });
+})();
+</script>
+
+<style>
+/* Search Input */
+.search-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+}
+
+.comparison-search input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    background: rgba(10, 14, 39, 0.6);
+    color: #e0e6ed;
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 6px;
+    transition: all 0.3s;
+}
+
+.comparison-search input[type="text"]:focus {
+    outline: none;
+    border-color: #00ff88;
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+}
+
+.comparison-search input[type="text"]::placeholder {
+    color: #a8b2d1;
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.search-result-item {
+    padding: 12px;
+    cursor: pointer;
+    color: #e0e6ed;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+    transition: all 0.3s;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover,
+.search-result-item.active {
+    background: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+}
+
+/* Selected Stocks */
+.selected-stocks {
+    display: none;
+    margin-top: 20px;
+}
+
+.selected-label {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.selected-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.stock-chip {
+    display: inline-flex;
+    align-items: center;
+    background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+    color: #0a0e27;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.3);
+}
+
+.chip-text {
+    margin-right: 8px;
+}
+
+.chip-remove {
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.chip-remove:hover {
+    opacity: 1;
+}
+
+/* Actions */
+.comparison-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.comparison-actions .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+</style>
+
+<div class="comparison-suggestions">
+    <h2>Quick Comparison Groups</h2>
+    <p class="subtitle">Select a pre-defined group to compare</p>
+
+    <div class="suggestions-grid">
+        {% for sugg_id, sugg_data in suggestions.items() %}
+        {% if sugg_data.tickers %}
+        <div class="suggestion-card">
+            <h4>{{ sugg_data.name }}</h4>
+            <p class="description">{{ sugg_data.description }}</p>
+            <p class="ticker-preview">{{ sugg_data.tickers[:5]|join(', ') }}{% if sugg_data.tickers|length > 5 %}...{% endif %}</p>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="compareTickers('{{ sugg_data.tickers|join(',') }}')">
+                Compare These
+            </button>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function compareTickers(tickers) {
+    window.location.href = '{{ url_for("comparison") }}?tickers=' + encodeURIComponent(tickers);
+}
+</script>
 
 {% if stocks %}
 <div class="comparison-table-container">
@@ -46,9 +356,21 @@
                 {% endfor %}
             </tr>
             <tr>
+                <td><strong>Enterprise Value</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.enterprise_value|format_number }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
                 <td><strong>Current Price</strong></td>
                 {% for stock in stocks %}
                 <td>${{ stock.current_price }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Target Price</strong></td>
+                {% for stock in stocks %}
+                <td>{% if stock.target_price and stock.target_price > 0 %}${{ "%.2f"|format(stock.target_price) }}{% else %}N/A{% endif %}</td>
                 {% endfor %}
             </tr>
             <tr>
@@ -67,6 +389,12 @@
                 <td><strong>P/S Ratio</strong></td>
                 {% for stock in stocks %}
                 <td>{{ stock.ps_ratio|format_ratio }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Price to Book</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.price_to_book|format_ratio }}</td>
                 {% endfor %}
             </tr>
             <tr>
@@ -91,6 +419,18 @@
                 <td><strong>Profit Margin</strong></td>
                 {% for stock in stocks %}
                 <td>{{ stock.profit_margin|format_percent }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Free Cash Flow</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.free_cash_flow|format_number }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Current Ratio</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.current_ratio|format_ratio }}</td>
                 {% endfor %}
             </tr>
             <tr>

@@ -58,9 +58,40 @@ class StockDatabase:
                 bubble_score INTEGER,
                 risk_level TEXT,
                 last_updated TIMESTAMP,
+                price_to_book REAL,
+                current_ratio REAL,
+                free_cash_flow REAL,
+                enterprise_value REAL,
+                target_price REAL,
                 UNIQUE(ticker)
             )
         ''')
+
+        # Add new columns if they don't exist (for existing databases)
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN price_to_book REAL')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN current_ratio REAL')
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN free_cash_flow REAL')
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN enterprise_value REAL')
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN target_price REAL')
+        except sqlite3.OperationalError:
+            pass
 
         # Watchlist table
         cursor.execute('''
@@ -105,8 +136,10 @@ class StockDatabase:
                     pe_ratio, forward_pe, ps_ratio, eps, revenue_growth,
                     earnings_growth, profit_margin, operating_margin,
                     current_price, sector, industry, is_profitable,
-                    bubble_score, risk_level, last_updated
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    bubble_score, risk_level, last_updated,
+                    price_to_book, current_ratio, free_cash_flow,
+                    enterprise_value, target_price
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 stock_data.get('ticker'),
                 stock_data.get('company_name'),
@@ -127,7 +160,12 @@ class StockDatabase:
                 stock_data.get('is_profitable'),
                 stock_data.get('bubble_score'),
                 stock_data.get('risk_level'),
-                stock_data.get('last_updated')
+                stock_data.get('last_updated'),
+                stock_data.get('price_to_book'),
+                stock_data.get('current_ratio'),
+                stock_data.get('free_cash_flow'),
+                stock_data.get('enterprise_value'),
+                stock_data.get('target_price')
             ))
 
             self.conn.commit()
@@ -225,6 +263,37 @@ class StockDatabase:
         '''
         return pd.read_sql_query(query, self.conn, params=(max_pe, max_ps))
 
+    def get_near_value_stocks(self) -> pd.DataFrame:
+        """
+        Get stocks that are close to being value plays - meeting some but not all criteria,
+        or just slightly outside the thresholds.
+
+        Criteria (profitable stocks that match ONE of):
+        - P/E between 20-30 AND P/S <= 5 (close on P/E)
+        - P/E <= 25 AND P/S between 3-5 (close on P/S)
+
+        Excludes stocks that already qualify as value plays (P/E <= 20 AND P/S <= 3)
+
+        Returns:
+            DataFrame containing near-value stocks
+        """
+        query = '''
+            SELECT * FROM stocks
+            WHERE is_profitable = 1
+            AND NOT (pe_ratio <= 20 AND ps_ratio <= 3)
+            AND (
+                (pe_ratio > 20 AND pe_ratio <= 30 AND ps_ratio <= 5)
+                OR (pe_ratio <= 25 AND ps_ratio > 3 AND ps_ratio <= 5)
+            )
+            ORDER BY
+                CASE
+                    WHEN pe_ratio <= 20 THEN ps_ratio - 3
+                    WHEN ps_ratio <= 3 THEN pe_ratio - 20
+                    ELSE (pe_ratio - 20) / 10.0 + (ps_ratio - 3) / 2.0
+                END ASC
+        '''
+        return pd.read_sql_query(query, self.conn)
+
     def add_to_watchlist(self, ticker: str, notes: str = '') -> bool:
         """
         Add stock to watchlist
@@ -304,6 +373,25 @@ class StockDatabase:
         '''
         search_term = f'%{keyword}%'
         return pd.read_sql_query(query, self.conn, params=(search_term, search_term))
+
+    def delete_stock(self, ticker: str) -> bool:
+        """
+        Delete a stock from the database
+
+        Args:
+            ticker: Stock ticker symbol
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('DELETE FROM stocks WHERE ticker = ?', (ticker.upper(),))
+            self.conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error deleting stock: {str(e)}")
+            return False
 
     def close(self):
         """Close database connection"""

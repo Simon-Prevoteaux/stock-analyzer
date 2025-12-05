@@ -17,8 +17,16 @@
                 <td>{{ stock.market_cap|format_number }}</td>
             </tr>
             <tr>
+                <td>Enterprise Value</td>
+                <td>{{ stock.enterprise_value|format_number }}</td>
+            </tr>
+            <tr>
                 <td>Current Price</td>
                 <td>${{ stock.current_price }}</td>
+            </tr>
+            <tr>
+                <td>Target Price</td>
+                <td>{% if stock.target_price and stock.target_price > 0 %}${{ "%.2f"|format(stock.target_price) }}{% else %}N/A{% endif %}</td>
             </tr>
             <tr>
                 <td>P/E Ratio</td>
@@ -31,6 +39,10 @@
             <tr>
                 <td>P/S Ratio</td>
                 <td>{{ stock.ps_ratio|format_ratio }}</td>
+            </tr>
+            <tr>
+                <td>Price to Book</td>
+                <td>{{ stock.price_to_book|format_ratio }}</td>
             </tr>
         </table>
     </div>
@@ -47,6 +59,10 @@
                 <td>{{ stock.earnings|format_number }}</td>
             </tr>
             <tr>
+                <td>Free Cash Flow</td>
+                <td>{{ stock.free_cash_flow|format_number }}</td>
+            </tr>
+            <tr>
                 <td>EPS</td>
                 <td>${{ stock.eps }}</td>
             </tr>
@@ -57,6 +73,10 @@
             <tr>
                 <td>Operating Margin</td>
                 <td>{{ stock.operating_margin|format_percent }}</td>
+            </tr>
+            <tr>
+                <td>Current Ratio</td>
+                <td>{{ stock.current_ratio|format_ratio }}</td>
             </tr>
         </table>
     </div>
@@ -77,11 +97,17 @@
                 <td>{% if stock.is_profitable %}Yes{% else %}No{% endif %}</td>
             </tr>
             <tr>
-                <td>Bubble Score</td>
+                <td>
+                    Bubble Score
+                    <button type="button" class="info-btn" onclick="showInfo('bubble-score')">i</button>
+                </td>
                 <td>{{ stock.bubble_score }}/10</td>
             </tr>
             <tr>
-                <td>Risk Level</td>
+                <td>
+                    Risk Level
+                    <button type="button" class="info-btn" onclick="showInfo('risk-level')">i</button>
+                </td>
                 <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
             </tr>
         </table>
@@ -101,4 +127,246 @@
 <div class="last-updated">
     Last updated: {{ stock.last_updated }}
 </div>
+
+<!-- Info Modal -->
+<div class="info-modal-overlay" id="info-modal-overlay" onclick="closeInfo()">
+    <div class="info-modal" onclick="event.stopPropagation()">
+        <button class="info-modal-close" onclick="closeInfo()">&times;</button>
+        <h3 id="info-modal-title"></h3>
+        <div id="info-modal-content"></div>
+    </div>
+</div>
+
+<script>
+const infoContent = {
+    'bubble-score': {
+        title: 'Bubble Score',
+        content: `<p><strong>What it is:</strong> A custom 0-10 scale that measures how overvalued a stock might be. Higher scores indicate higher risk of overvaluation.</p>
+        <p><strong>How it's calculated:</strong> The score is computed based on several factors:</p>
+        <ul>
+            <li><strong>P/E Ratio:</strong>
+                <ul>
+                    <li>P/E > 200: +3 points</li>
+                    <li>P/E > 100: +2 points</li>
+                    <li>P/E > 50: +1 point</li>
+                </ul>
+            </li>
+            <li><strong>P/S Ratio:</strong>
+                <ul>
+                    <li>P/S > 50: +3 points</li>
+                    <li>P/S > 20: +2 points</li>
+                    <li>P/S > 10: +1 point</li>
+                </ul>
+            </li>
+            <li><strong>Profitability:</strong>
+                <ul>
+                    <li>Not profitable: +2 points</li>
+                </ul>
+            </li>
+            <li><strong>Growth vs Valuation:</strong>
+                <ul>
+                    <li>High P/S (>15) with low revenue growth (<20%): +2 points</li>
+                </ul>
+            </li>
+        </ul>
+        <p><strong>Interpretation:</strong></p>
+        <ul>
+            <li><strong>0-1:</strong> Low risk - likely reasonably valued</li>
+            <li><strong>2-3:</strong> Medium risk - some valuation concerns</li>
+            <li><strong>4-5:</strong> High risk - elevated valuation</li>
+            <li><strong>6-7:</strong> Very high risk - significant overvaluation concerns</li>
+            <li><strong>8-10:</strong> Extreme risk - potentially in bubble territory</li>
+        </ul>
+        <p><strong>Note:</strong> This is a simplified heuristic and should be used alongside other analysis. Some high-growth companies may have high scores but still be good investments if they can grow into their valuations.</p>`
+    },
+    'risk-level': {
+        title: 'Risk Level',
+        content: `<p><strong>What it is:</strong> A classification of the stock's overvaluation risk based on its Bubble Score.</p>
+        <p><strong>How it's determined:</strong> The risk level is automatically assigned based on the Bubble Score:</p>
+        <ul>
+            <li><strong>LOW (0-1):</strong> Bubble Score 0-1
+                <p>Generally reasonable valuations. Lower risk of price correction due to overvaluation.</p>
+            </li>
+            <li><strong>MEDIUM (2-3):</strong> Bubble Score 2-3
+                <p>Some valuation concerns but not extreme. Acceptable risk for growth-oriented portfolios.</p>
+            </li>
+            <li><strong>HIGH (4-5):</strong> Bubble Score 4-5
+                <p>Elevated valuations that may not be sustainable. Requires strong growth to justify current price.</p>
+            </li>
+            <li><strong>VERY HIGH (6-7):</strong> Bubble Score 6-7
+                <p>Significant overvaluation concerns. High risk of price correction if growth disappoints.</p>
+            </li>
+            <li><strong>EXTREME (8-10):</strong> Bubble Score 8-10
+                <p>Potentially in bubble territory. Very high risk - stock may be priced for perfection with little margin for error.</p>
+            </li>
+        </ul>
+        <p><strong>Investment considerations:</strong></p>
+        <ul>
+            <li>Higher risk levels don't always mean "avoid" - fast-growing companies often have higher valuations</li>
+            <li>Consider risk level in context with growth rates, profitability trends, and sector norms</li>
+            <li>Use as one data point among many in your investment decision</li>
+            <li>Be especially cautious with VERY HIGH or EXTREME ratings unless you have strong conviction in the company's growth story</li>
+        </ul>`
+    }
+};
+
+function showInfo(key) {
+    const info = infoContent[key];
+    if (!info) return;
+
+    document.getElementById('info-modal-title').textContent = info.title;
+    document.getElementById('info-modal-content').innerHTML = info.content;
+    document.getElementById('info-modal-overlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeInfo() {
+    document.getElementById('info-modal-overlay').classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeInfo();
+});
+</script>
+
+<style>
+/* Info Button */
+.info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(0, 255, 136, 0.5);
+    color: #00ff88;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-style: italic;
+    font-family: Georgia, serif;
+    cursor: pointer;
+    transition: all 0.3s;
+    vertical-align: middle;
+    margin-left: 6px;
+    padding: 0;
+    line-height: 1;
+}
+
+.info-btn:hover {
+    background: rgba(0, 255, 136, 0.4);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    transform: scale(1.1);
+}
+
+/* Info Modal */
+.info-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(10, 14, 39, 0.9);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.info-modal-overlay.active {
+    display: flex;
+}
+
+.info-modal {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    border: 2px solid #00ff88;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 30px;
+    position: relative;
+    box-shadow: 0 0 40px rgba(0, 255, 136, 0.3);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.info-modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 51, 102, 0.2);
+    border: 1px solid rgba(255, 51, 102, 0.5);
+    color: #ff3366;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.info-modal-close:hover {
+    background: rgba(255, 51, 102, 0.4);
+    box-shadow: 0 0 10px rgba(255, 51, 102, 0.5);
+}
+
+.info-modal h3 {
+    color: #00ff88;
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+    padding-right: 40px;
+    border-bottom: 2px solid #00ff88;
+    padding-bottom: 15px;
+}
+
+.info-modal p {
+    color: #e0e6ed;
+    line-height: 1.7;
+    margin-bottom: 15px;
+}
+
+.info-modal ul {
+    color: #e0e6ed;
+    margin: 15px 0;
+    padding-left: 20px;
+}
+
+.info-modal li {
+    margin-bottom: 10px;
+    line-height: 1.6;
+}
+
+.info-modal li ul {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.info-modal li ul li {
+    margin-bottom: 5px;
+    font-size: 0.95rem;
+}
+
+.info-modal strong {
+    color: #ffd700;
+}
+</style>
+
 {% endblock %}
