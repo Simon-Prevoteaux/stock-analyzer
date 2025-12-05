@@ -225,6 +225,37 @@ class StockDatabase:
         '''
         return pd.read_sql_query(query, self.conn, params=(max_pe, max_ps))
 
+    def get_near_value_stocks(self) -> pd.DataFrame:
+        """
+        Get stocks that are close to being value plays - meeting some but not all criteria,
+        or just slightly outside the thresholds.
+
+        Criteria (profitable stocks that match ONE of):
+        - P/E between 20-30 AND P/S <= 5 (close on P/E)
+        - P/E <= 25 AND P/S between 3-5 (close on P/S)
+
+        Excludes stocks that already qualify as value plays (P/E <= 20 AND P/S <= 3)
+
+        Returns:
+            DataFrame containing near-value stocks
+        """
+        query = '''
+            SELECT * FROM stocks
+            WHERE is_profitable = 1
+            AND NOT (pe_ratio <= 20 AND ps_ratio <= 3)
+            AND (
+                (pe_ratio > 20 AND pe_ratio <= 30 AND ps_ratio <= 5)
+                OR (pe_ratio <= 25 AND ps_ratio > 3 AND ps_ratio <= 5)
+            )
+            ORDER BY
+                CASE
+                    WHEN pe_ratio <= 20 THEN ps_ratio - 3
+                    WHEN ps_ratio <= 3 THEN pe_ratio - 20
+                    ELSE (pe_ratio - 20) / 10.0 + (ps_ratio - 3) / 2.0
+                END ASC
+        '''
+        return pd.read_sql_query(query, self.conn)
+
     def add_to_watchlist(self, ticker: str, notes: str = '') -> bool:
         """
         Add stock to watchlist

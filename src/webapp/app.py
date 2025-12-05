@@ -42,6 +42,10 @@ def index():
 @app.route('/fetch', methods=['GET', 'POST'])
 def fetch_stocks():
     """Fetch new stock data"""
+    # Indicator counts for the info section
+    fetched_count = 20  # Number of metrics currently fetched
+    not_fetched_count = 33  # Number of available but not fetched metrics
+
     if request.method == 'POST':
         tickers_input = request.form.get('tickers', '')
         tickers = [t.strip().upper() for t in tickers_input.split(',') if t.strip()]
@@ -52,21 +56,31 @@ def fetch_stocks():
                 saved_count = db.save_multiple_stocks(df)
                 return render_template('fetch.html',
                                        stock_lists=get_all_lists(),
+                                       fetched_count=fetched_count,
+                                       not_fetched_count=not_fetched_count,
                                        success=True,
                                        message=f'Successfully fetched and saved {saved_count} stocks')
             else:
                 return render_template('fetch.html',
                                        stock_lists=get_all_lists(),
+                                       fetched_count=fetched_count,
+                                       not_fetched_count=not_fetched_count,
                                        error=True,
                                        message='Failed to fetch stock data')
 
-    return render_template('fetch.html', stock_lists=get_all_lists())
+    return render_template('fetch.html',
+                           stock_lists=get_all_lists(),
+                           fetched_count=fetched_count,
+                           not_fetched_count=not_fetched_count)
 
 
 @app.route('/screener')
 def screener():
     """Stock screener page"""
     stocks_df = db.get_all_stocks()
+
+    # Get all available stocks for search
+    available_stocks = stocks_df['ticker'].tolist() if not stocks_df.empty else []
 
     # Apply filters
     min_market_cap = request.args.get('min_market_cap', type=float)
@@ -99,7 +113,8 @@ def screener():
     return render_template('screener.html',
                            stocks=stocks_df.to_dict('records') if not stocks_df.empty else [],
                            sectors=sectors,
-                           risk_levels=risk_levels)
+                           risk_levels=risk_levels,
+                           available_stocks=available_stocks)
 
 
 @app.route('/stock/<ticker>')
@@ -118,6 +133,10 @@ def comparison():
     """Compare multiple stocks"""
     tickers_param = request.args.get('tickers', '')
     tickers = [t.strip().upper() for t in tickers_param.split(',') if t.strip()]
+
+    # Get all available stocks for search
+    stocks_df = db.get_all_stocks()
+    available_stocks = stocks_df['ticker'].tolist() if not stocks_df.empty else []
 
     stocks = []
     if tickers:
@@ -164,7 +183,7 @@ def comparison():
         }
     }
 
-    return render_template('comparison.html', stocks=stocks, suggestions=suggestions)
+    return render_template('comparison.html', stocks=stocks, suggestions=suggestions, available_stocks=available_stocks)
 
 
 @app.route('/watchlist')
@@ -255,8 +274,10 @@ def delete_stock(ticker):
 def value_plays():
     """Show potential value stocks"""
     value_stocks_df = db.get_value_stocks()
+    near_value_stocks_df = db.get_near_value_stocks()
     return render_template('value_plays.html',
-                           stocks=value_stocks_df.to_dict('records') if not value_stocks_df.empty else [])
+                           stocks=value_stocks_df.to_dict('records') if not value_stocks_df.empty else [],
+                           near_value_stocks=near_value_stocks_df.to_dict('records') if not near_value_stocks_df.empty else [])
 
 
 @app.route('/bubble-territory')
