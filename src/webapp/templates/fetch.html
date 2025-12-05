@@ -29,11 +29,87 @@
     </form>
 </div>
 
-<div class="info-box">
-    <h3>Example Tickers</h3>
-    <p><strong>Tech Giants:</strong> AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA</p>
-    <p><strong>Software:</strong> CRM, NOW, SNOW, PLTR, CRWD, DDOG</p>
-    <p><strong>Finance:</strong> JPM, BAC, GS, MS, V, MA</p>
-    <p><strong>Healthcare:</strong> UNH, JNJ, PFE, ABBV, TMO</p>
+<div class="stock-suggestions">
+    <h2>Quick Add Stock Lists</h2>
+    <p class="subtitle">Click on a list to automatically populate the ticker field</p>
+
+    <div class="suggestions-grid">
+        {% for list_id, list_data in stock_lists.items() %}
+        <div class="suggestion-card">
+            <h4>{{ list_data.name }}</h4>
+            <p class="description">{{ list_data.description }}</p>
+            <p class="ticker-count">{{ list_data.tickers|length }} stocks</p>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="fillTickers('{{ list_data.tickers|join(', ') }}')">
+                Add to Field
+            </button>
+        </div>
+        {% endfor %}
+    </div>
 </div>
+
+<script>
+function fillTickers(tickers) {
+    document.getElementById('tickers').value = tickers;
+    // Scroll to the form
+    document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+
+<style>
+.stock-suggestions {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 30px;
+}
+
+.stock-suggestions h2 {
+    margin-bottom: 10px;
+}
+
+.stock-suggestions .subtitle {
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.suggestions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.suggestion-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    transition: all 0.3s;
+}
+
+.suggestion-card:hover {
+    border-color: #3498db;
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+}
+
+.suggestion-card h4 {
+    margin-bottom: 10px;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.suggestion-card .description {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    min-height: 40px;
+}
+
+.suggestion-card .ticker-count {
+    color: #3498db;
+    font-weight: bold;
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+}
+</style>
 {% endblock %}

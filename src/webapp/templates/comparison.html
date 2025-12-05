@@ -15,6 +15,98 @@
     </form>
 </div>
 
+<div class="comparison-suggestions">
+    <h2>Quick Comparison Groups</h2>
+    <p class="subtitle">Select a pre-defined group to compare</p>
+
+    <div class="suggestions-grid">
+        {% for sugg_id, sugg_data in suggestions.items() %}
+        {% if sugg_data.tickers %}
+        <div class="suggestion-card">
+            <h4>{{ sugg_data.name }}</h4>
+            <p class="description">{{ sugg_data.description }}</p>
+            <p class="ticker-preview">{{ sugg_data.tickers[:5]|join(', ') }}{% if sugg_data.tickers|length > 5 %}...{% endif %}</p>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="compareTickers('{{ sugg_data.tickers|join(',') }}')">
+                Compare These
+            </button>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function compareTickers(tickers) {
+    window.location.href = '{{ url_for("comparison") }}?tickers=' + encodeURIComponent(tickers);
+}
+</script>
+
+<style>
+.comparison-search {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.comparison-suggestions {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.comparison-suggestions h2 {
+    margin-bottom: 10px;
+}
+
+.comparison-suggestions .subtitle {
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.comparison-suggestions .suggestions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.comparison-suggestions .suggestion-card {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    transition: all 0.3s;
+}
+
+.comparison-suggestions .suggestion-card:hover {
+    border-color: #3498db;
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+}
+
+.comparison-suggestions .suggestion-card h4 {
+    margin-bottom: 8px;
+    color: #2c3e50;
+    font-size: 1rem;
+}
+
+.comparison-suggestions .suggestion-card .description {
+    color: #666;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    min-height: 35px;
+}
+
+.comparison-suggestions .suggestion-card .ticker-preview {
+    color: #3498db;
+    font-size: 0.8rem;
+    margin-bottom: 10px;
+    font-family: monospace;
+}
+</style>
+
 {% if stocks %}
 <div class="comparison-table-container">
     <table class="comparison-table">

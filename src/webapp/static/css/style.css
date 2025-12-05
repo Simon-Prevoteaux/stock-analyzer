@@ -266,6 +266,28 @@ body {
     text-decoration: underline;
 }
 
+/* Sortable Tables */
+.sortable-table th[data-sortable] {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: background-color 0.2s;
+}
+
+.sortable-table th[data-sortable]:hover {
+    background-color: #e9ecef;
+}
+
+.sortable-table th[data-sortable] .sort-indicator {
+    color: #999;
+    font-size: 0.9em;
+    margin-left: 4px;
+}
+
+.sortable-table th[data-sortable][data-direction] .sort-indicator {
+    color: #3498db;
+}
+
 /* Comparison Table */
 .comparison-table-container {
     background: white;

@@ -61,18 +61,18 @@
 
     {% if stocks %}
     <div class="table-container">
-        <table class="stock-table">
+        <table class="stock-table sortable-table">
             <thead>
                 <tr>
-                    <th>Ticker</th>
-                    <th>Company</th>
-                    <th>Market Cap</th>
-                    <th>P/E</th>
-                    <th>P/S</th>
-                    <th>Revenue Growth</th>
-                    <th>Sector</th>
-                    <th>Risk Level</th>
-                    <th>Classification</th>
+                    <th data-sortable data-type="text">Ticker</th>
+                    <th data-sortable data-type="text">Company</th>
+                    <th data-sortable data-type="number">Market Cap</th>
+                    <th data-sortable data-type="number">P/E</th>
+                    <th data-sortable data-type="number">P/S</th>
+                    <th data-sortable data-type="number">Revenue Growth</th>
+                    <th data-sortable data-type="text">Sector</th>
+                    <th data-sortable data-type="text">Risk Level</th>
+                    <th data-sortable data-type="text">Classification</th>
                     <th>Actions</th>
                 </tr>
             </thead>

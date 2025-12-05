@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from libs.stock_fetcher import StockFetcher
 from libs.database import StockDatabase
+from libs.stock_lists import get_all_lists
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'stock-analyzer-secret-key'
@@ -48,14 +49,16 @@ def fetch_stocks():
             if not df.empty:
                 saved_count = db.save_multiple_stocks(df)
                 return render_template('fetch.html',
+                                       stock_lists=get_all_lists(),
                                        success=True,
                                        message=f'Successfully fetched and saved {saved_count} stocks')
             else:
                 return render_template('fetch.html',
+                                       stock_lists=get_all_lists(),
                                        error=True,
                                        message='Failed to fetch stock data')
 
-    return render_template('fetch.html')
+    return render_template('fetch.html', stock_lists=get_all_lists())
 
 
 @app.route('/screener')
@@ -121,7 +124,37 @@ def comparison():
             if stock:
                 stocks.append(stock)
 
-    return render_template('comparison.html', stocks=stocks)
+    # Get watchlist for suggestions
+    watchlist_df = db.get_watchlist()
+    watchlist_tickers = watchlist_df['ticker'].tolist() if not watchlist_df.empty else []
+
+    # Get some curated comparison suggestions
+    stock_lists = get_all_lists()
+    suggestions = {
+        'watchlist': {
+            'name': 'My Watchlist',
+            'tickers': watchlist_tickers[:10],  # Limit to 10 for comparison
+            'description': 'Compare stocks from your watchlist'
+        },
+        'mag_7': stock_lists.get('mag_7', {}),
+        'software_cloud': {
+            'name': 'Top Cloud Software',
+            'tickers': ['MSFT', 'GOOGL', 'ORCL', 'CRM', 'SNOW', 'PLTR'],
+            'description': 'Compare leading cloud and software companies'
+        },
+        'chip_leaders': {
+            'name': 'Chip Leaders',
+            'tickers': ['NVDA', 'AMD', 'INTC', 'TSM', 'AVGO'],
+            'description': 'Compare top semiconductor companies'
+        },
+        'finance_giants': {
+            'name': 'Finance Giants',
+            'tickers': ['JPM', 'BAC', 'GS', 'MS', 'WFC'],
+            'description': 'Compare major banks and financial institutions'
+        }
+    }
+
+    return render_template('comparison.html', stocks=stocks, suggestions=suggestions)
 
 
 @app.route('/watchlist')
