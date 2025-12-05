@@ -5,6 +5,7 @@ Flask Web Application for Stock Analysis
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 import sys
 import os
+import pandas as pd
 
 # Add parent directory to path to import libs
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -12,6 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from libs.stock_fetcher import StockFetcher
 from libs.database import StockDatabase
 from libs.stock_lists import get_all_lists
+from libs.forecaster import StockForecaster
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'stock-analyzer-secret-key'
@@ -126,7 +128,15 @@ def comparison():
 
     # Get watchlist for suggestions
     watchlist_df = db.get_watchlist()
-    watchlist_tickers = watchlist_df['ticker'].tolist() if not watchlist_df.empty else []
+    # Handle potential duplicate 'ticker' columns from JOIN
+    if not watchlist_df.empty:
+        if isinstance(watchlist_df['ticker'], pd.DataFrame):
+            # If 'ticker' returns a DataFrame (duplicate columns), get the first one
+            watchlist_tickers = watchlist_df['ticker'].iloc[:, 0].tolist()
+        else:
+            watchlist_tickers = watchlist_df['ticker'].tolist()
+    else:
+        watchlist_tickers = []
 
     # Get some curated comparison suggestions
     stock_lists = get_all_lists()
@@ -255,6 +265,84 @@ def bubble_territory():
     bubble_stocks_df = db.get_high_risk_stocks(min_bubble_score=6)
     return render_template('bubble_territory.html',
                            stocks=bubble_stocks_df.to_dict('records') if not bubble_stocks_df.empty else [])
+
+
+@app.route('/forecast')
+def forecast():
+    """Stock price forecasting page"""
+    ticker = request.args.get('ticker', '').upper()
+    stocks_df = db.get_all_stocks()
+    available_stocks = stocks_df['ticker'].tolist() if not stocks_df.empty else []
+
+    forecast_results = None
+    stock_data = None
+    error = None
+
+    if ticker:
+        stock_data = db.get_stock(ticker)
+        if stock_data:
+            forecaster = StockForecaster(stock_data)
+
+            # Get parameters from request or use defaults
+            years = request.args.get('years', 5, type=int)
+
+            # Earnings model parameters
+            earnings_growth = request.args.get('earnings_growth', type=float)
+            growth_decay = request.args.get('growth_decay', 0.10, type=float)
+            terminal_pe = request.args.get('terminal_pe', type=float)
+
+            # Revenue model parameters
+            revenue_growth = request.args.get('revenue_growth', type=float)
+            rev_growth_decay = request.args.get('rev_growth_decay', 0.15, type=float)
+            terminal_ps = request.args.get('terminal_ps', type=float)
+
+            # DCF parameters
+            fcf_growth = request.args.get('fcf_growth', 0.10, type=float)
+            discount_rate = request.args.get('discount_rate', 0.10, type=float)
+            terminal_growth = request.args.get('terminal_growth', 0.03, type=float)
+
+            # Monte Carlo parameters
+            volatility = request.args.get('volatility', 0.30, type=float)
+            simulations = request.args.get('simulations', 1000, type=int)
+
+            forecast_results = {
+                "ticker": ticker,
+                "current_price": stock_data.get('current_price', 0),
+                "company_name": stock_data.get('company_name', 'N/A'),
+                "earnings_model": forecaster.earnings_growth_model(
+                    growth_rate=earnings_growth,
+                    growth_decay=growth_decay,
+                    terminal_pe=terminal_pe,
+                    years=years
+                ),
+                "revenue_model": forecaster.revenue_growth_model(
+                    growth_rate=revenue_growth,
+                    growth_decay=rev_growth_decay,
+                    terminal_ps=terminal_ps,
+                    years=years
+                ),
+                "dcf_model": forecaster.dcf_model(
+                    fcf_growth=fcf_growth,
+                    discount_rate=discount_rate,
+                    terminal_growth=terminal_growth,
+                    years=years
+                ),
+                "monte_carlo": forecaster.monte_carlo_simulation(
+                    volatility=volatility,
+                    years=years,
+                    simulations=simulations
+                ),
+                "scenarios": forecaster.scenario_analysis(years=years)
+            }
+        else:
+            error = f"Stock {ticker} not found in database. Please fetch it first."
+
+    return render_template('forecast.html',
+                           available_stocks=available_stocks,
+                           selected_ticker=ticker,
+                           stock=stock_data,
+                           results=forecast_results,
+                           error=error)
 
 
 @app.template_filter('format_number')

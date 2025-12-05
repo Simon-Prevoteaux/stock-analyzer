@@ -83,8 +83,10 @@ function parseNumericValue(value) {
     // Remove common formatting
     value = value.replace(/[$,%]/g, '');
 
-    // Handle shorthand notation (B, M, K)
-    if (value.includes('B')) {
+    // Handle shorthand notation (T, B, M, K) - order matters!
+    if (value.includes('T')) {
+        return parseFloat(value) * 1e12;
+    } else if (value.includes('B')) {
         return parseFloat(value) * 1e9;
     } else if (value.includes('M')) {
         return parseFloat(value) * 1e6;
