@@ -17,7 +17,11 @@ app.config['SECRET_KEY'] = 'stock-analyzer-secret-key'
 
 # Initialize components
 fetcher = StockFetcher()
-db = StockDatabase('data/stocks.db')
+
+# Get absolute path to data directory (project root / data / stocks.db)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+db_path = os.path.join(project_root, 'data', 'stocks.db')
+db = StockDatabase(db_path)
 
 
 @app.route('/')
