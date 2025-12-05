@@ -88,7 +88,12 @@
                     <td>{{ stock.sector }}</td>
                     <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
                     <td>{{ stock.classification }}</td>
-                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a></td>
+                    <td>
+                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                        <form method="POST" action="{{ url_for('delete_stock', ticker=stock.ticker) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to remove {{ stock.ticker }} from the database?');">
+                            <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                        </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

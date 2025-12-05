@@ -206,6 +206,41 @@ def api_refresh_stock(ticker):
     return jsonify({'success': False, 'error': 'Failed to fetch data'}), 400
 
 
+@app.route('/refresh-all', methods=['POST'])
+def refresh_all_stocks():
+    """Refresh all stocks in the database"""
+    stocks_df = db.get_all_stocks()
+    if stocks_df.empty:
+        return render_template('fetch.html',
+                               stock_lists=get_all_lists(),
+                               error=True,
+                               message='No stocks to refresh')
+
+    tickers = stocks_df['ticker'].tolist()
+    df = fetcher.fetch_multiple_stocks(tickers)
+
+    if not df.empty:
+        saved_count = db.save_multiple_stocks(df)
+        return render_template('fetch.html',
+                               stock_lists=get_all_lists(),
+                               success=True,
+                               message=f'Successfully refreshed {saved_count} stocks')
+    else:
+        return render_template('fetch.html',
+                               stock_lists=get_all_lists(),
+                               error=True,
+                               message='Failed to refresh stock data')
+
+
+@app.route('/delete/<ticker>', methods=['POST'])
+def delete_stock(ticker):
+    """Delete a stock from the database"""
+    if db.delete_stock(ticker):
+        return redirect(url_for('screener'))
+    else:
+        return render_template('error.html', message=f'Failed to delete stock {ticker}'), 400
+
+
 @app.route('/value-plays')
 def value_plays():
     """Show potential value stocks"""

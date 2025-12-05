@@ -29,6 +29,14 @@
     </form>
 </div>
 
+<div class="refresh-container">
+    <h2>Refresh Existing Data</h2>
+    <p class="subtitle">Update all stocks in your database with the latest data</p>
+    <form method="POST" action="{{ url_for('refresh_all_stocks') }}" onsubmit="return confirm('This will refresh all stocks in your database. Continue?');">
+        <button type="submit" class="btn btn-secondary">Refresh All Stocks</button>
+    </form>
+</div>
+
 <div class="stock-suggestions">
     <h2>Quick Add Stock Lists</h2>
     <p class="subtitle">Click on a list to automatically populate the ticker field</p>
@@ -56,6 +64,23 @@ function fillTickers(tickers) {
 </script>
 
 <style>
+.refresh-container {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 30px;
+}
+
+.refresh-container h2 {
+    margin-bottom: 10px;
+}
+
+.refresh-container .subtitle {
+    color: #666;
+    margin-bottom: 20px;
+}
+
 .stock-suggestions {
     background: white;
     padding: 30px;

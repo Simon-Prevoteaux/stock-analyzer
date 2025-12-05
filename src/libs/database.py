@@ -305,6 +305,25 @@ class StockDatabase:
         search_term = f'%{keyword}%'
         return pd.read_sql_query(query, self.conn, params=(search_term, search_term))
 
+    def delete_stock(self, ticker: str) -> bool:
+        """
+        Delete a stock from the database
+
+        Args:
+            ticker: Stock ticker symbol
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('DELETE FROM stocks WHERE ticker = ?', (ticker.upper(),))
+            self.conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error deleting stock: {str(e)}")
+            return False
+
     def close(self):
         """Close database connection"""
         if self.conn:
