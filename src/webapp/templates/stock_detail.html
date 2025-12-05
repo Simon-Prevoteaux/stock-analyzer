@@ -17,8 +17,16 @@
                 <td>{{ stock.market_cap|format_number }}</td>
             </tr>
             <tr>
+                <td>Enterprise Value</td>
+                <td>{{ stock.enterprise_value|format_number }}</td>
+            </tr>
+            <tr>
                 <td>Current Price</td>
                 <td>${{ stock.current_price }}</td>
+            </tr>
+            <tr>
+                <td>Target Price</td>
+                <td>{% if stock.target_price and stock.target_price > 0 %}${{ "%.2f"|format(stock.target_price) }}{% else %}N/A{% endif %}</td>
             </tr>
             <tr>
                 <td>P/E Ratio</td>
@@ -31,6 +39,10 @@
             <tr>
                 <td>P/S Ratio</td>
                 <td>{{ stock.ps_ratio|format_ratio }}</td>
+            </tr>
+            <tr>
+                <td>Price to Book</td>
+                <td>{{ stock.price_to_book|format_ratio }}</td>
             </tr>
         </table>
     </div>
@@ -47,6 +59,10 @@
                 <td>{{ stock.earnings|format_number }}</td>
             </tr>
             <tr>
+                <td>Free Cash Flow</td>
+                <td>{{ stock.free_cash_flow|format_number }}</td>
+            </tr>
+            <tr>
                 <td>EPS</td>
                 <td>${{ stock.eps }}</td>
             </tr>
@@ -57,6 +73,10 @@
             <tr>
                 <td>Operating Margin</td>
                 <td>{{ stock.operating_margin|format_percent }}</td>
+            </tr>
+            <tr>
+                <td>Current Ratio</td>
+                <td>{{ stock.current_ratio|format_ratio }}</td>
             </tr>
         </table>
     </div>
@@ -77,11 +97,17 @@
                 <td>{% if stock.is_profitable %}Yes{% else %}No{% endif %}</td>
             </tr>
             <tr>
-                <td>Bubble Score</td>
+                <td>
+                    Bubble Score
+                    <button type="button" class="info-btn" onclick="showInfo('bubble-score')">i</button>
+                </td>
                 <td>{{ stock.bubble_score }}/10</td>
             </tr>
             <tr>
-                <td>Risk Level</td>
+                <td>
+                    Risk Level
+                    <button type="button" class="info-btn" onclick="showInfo('risk-level')">i</button>
+                </td>
                 <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
             </tr>
         </table>

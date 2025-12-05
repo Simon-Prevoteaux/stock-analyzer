@@ -356,9 +356,21 @@ function compareTickers(tickers) {
                 {% endfor %}
             </tr>
             <tr>
+                <td><strong>Enterprise Value</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.enterprise_value|format_number }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
                 <td><strong>Current Price</strong></td>
                 {% for stock in stocks %}
                 <td>${{ stock.current_price }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Target Price</strong></td>
+                {% for stock in stocks %}
+                <td>{% if stock.target_price and stock.target_price > 0 %}${{ "%.2f"|format(stock.target_price) }}{% else %}N/A{% endif %}</td>
                 {% endfor %}
             </tr>
             <tr>
@@ -377,6 +389,12 @@ function compareTickers(tickers) {
                 <td><strong>P/S Ratio</strong></td>
                 {% for stock in stocks %}
                 <td>{{ stock.ps_ratio|format_ratio }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Price to Book</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.price_to_book|format_ratio }}</td>
                 {% endfor %}
             </tr>
             <tr>
@@ -401,6 +419,18 @@ function compareTickers(tickers) {
                 <td><strong>Profit Margin</strong></td>
                 {% for stock in stocks %}
                 <td>{{ stock.profit_margin|format_percent }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Free Cash Flow</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.free_cash_flow|format_number }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Current Ratio</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.current_ratio|format_ratio }}</td>
                 {% endfor %}
             </tr>
             <tr>

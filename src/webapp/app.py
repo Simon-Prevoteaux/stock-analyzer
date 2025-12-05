@@ -43,8 +43,8 @@ def index():
 def fetch_stocks():
     """Fetch new stock data"""
     # Indicator counts for the info section
-    fetched_count = 20  # Number of metrics currently fetched
-    not_fetched_count = 33  # Number of available but not fetched metrics
+    fetched_count = 25  # Number of metrics currently fetched
+    not_fetched_count = 28  # Number of available but not fetched metrics
 
     if request.method == 'POST':
         tickers_input = request.form.get('tickers', '')

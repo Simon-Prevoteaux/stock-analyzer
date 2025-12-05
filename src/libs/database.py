@@ -58,9 +58,40 @@ class StockDatabase:
                 bubble_score INTEGER,
                 risk_level TEXT,
                 last_updated TIMESTAMP,
+                price_to_book REAL,
+                current_ratio REAL,
+                free_cash_flow REAL,
+                enterprise_value REAL,
+                target_price REAL,
                 UNIQUE(ticker)
             )
         ''')
+
+        # Add new columns if they don't exist (for existing databases)
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN price_to_book REAL')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN current_ratio REAL')
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN free_cash_flow REAL')
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN enterprise_value REAL')
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN target_price REAL')
+        except sqlite3.OperationalError:
+            pass
 
         # Watchlist table
         cursor.execute('''
@@ -105,8 +136,10 @@ class StockDatabase:
                     pe_ratio, forward_pe, ps_ratio, eps, revenue_growth,
                     earnings_growth, profit_margin, operating_margin,
                     current_price, sector, industry, is_profitable,
-                    bubble_score, risk_level, last_updated
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    bubble_score, risk_level, last_updated,
+                    price_to_book, current_ratio, free_cash_flow,
+                    enterprise_value, target_price
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 stock_data.get('ticker'),
                 stock_data.get('company_name'),
@@ -127,7 +160,12 @@ class StockDatabase:
                 stock_data.get('is_profitable'),
                 stock_data.get('bubble_score'),
                 stock_data.get('risk_level'),
-                stock_data.get('last_updated')
+                stock_data.get('last_updated'),
+                stock_data.get('price_to_book'),
+                stock_data.get('current_ratio'),
+                stock_data.get('free_cash_flow'),
+                stock_data.get('enterprise_value'),
+                stock_data.get('target_price')
             ))
 
             self.conn.commit()
