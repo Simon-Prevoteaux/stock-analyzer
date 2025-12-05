@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Fetch Stock Data{% endblock %}
+
+{% block content %}
+<h1>Fetch Stock Data</h1>
+
+{% if success %}
+<div class="alert alert-success">
+    {{ message }}
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-error">
+    {{ message }}
+</div>
+{% endif %}
+
+<div class="form-container">
+    <form method="POST">
+        <div class="form-group">
+            <label for="tickers">Stock Tickers (comma-separated):</label>
+            <input type="text" id="tickers" name="tickers" placeholder="AAPL, MSFT, GOOGL, NVDA" required>
+            <small>Enter stock ticker symbols separated by commas</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Fetch Data</button>
+    </form>
+</div>
+
+<div class="info-box">
+    <h3>Example Tickers</h3>
+    <p><strong>Tech Giants:</strong> AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA</p>
+    <p><strong>Software:</strong> CRM, NOW, SNOW, PLTR, CRWD, DDOG</p>
+    <p><strong>Finance:</strong> JPM, BAC, GS, MS, V, MA</p>
+    <p><strong>Healthcare:</strong> UNH, JNJ, PFE, ABBV, TMO</p>
+</div>
+{% endblock %}

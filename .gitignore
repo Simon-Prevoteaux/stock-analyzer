@@ -1,0 +1,45 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+env/
+ENV/
+.venv
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Excel files (original examples)
+*.xlsx
+*.xls
+
+# Environment variables
+.env
+
+# Flask
+instance/
+.webassets-cache
+
+# Distribution
+dist/
+build/
+*.egg-info/

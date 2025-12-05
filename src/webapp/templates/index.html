@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Stock Analyzer{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Welcome to Stock Analyzer</h1>
+    <p>Personal stock analysis and valuation tool</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>{{ stats.total_stocks }}</h3>
+        <p>Total Stocks</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ stats.sectors }}</h3>
+        <p>Sectors</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ stats.high_risk }}</h3>
+        <p>High Risk Stocks</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ stats.watchlist_count }}</h3>
+        <p>In Watchlist</p>
+    </div>
+</div>
+
+<div class="quick-actions">
+    <h2>Quick Actions</h2>
+    <div class="action-buttons">
+        <a href="{{ url_for('fetch_stocks') }}" class="btn btn-primary">Fetch New Data</a>
+        <a href="{{ url_for('screener') }}" class="btn btn-secondary">Open Screener</a>
+        <a href="{{ url_for('value_plays') }}" class="btn btn-success">Find Value Plays</a>
+        <a href="{{ url_for('bubble_territory') }}" class="btn btn-danger">Check Bubble Territory</a>
+    </div>
+</div>
+
+<div class="info-section">
+    <h2>Features</h2>
+    <ul>
+        <li>Fetch real-time stock data from Yahoo Finance</li>
+        <li>Calculate key metrics: P/E, P/S, EPS, growth rates</li>
+        <li>Screen stocks based on multiple criteria</li>
+        <li>Compare multiple stocks side-by-side</li>
+        <li>Identify overvalued stocks (bubble territory)</li>
+        <li>Find value opportunities</li>
+        <li>Maintain a personal watchlist</li>
+    </ul>
+</div>
+{% endblock %}

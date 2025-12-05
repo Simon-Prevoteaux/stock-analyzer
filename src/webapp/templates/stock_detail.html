@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}{{ stock.ticker }} - {{ stock.company_name }}{% endblock %}
+
+{% block content %}
+<div class="stock-header">
+    <h1>{{ stock.ticker }} - {{ stock.company_name }}</h1>
+    <p class="sector-info">{{ stock.sector }} / {{ stock.industry }}</p>
+</div>
+
+<div class="stock-detail-grid">
+    <div class="detail-card">
+        <h3>Valuation Metrics</h3>
+        <table class="detail-table">
+            <tr>
+                <td>Market Cap</td>
+                <td>{{ stock.market_cap|format_number }}</td>
+            </tr>
+            <tr>
+                <td>Current Price</td>
+                <td>${{ stock.current_price }}</td>
+            </tr>
+            <tr>
+                <td>P/E Ratio</td>
+                <td>{{ stock.pe_ratio|format_ratio }}</td>
+            </tr>
+            <tr>
+                <td>Forward P/E</td>
+                <td>{{ stock.forward_pe|format_ratio }}</td>
+            </tr>
+            <tr>
+                <td>P/S Ratio</td>
+                <td>{{ stock.ps_ratio|format_ratio }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="detail-card">
+        <h3>Financial Metrics</h3>
+        <table class="detail-table">
+            <tr>
+                <td>Revenue</td>
+                <td>{{ stock.revenue|format_number }}</td>
+            </tr>
+            <tr>
+                <td>Earnings</td>
+                <td>{{ stock.earnings|format_number }}</td>
+            </tr>
+            <tr>
+                <td>EPS</td>
+                <td>${{ stock.eps }}</td>
+            </tr>
+            <tr>
+                <td>Profit Margin</td>
+                <td>{{ stock.profit_margin|format_percent }}</td>
+            </tr>
+            <tr>
+                <td>Operating Margin</td>
+                <td>{{ stock.operating_margin|format_percent }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="detail-card">
+        <h3>Growth & Risk</h3>
+        <table class="detail-table">
+            <tr>
+                <td>Revenue Growth</td>
+                <td>{{ stock.revenue_growth|format_percent }}</td>
+            </tr>
+            <tr>
+                <td>Earnings Growth</td>
+                <td>{{ stock.earnings_growth|format_percent }}</td>
+            </tr>
+            <tr>
+                <td>Profitable?</td>
+                <td>{% if stock.is_profitable %}Yes{% else %}No{% endif %}</td>
+            </tr>
+            <tr>
+                <td>Bubble Score</td>
+                <td>{{ stock.bubble_score }}/10</td>
+            </tr>
+            <tr>
+                <td>Risk Level</td>
+                <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="stock-actions">
+    <form method="POST" action="{{ url_for('add_to_watchlist', ticker=stock.ticker) }}" style="display: inline;">
+        <button type="submit" class="btn btn-primary">Add to Watchlist</button>
+    </form>
+    <form method="POST" action="{{ url_for('api_refresh_stock', ticker=stock.ticker) }}" style="display: inline;">
+        <button type="submit" class="btn btn-secondary">Refresh Data</button>
+    </form>
+    <a href="{{ url_for('screener') }}" class="btn btn-secondary">Back to Screener</a>
+</div>
+
+<div class="last-updated">
+    Last updated: {{ stock.last_updated }}
+</div>
+{% endblock %}

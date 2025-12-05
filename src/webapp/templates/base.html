@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Stock Analyzer{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">Stock Analyzer</h1>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('fetch_stocks') }}">Fetch Data</a></li>
+                <li><a href="{{ url_for('screener') }}">Screener</a></li>
+                <li><a href="{{ url_for('comparison') }}">Compare</a></li>
+                <li><a href="{{ url_for('value_plays') }}">Value Plays</a></li>
+                <li><a href="{{ url_for('bubble_territory') }}">Bubble Territory</a></li>
+                <li><a href="{{ url_for('watchlist') }}">Watchlist</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Stock Analyzer - Personal Tool</p>
+    </footer>
+</body>
+</html>

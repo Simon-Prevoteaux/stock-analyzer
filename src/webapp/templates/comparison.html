@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Comparison{% endblock %}
+
+{% block content %}
+<h1>Compare Stocks</h1>
+
+<div class="comparison-search">
+    <form method="GET">
+        <div class="form-group">
+            <label for="tickers">Enter tickers to compare (comma-separated):</label>
+            <input type="text" id="tickers" name="tickers" placeholder="AAPL, MSFT, GOOGL" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Compare</button>
+    </form>
+</div>
+
+{% if stocks %}
+<div class="comparison-table-container">
+    <table class="comparison-table">
+        <thead>
+            <tr>
+                <th>Metric</th>
+                {% for stock in stocks %}
+                <th>{{ stock.ticker }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Company Name</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.company_name }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Sector</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.sector }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Market Cap</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.market_cap|format_number }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Current Price</strong></td>
+                {% for stock in stocks %}
+                <td>${{ stock.current_price }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>P/E Ratio</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.pe_ratio|format_ratio }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Forward P/E</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.forward_pe|format_ratio }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>P/S Ratio</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.ps_ratio|format_ratio }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Revenue</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.revenue|format_number }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Revenue Growth</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.revenue_growth|format_percent }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>EPS</strong></td>
+                {% for stock in stocks %}
+                <td>${{ stock.eps }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Profit Margin</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.profit_margin|format_percent }}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Profitable</strong></td>
+                {% for stock in stocks %}
+                <td>{% if stock.is_profitable %}Yes{% else %}No{% endif %}</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Bubble Score</strong></td>
+                {% for stock in stocks %}
+                <td>{{ stock.bubble_score }}/10</td>
+                {% endfor %}
+            </tr>
+            <tr>
+                <td><strong>Risk Level</strong></td>
+                {% for stock in stocks %}
+                <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% elif request.args.get('tickers') %}
+<p class="no-results">No stocks found for the provided tickers.</p>
+{% endif %}
+{% endblock %}

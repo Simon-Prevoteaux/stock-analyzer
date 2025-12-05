@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Value Plays{% endblock %}
+
+{% block content %}
+<h1>Value Plays</h1>
+<p class="subtitle">Stocks with P/E &lt; 20 and P/S &lt; 3 that are profitable</p>
+
+{% if stocks %}
+<div class="table-container">
+    <table class="stock-table">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Company</th>
+                <th>Market Cap</th>
+                <th>P/E Ratio</th>
+                <th>P/S Ratio</th>
+                <th>Revenue Growth</th>
+                <th>Profit Margin</th>
+                <th>Sector</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stock in stocks %}
+            <tr>
+                <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
+                <td>{{ stock.company_name }}</td>
+                <td>{{ stock.market_cap|format_number }}</td>
+                <td>{{ stock.pe_ratio|format_ratio }}</td>
+                <td>{{ stock.ps_ratio|format_ratio }}</td>
+                <td>{{ stock.revenue_growth|format_percent }}</td>
+                <td>{{ stock.profit_margin|format_percent }}</td>
+                <td>{{ stock.sector }}</td>
+                <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="no-results">No value plays found in the database.</p>
+{% endif %}
+{% endblock %}

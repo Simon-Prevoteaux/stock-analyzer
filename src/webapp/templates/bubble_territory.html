@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Bubble Territory{% endblock %}
+
+{% block content %}
+<h1>Bubble Territory</h1>
+<p class="subtitle">Stocks with high bubble scores (6+) - potentially overvalued</p>
+
+{% if stocks %}
+<div class="table-container">
+    <table class="stock-table">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Company</th>
+                <th>Market Cap</th>
+                <th>P/E Ratio</th>
+                <th>P/S Ratio</th>
+                <th>Revenue Growth</th>
+                <th>Profitable?</th>
+                <th>Bubble Score</th>
+                <th>Risk Level</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stock in stocks %}
+            <tr>
+                <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
+                <td>{{ stock.company_name }}</td>
+                <td>{{ stock.market_cap|format_number }}</td>
+                <td>{{ stock.pe_ratio|format_ratio }}</td>
+                <td>{{ stock.ps_ratio|format_ratio }}</td>
+                <td>{{ stock.revenue_growth|format_percent }}</td>
+                <td>{% if stock.is_profitable %}Yes{% else %}No{% endif %}</td>
+                <td><strong>{{ stock.bubble_score }}/10</strong></td>
+                <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
+                <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="no-results">No stocks in bubble territory found.</p>
+{% endif %}
+{% endblock %}
