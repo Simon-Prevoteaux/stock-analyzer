@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.9 or higher (recommended)
+- Python 3.13 or higher (recommended)
 - Git
 - Internet connection for fetching stock data
 
