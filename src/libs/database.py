@@ -115,6 +115,66 @@ class StockDatabase:
             )
         ''')
 
+        # Create new tables for historical financial data
+        self._migrate_schema()
+
+        self.conn.commit()
+
+    def _migrate_schema(self):
+        """Create new tables for historical tracking"""
+        cursor = self.conn.cursor()
+
+        # Financial history table - stores time-series financial data
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS financial_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL,
+                period_end_date TEXT NOT NULL,
+                period_type TEXT NOT NULL,
+                revenue REAL,
+                earnings REAL,
+                gross_profit REAL,
+                operating_income REAL,
+                ebitda REAL,
+                net_income REAL,
+                eps REAL,
+                shares_outstanding REAL,
+                fetched_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(ticker, period_end_date, period_type),
+                FOREIGN KEY (ticker) REFERENCES stocks(ticker)
+            )
+        ''')
+
+        # Create index for fast queries
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_financial_ticker_date
+            ON financial_history(ticker, period_end_date DESC)
+        ''')
+
+        # Growth metrics table - stores calculated growth analytics
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS growth_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticker TEXT NOT NULL UNIQUE,
+                revenue_cagr_3y REAL,
+                revenue_cagr_5y REAL,
+                earnings_cagr_3y REAL,
+                earnings_cagr_5y REAL,
+                avg_quarterly_revenue_growth REAL,
+                avg_quarterly_earnings_growth REAL,
+                revenue_consistency_score REAL,
+                earnings_consistency_score REAL,
+                revenue_growth_accelerating BOOLEAN,
+                earnings_growth_accelerating BOOLEAN,
+                consecutive_profitable_quarters INTEGER,
+                data_points_count INTEGER,
+                oldest_data_date TEXT,
+                newest_data_date TEXT,
+                last_calculated TIMESTAMP,
+                FOREIGN KEY (ticker) REFERENCES stocks(ticker)
+            )
+        ''')
+
         self.conn.commit()
 
     def save_stock(self, stock_data: Dict) -> bool:
@@ -392,6 +452,149 @@ class StockDatabase:
         except Exception as e:
             print(f"Error deleting stock: {str(e)}")
             return False
+
+    def save_financial_history(self, ticker: str, financial_data: List[Dict]) -> int:
+        """
+        Save historical financial data
+
+        Args:
+            ticker: Stock ticker
+            financial_data: List of financial data points
+
+        Returns:
+            Number of records saved
+        """
+        if not financial_data:
+            return 0
+
+        cursor = self.conn.cursor()
+        saved_count = 0
+
+        for record in financial_data:
+            try:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO financial_history
+                    (ticker, period_end_date, period_type, revenue, earnings,
+                     gross_profit, operating_income, ebitda, net_income, eps, shares_outstanding)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    ticker.upper(),
+                    record.get('period_end_date'),
+                    record.get('period_type'),
+                    record.get('revenue'),
+                    record.get('earnings'),
+                    record.get('gross_profit'),
+                    record.get('operating_income'),
+                    record.get('ebitda'),
+                    record.get('net_income'),
+                    record.get('eps'),
+                    record.get('shares_outstanding')
+                ))
+                saved_count += 1
+            except Exception as e:
+                print(f"Error saving financial record: {str(e)}")
+
+        self.conn.commit()
+        return saved_count
+
+    def get_financial_history(self, ticker: str, period_type: str = None) -> List[Dict]:
+        """
+        Retrieve financial history for a ticker
+
+        Args:
+            ticker: Stock ticker
+            period_type: Optional filter for 'quarterly' or 'annual'
+
+        Returns:
+            List of financial records
+        """
+        query = 'SELECT * FROM financial_history WHERE ticker = ?'
+        params = [ticker.upper()]
+
+        if period_type:
+            query += ' AND period_type = ?'
+            params.append(period_type)
+
+        query += ' ORDER BY period_end_date DESC'
+
+        cursor = self.conn.cursor()
+        cursor.execute(query, params)
+
+        return [dict(row) for row in cursor.fetchall()]
+
+    def save_growth_metrics(self, ticker: str, metrics: Dict) -> bool:
+        """Save calculated growth metrics"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT OR REPLACE INTO growth_metrics (
+                    ticker, revenue_cagr_3y, revenue_cagr_5y, earnings_cagr_3y, earnings_cagr_5y,
+                    avg_quarterly_revenue_growth, avg_quarterly_earnings_growth,
+                    revenue_consistency_score, earnings_consistency_score,
+                    revenue_growth_accelerating, earnings_growth_accelerating,
+                    consecutive_profitable_quarters, data_points_count,
+                    oldest_data_date, newest_data_date, last_calculated
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (
+                ticker.upper(),
+                metrics.get('revenue_cagr_3y'),
+                metrics.get('revenue_cagr_5y'),
+                metrics.get('earnings_cagr_3y'),
+                metrics.get('earnings_cagr_5y'),
+                metrics.get('avg_quarterly_revenue_growth'),
+                metrics.get('avg_quarterly_earnings_growth'),
+                metrics.get('revenue_consistency_score'),
+                metrics.get('earnings_consistency_score'),
+                metrics.get('revenue_growth_accelerating'),
+                metrics.get('earnings_growth_accelerating'),
+                metrics.get('consecutive_profitable_quarters'),
+                metrics.get('data_points_count'),
+                metrics.get('oldest_data_date'),
+                metrics.get('newest_data_date')
+            ))
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error saving growth metrics: {str(e)}")
+            return False
+
+    def get_growth_metrics(self, ticker: str) -> Optional[Dict]:
+        """Retrieve calculated growth metrics for a ticker"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM growth_metrics WHERE ticker = ?', (ticker.upper(),))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def get_enhanced_value_stocks(self,
+                                   max_pe: float = 20,
+                                   max_ps: float = 3,
+                                   min_consistency: float = 60,
+                                   min_growth: float = 0.05) -> pd.DataFrame:
+        """
+        Get value stocks with growth quality filters
+
+        Args:
+            max_pe: Maximum P/E ratio
+            max_ps: Maximum P/S ratio
+            min_consistency: Minimum consistency score (0-100)
+            min_growth: Minimum average quarterly growth rate
+
+        Returns:
+            DataFrame of enhanced value stocks
+        """
+        query = '''
+            SELECT s.*, g.*
+            FROM stocks s
+            LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+            WHERE s.pe_ratio <= ?
+            AND s.ps_ratio <= ?
+            AND s.is_profitable = 1
+            AND (g.revenue_consistency_score >= ? OR g.earnings_consistency_score >= ?)
+            AND (g.avg_quarterly_revenue_growth >= ? OR g.avg_quarterly_earnings_growth >= ?)
+            ORDER BY g.revenue_consistency_score DESC, s.ps_ratio ASC
+        '''
+        return pd.read_sql_query(query, self.conn,
+                                params=(max_pe, max_ps, min_consistency, min_consistency, min_growth, min_growth))
 
     def close(self):
         """Close database connection"""

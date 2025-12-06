@@ -14,6 +14,7 @@ from libs.stock_fetcher import StockFetcher
 from libs.database import StockDatabase
 from libs.stock_lists import get_all_lists
 from libs.forecaster import StockForecaster
+from libs.growth_analyzer import GrowthAnalyzer
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'stock-analyzer-secret-key'
@@ -51,15 +52,48 @@ def fetch_stocks():
         tickers = [t.strip().upper() for t in tickers_input.split(',') if t.strip()]
 
         if tickers:
-            df = fetcher.fetch_multiple_stocks(tickers)
-            if not df.empty:
-                saved_count = db.save_multiple_stocks(df)
+            saved_count = 0
+            failed_tickers = []
+
+            for ticker in tickers:
+                try:
+                    # Fetch all data including historical
+                    full_data = fetcher.fetch_stock_with_history(ticker)
+
+                    if full_data.get('current'):
+                        # Save current data
+                        db.save_stock(full_data['current'])
+
+                        # Save historical data
+                        if full_data.get('quarterly_history'):
+                            db.save_financial_history(ticker, full_data['quarterly_history'])
+                        if full_data.get('annual_history'):
+                            db.save_financial_history(ticker, full_data['annual_history'])
+
+                        # Calculate and save growth metrics
+                        all_history = db.get_financial_history(ticker)
+                        if all_history:
+                            analyzer = GrowthAnalyzer(all_history)
+                            metrics = analyzer.calculate_all_metrics()
+                            db.save_growth_metrics(ticker, metrics)
+
+                        saved_count += 1
+                    else:
+                        failed_tickers.append(ticker)
+                except Exception as e:
+                    print(f"Error fetching {ticker}: {str(e)}")
+                    failed_tickers.append(ticker)
+
+            if saved_count > 0:
+                message = f'Successfully fetched and saved {saved_count} stocks with historical data'
+                if failed_tickers:
+                    message += f' (Failed: {", ".join(failed_tickers)})'
                 return render_template('fetch.html',
                                        stock_lists=get_all_lists(),
                                        fetched_count=fetched_count,
                                        not_fetched_count=not_fetched_count,
                                        success=True,
-                                       message=f'Successfully fetched and saved {saved_count} stocks')
+                                       message=message)
             else:
                 return render_template('fetch.html',
                                        stock_lists=get_all_lists(),
@@ -72,6 +106,47 @@ def fetch_stocks():
                            stock_lists=get_all_lists(),
                            fetched_count=fetched_count,
                            not_fetched_count=not_fetched_count)
+
+
+@app.route('/fetch-with-history', methods=['POST'])
+def fetch_with_history():
+    """Fetch stock data including historical financials"""
+    tickers_input = request.form.get('tickers', '')
+    tickers = [t.strip().upper() for t in tickers_input.split(',') if t.strip()]
+
+    if not tickers:
+        return jsonify({'error': 'No tickers provided'}), 400
+
+    results = []
+    for ticker in tickers:
+        try:
+            # Fetch all data
+            full_data = fetcher.fetch_stock_with_history(ticker)
+
+            if full_data.get('current'):
+                # Save current data
+                db.save_stock(full_data['current'])
+
+                # Save historical data
+                if full_data.get('quarterly_history'):
+                    db.save_financial_history(ticker, full_data['quarterly_history'])
+                if full_data.get('annual_history'):
+                    db.save_financial_history(ticker, full_data['annual_history'])
+
+                # Calculate and save growth metrics
+                all_history = db.get_financial_history(ticker)
+                if all_history:
+                    analyzer = GrowthAnalyzer(all_history)
+                    metrics = analyzer.calculate_all_metrics()
+                    db.save_growth_metrics(ticker, metrics)
+
+                results.append({'ticker': ticker, 'success': True})
+            else:
+                results.append({'ticker': ticker, 'success': False, 'error': 'Failed to fetch data'})
+        except Exception as e:
+            results.append({'ticker': ticker, 'success': False, 'error': str(e)})
+
+    return jsonify({'results': results})
 
 
 @app.route('/screener')
@@ -119,13 +194,85 @@ def screener():
 
 @app.route('/stock/<ticker>')
 def stock_detail(ticker):
-    """Stock detail page"""
+    """Stock detail page with historical data"""
     stock = db.get_stock(ticker.upper())
 
     if not stock:
         return render_template('error.html', message=f'Stock {ticker} not found'), 404
 
-    return render_template('stock_detail.html', stock=stock)
+    # Get growth metrics
+    growth_metrics = db.get_growth_metrics(ticker)
+
+    # Get historical data for charts
+    quarterly_history = db.get_financial_history(ticker, 'quarterly')
+    annual_history = db.get_financial_history(ticker, 'annual')
+
+    # Prepare quarterly chart data
+    revenue_chart_data_quarterly = None
+    earnings_chart_data_quarterly = None
+
+    if quarterly_history:
+        # Sort by date
+        sorted_quarterly = sorted(quarterly_history, key=lambda x: x['period_end_date'])
+
+        revenue_chart_data_quarterly = {
+            'labels': [h['period_end_date'][:7] for h in sorted_quarterly],  # YYYY-MM format
+            'datasets': [{
+                'label': 'Quarterly Revenue',
+                'data': [h['revenue'] if h['revenue'] else 0 for h in sorted_quarterly],
+                'borderColor': '#00ff88',
+                'fill': True
+            }]
+        }
+
+        earnings_chart_data_quarterly = {
+            'labels': [h['period_end_date'][:7] for h in sorted_quarterly],
+            'datasets': [{
+                'label': 'Quarterly Earnings',
+                'data': [h['earnings'] if h['earnings'] else 0 for h in sorted_quarterly],
+                'borderColor': '#ffd700',
+                'fill': True
+            }]
+        }
+
+    # Prepare annual chart data (goes back further - usually 4-5 years)
+    revenue_chart_data_annual = None
+    earnings_chart_data_annual = None
+
+    if annual_history:
+        # Sort by date
+        sorted_annual = sorted(annual_history, key=lambda x: x['period_end_date'])
+
+        revenue_chart_data_annual = {
+            'labels': [h['period_end_date'][:4] for h in sorted_annual],  # YYYY format
+            'datasets': [{
+                'label': 'Annual Revenue',
+                'data': [h['revenue'] if h['revenue'] else 0 for h in sorted_annual],
+                'borderColor': '#00ff88',
+                'fill': True
+            }]
+        }
+
+        earnings_chart_data_annual = {
+            'labels': [h['period_end_date'][:4] for h in sorted_annual],
+            'datasets': [{
+                'label': 'Annual Earnings',
+                'data': [h['earnings'] if h['earnings'] else 0 for h in sorted_annual],
+                'borderColor': '#ffd700',
+                'fill': True
+            }]
+        }
+
+    return render_template('stock_detail.html',
+                         stock=stock,
+                         growth_metrics=growth_metrics,
+                         has_historical_data=bool(quarterly_history or annual_history),
+                         revenue_chart_data_quarterly=revenue_chart_data_quarterly,
+                         earnings_chart_data_quarterly=earnings_chart_data_quarterly,
+                         revenue_chart_data_annual=revenue_chart_data_annual,
+                         earnings_chart_data_annual=earnings_chart_data_annual,
+                         quarterly_periods=len(quarterly_history) if quarterly_history else 0,
+                         annual_periods=len(annual_history) if annual_history else 0)
 
 
 @app.route('/comparison')
@@ -221,23 +368,42 @@ def api_search():
 
 @app.route('/api/refresh/<ticker>', methods=['POST'])
 def api_refresh_stock(ticker):
-    """API endpoint to refresh stock data"""
-    data = fetcher.fetch_stock_data(ticker)
-    if data:
-        # Save snapshot before updating
-        old_data = db.get_stock(ticker)
-        if old_data:
-            db.save_snapshot(ticker, old_data)
+    """API endpoint to refresh stock data with historical financials"""
+    try:
+        # Fetch all data including historical
+        full_data = fetcher.fetch_stock_with_history(ticker)
 
-        # Update with new data
-        db.save_stock(data)
-        return jsonify({'success': True, 'data': data})
-    return jsonify({'success': False, 'error': 'Failed to fetch data'}), 400
+        if full_data.get('current'):
+            # Save snapshot before updating
+            old_data = db.get_stock(ticker)
+            if old_data:
+                db.save_snapshot(ticker, old_data)
+
+            # Save current data
+            db.save_stock(full_data['current'])
+
+            # Save historical data
+            if full_data.get('quarterly_history'):
+                db.save_financial_history(ticker, full_data['quarterly_history'])
+            if full_data.get('annual_history'):
+                db.save_financial_history(ticker, full_data['annual_history'])
+
+            # Calculate and save growth metrics
+            all_history = db.get_financial_history(ticker)
+            if all_history:
+                analyzer = GrowthAnalyzer(all_history)
+                metrics = analyzer.calculate_all_metrics()
+                db.save_growth_metrics(ticker, metrics)
+
+            return jsonify({'success': True, 'data': full_data['current']})
+        return jsonify({'success': False, 'error': 'Failed to fetch data'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 
 @app.route('/refresh-all', methods=['POST'])
 def refresh_all_stocks():
-    """Refresh all stocks in the database"""
+    """Refresh all stocks in the database with historical data"""
     stocks_df = db.get_all_stocks()
     if stocks_df.empty:
         return render_template('fetch.html',
@@ -246,17 +412,55 @@ def refresh_all_stocks():
                                message='No stocks to refresh')
 
     tickers = stocks_df['ticker'].tolist()
-    df = fetcher.fetch_multiple_stocks(tickers)
+    saved_count = 0
+    failed_tickers = []
 
-    if not df.empty:
-        saved_count = db.save_multiple_stocks(df)
+    for ticker in tickers:
+        try:
+            print(f"Refreshing {ticker} with historical data...")
+
+            # Fetch all data including historical
+            full_data = fetcher.fetch_stock_with_history(ticker)
+
+            if full_data.get('current'):
+                # Save current data
+                db.save_stock(full_data['current'])
+
+                # Save historical data
+                if full_data.get('quarterly_history'):
+                    db.save_financial_history(ticker, full_data['quarterly_history'])
+                if full_data.get('annual_history'):
+                    db.save_financial_history(ticker, full_data['annual_history'])
+
+                # Calculate and save growth metrics
+                all_history = db.get_financial_history(ticker)
+                if all_history:
+                    analyzer = GrowthAnalyzer(all_history)
+                    metrics = analyzer.calculate_all_metrics()
+                    db.save_growth_metrics(ticker, metrics)
+
+                saved_count += 1
+            else:
+                failed_tickers.append(ticker)
+        except Exception as e:
+            print(f"Error refreshing {ticker}: {str(e)}")
+            failed_tickers.append(ticker)
+
+    if saved_count > 0:
+        message = f'Successfully refreshed {saved_count} stocks with historical data'
+        if failed_tickers:
+            message += f' (Failed: {", ".join(failed_tickers)})'
         return render_template('fetch.html',
                                stock_lists=get_all_lists(),
+                               fetched_count=25,
+                               not_fetched_count=28,
                                success=True,
-                               message=f'Successfully refreshed {saved_count} stocks')
+                               message=message)
     else:
         return render_template('fetch.html',
                                stock_lists=get_all_lists(),
+                               fetched_count=25,
+                               not_fetched_count=28,
                                error=True,
                                message='Failed to refresh stock data')
 
@@ -272,12 +476,32 @@ def delete_stock(ticker):
 
 @app.route('/value-plays')
 def value_plays():
-    """Show potential value stocks"""
+    """Show potential value stocks with enhanced filtering"""
+    # Get filter parameters
+    min_consistency = request.args.get('min_consistency', 60, type=float)
+    require_growth = request.args.get('require_growth', 'false').lower() == 'true'
+    use_enhanced = request.args.get('use_enhanced', 'false').lower() == 'true'
+
+    # Get enhanced value stocks if filters are active
+    if use_enhanced:
+        enhanced_stocks_df = db.get_enhanced_value_stocks(
+            min_consistency=min_consistency,
+            min_growth=0.05 if require_growth else 0
+        )
+    else:
+        enhanced_stocks_df = pd.DataFrame()
+
+    # Still get traditional value stocks for comparison
     value_stocks_df = db.get_value_stocks()
     near_value_stocks_df = db.get_near_value_stocks()
+
     return render_template('value_plays.html',
-                           stocks=value_stocks_df.to_dict('records') if not value_stocks_df.empty else [],
-                           near_value_stocks=near_value_stocks_df.to_dict('records') if not near_value_stocks_df.empty else [])
+                         stocks=value_stocks_df.to_dict('records') if not value_stocks_df.empty else [],
+                         near_value_stocks=near_value_stocks_df.to_dict('records') if not near_value_stocks_df.empty else [],
+                         enhanced_stocks=enhanced_stocks_df.to_dict('records') if not enhanced_stocks_df.empty else [],
+                         min_consistency=min_consistency,
+                         require_growth=require_growth,
+                         use_enhanced=use_enhanced)
 
 
 @app.route('/bubble-territory')
@@ -302,7 +526,9 @@ def forecast():
     if ticker:
         stock_data = db.get_stock(ticker)
         if stock_data:
-            forecaster = StockForecaster(stock_data)
+            # Get historical growth metrics for smarter forecasting
+            growth_metrics = db.get_growth_metrics(ticker)
+            forecaster = StockForecaster(stock_data, growth_metrics)
 
             # Get parameters from request or use defaults
             years = request.args.get('years', 5, type=int)
@@ -358,11 +584,76 @@ def forecast():
         else:
             error = f"Stock {ticker} not found in database. Please fetch it first."
 
+    # Prepare growth rate source information for UI
+    growth_rate_info = None
+    if forecast_results:
+        # Collect all available sources for user selection
+        revenue_sources = []
+        earnings_sources = []
+
+        # Add historical 3Y CAGR if available
+        if growth_metrics and growth_metrics.get('revenue_cagr_3y'):
+            revenue_sources.append({
+                'key': 'cagr_3y',
+                'label': '3-Year CAGR (Historical)',
+                'value': growth_metrics.get('revenue_cagr_3y')
+            })
+        if growth_metrics and growth_metrics.get('earnings_cagr_3y'):
+            earnings_sources.append({
+                'key': 'cagr_3y',
+                'label': '3-Year CAGR (Historical)',
+                'value': growth_metrics.get('earnings_cagr_3y')
+            })
+
+        # Add quarterly average if available
+        if growth_metrics and growth_metrics.get('avg_quarterly_revenue_growth'):
+            revenue_sources.append({
+                'key': 'quarterly_avg',
+                'label': 'Quarterly Average (Recent Trend)',
+                'value': growth_metrics.get('avg_quarterly_revenue_growth')
+            })
+        if growth_metrics and growth_metrics.get('avg_quarterly_earnings_growth'):
+            earnings_sources.append({
+                'key': 'quarterly_avg',
+                'label': 'Quarterly Average (Recent Trend)',
+                'value': growth_metrics.get('avg_quarterly_earnings_growth')
+            })
+
+        # Always add yfinance single-point as fallback
+        if stock_data.get('revenue_growth'):
+            revenue_sources.append({
+                'key': 'yfinance',
+                'label': 'yfinance (Single-Point)',
+                'value': stock_data.get('revenue_growth', 0)
+            })
+        if stock_data.get('earnings_growth'):
+            earnings_sources.append({
+                'key': 'yfinance',
+                'label': 'yfinance (Single-Point)',
+                'value': stock_data.get('earnings_growth', 0)
+            })
+
+        growth_rate_info = {
+            'has_historical_data': bool(growth_metrics),
+            'revenue_growth_used': forecaster.revenue_growth,
+            'earnings_growth_used': forecaster.earnings_growth,
+            'revenue_source': 'Historical 3Y CAGR' if growth_metrics and growth_metrics.get('revenue_cagr_3y') else
+                            ('Historical Quarterly Avg' if growth_metrics and growth_metrics.get('avg_quarterly_revenue_growth') else 'yfinance'),
+            'earnings_source': 'Historical 3Y CAGR' if growth_metrics and growth_metrics.get('earnings_cagr_3y') else
+                             ('Historical Quarterly Avg' if growth_metrics and growth_metrics.get('avg_quarterly_earnings_growth') else 'yfinance'),
+            'revenue_cagr_3y': growth_metrics.get('revenue_cagr_3y') if growth_metrics else None,
+            'earnings_cagr_3y': growth_metrics.get('earnings_cagr_3y') if growth_metrics else None,
+            'consistency_score': growth_metrics.get('revenue_consistency_score') if growth_metrics else None,
+            'revenue_sources': revenue_sources,
+            'earnings_sources': earnings_sources
+        }
+
     return render_template('forecast.html',
                            available_stocks=available_stocks,
                            selected_ticker=ticker,
                            stock=stock_data,
                            results=forecast_results,
+                           growth_rate_info=growth_rate_info,
                            error=error)
 
 

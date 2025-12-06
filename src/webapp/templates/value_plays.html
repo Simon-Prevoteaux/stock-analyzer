@@ -6,6 +6,110 @@
 <h1>Value Plays</h1>
 <p class="subtitle">Stocks with P/E &lt; 20 and P/S &lt; 3 that are profitable</p>
 
+<!-- Enhanced Filters -->
+<div class="filter-section">
+    <h3>Enhanced Value Play Filters</h3>
+    <form method="GET" action="{{ url_for('value_plays') }}" class="filter-form">
+        <div class="filter-grid">
+            <div class="filter-item">
+                <label for="min_consistency">
+                    Minimum Consistency Score
+                    <span class="info-text">(Quality of growth pattern, 0-100)</span>
+                </label>
+                <input type="range" id="min_consistency" name="min_consistency"
+                       min="0" max="100" step="5" value="{{ min_consistency }}"
+                       oninput="document.getElementById('consistency-value').textContent = this.value">
+                <span id="consistency-value" class="range-value">{{ min_consistency }}</span>
+            </div>
+
+            <div class="filter-item">
+                <label for="require_growth">
+                    <input type="checkbox" id="require_growth" name="require_growth"
+                           value="true" {{ 'checked' if require_growth else '' }}>
+                    Require Positive Growth (≥5% avg quarterly)
+                </label>
+            </div>
+
+            <div class="filter-item">
+                <input type="hidden" name="use_enhanced" value="true">
+                <button type="submit" class="btn btn-primary">Apply Enhanced Filters</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="filter-info">
+        <p><strong>Enhanced filters look for:</strong> Traditional value metrics (P/E ≤ 20, P/S ≤ 3)
+        <strong>PLUS</strong> consistent historical growth patterns</p>
+    </div>
+</div>
+
+<!-- Enhanced Value Stocks Section -->
+{% if use_enhanced and enhanced_stocks %}
+<div class="enhanced-section">
+    <h2>Quality Value Plays (Enhanced)</h2>
+    <p class="subtitle">Traditional value metrics + proven growth consistency</p>
+
+    <div class="table-container">
+        <table class="stock-table sortable-table">
+            <thead>
+                <tr>
+                    <th data-sortable data-type="string">Ticker</th>
+                    <th data-sortable data-type="string">Company</th>
+                    <th data-sortable data-type="number">Market Cap</th>
+                    <th data-sortable data-type="number">P/E</th>
+                    <th data-sortable data-type="number">P/S</th>
+                    <th data-sortable data-type="number">Consistency Score</th>
+                    <th data-sortable data-type="number">Revenue CAGR (3Y)</th>
+                    <th>Growth Trend</th>
+                    <th data-sortable data-type="string">Sector</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stock in enhanced_stocks %}
+                <tr>
+                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
+                    <td>{{ stock.company_name }}</td>
+                    <td data-value="{{ stock.market_cap or 0 }}">{{ stock.market_cap|format_number }}</td>
+                    <td data-value="{{ stock.pe_ratio or 0 }}">{{ stock.pe_ratio|format_ratio }}</td>
+                    <td data-value="{{ stock.ps_ratio or 0 }}">{{ stock.ps_ratio|format_ratio }}</td>
+                    <td data-value="{{ stock.revenue_consistency_score or 0 }}">
+                        <span class="consistency-badge consistency-{{ 'high' if stock.revenue_consistency_score >= 70 else 'medium' if stock.revenue_consistency_score >= 50 else 'low' }}">
+                            {{ stock.revenue_consistency_score|round(0)|int if stock.revenue_consistency_score else 'N/A' }}
+                        </span>
+                    </td>
+                    <td data-value="{{ stock.revenue_cagr_3y or 0 }}">
+                        {{ stock.revenue_cagr_3y|format_percent if stock.revenue_cagr_3y else 'N/A' }}
+                    </td>
+                    <td>
+                        {% if stock.revenue_growth_accelerating %}
+                        <span class="trend-badge up">Accelerating ⬆</span>
+                        {% elif stock.revenue_cagr_3y and stock.revenue_cagr_3y > 0 %}
+                        <span class="trend-badge stable">Steady →</span>
+                        {% else %}
+                        <span class="trend-badge down">Declining ⬇</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ stock.sector }}</td>
+                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% elif use_enhanced %}
+<div class="no-results-box">
+    <p>No stocks meet the enhanced criteria.</p>
+    <p class="hint">Try lowering the consistency score threshold or removing the growth requirement.</p>
+</div>
+{% endif %}
+
+<!-- Traditional Value Plays Section -->
+<div class="traditional-section" style="margin-top: 40px;">
+    <h2>Traditional Value Plays</h2>
+    <p class="subtitle">Classic value metrics: P/E &lt; 20 and P/S &lt; 3</p>
+
 {% if stocks %}
 <div class="table-container">
     <table class="stock-table sortable-table">
@@ -45,6 +149,7 @@
     <p class="hint">Value plays require: P/E &lt; 20, P/S &lt; 3, and positive earnings</p>
 </div>
 {% endif %}
+</div>
 
 <!-- Near Value Plays Section -->
 <div class="near-value-section">
@@ -121,6 +226,140 @@
 </div>
 
 <style>
+/* Filter Section */
+.filter-section {
+    background: linear-gradient(135deg, #1a1d2e 0%, #2d3250 100%);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.filter-section h3 {
+    color: #00ff88;
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+}
+
+.filter-form {
+    margin-bottom: 15px;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    align-items: end;
+}
+
+.filter-item label {
+    display: block;
+    color: #a8b2d1;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.filter-item .info-text {
+    color: #6b7a99;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+.filter-item input[type="range"] {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 255, 136, 0.2);
+    border-radius: 3px;
+    outline: none;
+}
+
+.filter-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #00ff88;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+.filter-item input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #00ff88;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+.range-value {
+    display: inline-block;
+    margin-left: 10px;
+    color: #00ff88;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.filter-item input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.filter-info {
+    padding: 12px;
+    background: rgba(0, 255, 136, 0.1);
+    border-left: 3px solid #00ff88;
+    border-radius: 4px;
+}
+
+.filter-info p {
+    margin: 0;
+    color: #a8b2d1;
+    font-size: 0.9rem;
+}
+
+/* Enhanced Section */
+.enhanced-section {
+    margin-bottom: 40px;
+    padding: 25px;
+    background: rgba(0, 255, 136, 0.05);
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 12px;
+}
+
+.enhanced-section h2 {
+    color: #00ff88;
+    margin-bottom: 10px;
+}
+
+/* Consistency Badges */
+.consistency-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.consistency-badge.consistency-high {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid #00ff88;
+}
+
+.consistency-badge.consistency-medium {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid #ffd700;
+}
+
+.consistency-badge.consistency-low {
+    background: rgba(255, 51, 102, 0.2);
+    color: #ff3366;
+    border: 1px solid #ff3366;
+}
+
 .near-value-section {
     margin-top: 50px;
     padding-top: 30px;

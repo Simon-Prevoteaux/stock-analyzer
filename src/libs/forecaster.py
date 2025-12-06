@@ -23,14 +23,17 @@ class ForecastResult:
 class StockForecaster:
     """Stock price forecasting using multiple valuation methods"""
 
-    def __init__(self, stock_data: Dict):
+    def __init__(self, stock_data: Dict, growth_metrics: Dict = None):
         """
-        Initialize forecaster with stock data
+        Initialize forecaster with stock data and optional historical growth metrics
 
         Args:
             stock_data: Dictionary containing stock metrics from database
+            growth_metrics: Optional dictionary with calculated historical growth metrics
+                          (e.g., CAGR, consistency scores, quarterly averages)
         """
         self.data = stock_data
+        self.growth_metrics = growth_metrics or {}
         self.ticker = stock_data.get('ticker', 'N/A')
         self.current_price = stock_data.get('current_price', 0) or 0
         self.eps = stock_data.get('eps', 0) or 0
@@ -38,10 +41,27 @@ class StockForecaster:
         self.forward_pe = stock_data.get('forward_pe', 0) or 0
         self.ps_ratio = stock_data.get('ps_ratio', 0) or 0
         self.revenue = stock_data.get('revenue', 0) or 0
-        self.revenue_growth = stock_data.get('revenue_growth', 0) or 0
-        self.earnings_growth = stock_data.get('earnings_growth', 0) or 0
         self.market_cap = stock_data.get('market_cap', 0) or 0
         self.profit_margin = stock_data.get('profit_margin', 0) or 0
+
+        # Use historical growth averages if available, otherwise fall back to single-point values
+        # Priority: 3Y CAGR > Quarterly Average > yfinance single-point value
+        if growth_metrics:
+            self.revenue_growth = (
+                growth_metrics.get('revenue_cagr_3y') or
+                growth_metrics.get('avg_quarterly_revenue_growth') or
+                stock_data.get('revenue_growth', 0) or 0
+            )
+
+            self.earnings_growth = (
+                growth_metrics.get('earnings_cagr_3y') or
+                growth_metrics.get('avg_quarterly_earnings_growth') or
+                stock_data.get('earnings_growth', 0) or 0
+            )
+        else:
+            # Fall back to original single-point values from yfinance
+            self.revenue_growth = stock_data.get('revenue_growth', 0) or 0
+            self.earnings_growth = stock_data.get('earnings_growth', 0) or 0
 
         # Calculate shares outstanding
         if self.current_price > 0 and self.market_cap > 0:

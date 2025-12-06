@@ -1,0 +1,68 @@
+<div class="chart-container">
+    <canvas id="{{ chart_id }}" width="400" height="200"></canvas>
+</div>
+
+<script>
+(function() {
+    const ctx = document.getElementById('{{ chart_id }}').getContext('2d');
+
+    const chartData = {{ chart_data | tojson | safe }};
+    const chartConfig = {
+        type: '{{ chart_type }}',
+        data: {
+            labels: chartData.labels,
+            datasets: chartData.datasets.map((dataset, idx) => ({
+                label: dataset.label,
+                data: dataset.data,
+                borderColor: dataset.borderColor || ['#00ff88', '#ffd700', '#ff3366', '#00bfff'][idx],
+                backgroundColor: dataset.backgroundColor ||
+                    ['rgba(0, 255, 136, 0.1)', 'rgba(255, 215, 0, 0.1)',
+                     'rgba(255, 51, 102, 0.1)', 'rgba(0, 191, 255, 0.1)'][idx],
+                borderWidth: 2,
+                tension: 0.4,
+                fill: dataset.fill !== undefined ? dataset.fill : true
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#e0e6ed',
+                        font: { family: "'Courier New', monospace" }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(10, 14, 39, 0.95)',
+                    titleColor: '#00ff88',
+                    bodyColor: '#e0e6ed',
+                    borderColor: '#00ff88',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(0, 255, 136, 0.1)' },
+                    ticks: { color: '#a8b2d1' }
+                },
+                y: {
+                    grid: { color: 'rgba(0, 255, 136, 0.1)' },
+                    ticks: {
+                        color: '#a8b2d1',
+                        callback: function(value) {
+                            if (Math.abs(value) >= 1e12) return '$' + (value/1e12).toFixed(1) + 'T';
+                            if (Math.abs(value) >= 1e9) return '$' + (value/1e9).toFixed(1) + 'B';
+                            if (Math.abs(value) >= 1e6) return '$' + (value/1e6).toFixed(1) + 'M';
+                            if (Math.abs(value) >= 1e3) return '$' + (value/1e3).toFixed(1) + 'K';
+                            return '$' + value.toFixed(0);
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    new Chart(ctx, chartConfig);
+})();
+</script>

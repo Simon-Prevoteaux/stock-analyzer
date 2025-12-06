@@ -114,6 +114,124 @@
     </div>
 </div>
 
+{% if has_historical_data %}
+<div class="historical-section">
+    <h2>Historical Performance</h2>
+    <p class="data-info" style="color: #a8b2d1; margin-bottom: 20px;">
+        📊 Data available: {{ quarterly_periods }} quarters, {{ annual_periods }} years
+        <span style="color: #ffd700;">(Yahoo Finance typically provides 4-8 quarters and 4-5 years)</span>
+    </p>
+
+    {% if revenue_chart_data_quarterly or revenue_chart_data_annual %}
+    <h3 style="color: #ffd700; margin-top: 30px; margin-bottom: 15px;">Revenue Trends</h3>
+    <div class="charts-grid">
+        {% if revenue_chart_data_quarterly %}
+        <div class="chart-card">
+            <h4>Quarterly Revenue ({{ quarterly_periods }} periods)</h4>
+            {% set chart_id = 'revenue-chart-quarterly' %}
+            {% set chart_type = 'line' %}
+            {% set chart_data = revenue_chart_data_quarterly %}
+            {% include 'components/financial_chart.html' %}
+        </div>
+        {% endif %}
+
+        {% if revenue_chart_data_annual %}
+        <div class="chart-card">
+            <h4>Annual Revenue ({{ annual_periods }} years)</h4>
+            {% set chart_id = 'revenue-chart-annual' %}
+            {% set chart_type = 'line' %}
+            {% set chart_data = revenue_chart_data_annual %}
+            {% include 'components/financial_chart.html' %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if earnings_chart_data_quarterly or earnings_chart_data_annual %}
+    <h3 style="color: #ffd700; margin-top: 30px; margin-bottom: 15px;">Earnings Trends</h3>
+    <div class="charts-grid">
+        {% if earnings_chart_data_quarterly %}
+        <div class="chart-card">
+            <h4>Quarterly Earnings ({{ quarterly_periods }} periods)</h4>
+            {% set chart_id = 'earnings-chart-quarterly' %}
+            {% set chart_type = 'line' %}
+            {% set chart_data = earnings_chart_data_quarterly %}
+            {% include 'components/financial_chart.html' %}
+        </div>
+        {% endif %}
+
+        {% if earnings_chart_data_annual %}
+        <div class="chart-card">
+            <h4>Annual Earnings ({{ annual_periods }} years)</h4>
+            {% set chart_id = 'earnings-chart-annual' %}
+            {% set chart_type = 'line' %}
+            {% set chart_data = earnings_chart_data_annual %}
+            {% include 'components/financial_chart.html' %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if growth_metrics %}
+    <div class="growth-metrics-card">
+        <h3>Growth Analysis</h3>
+        <div class="metrics-grid">
+            {% if growth_metrics.revenue_cagr_3y %}
+            <div class="metric-item">
+                <span class="label">Revenue CAGR (3Y)</span>
+                <span class="value">{{ growth_metrics.revenue_cagr_3y|format_percent }}</span>
+            </div>
+            {% endif %}
+
+            {% if growth_metrics.earnings_cagr_3y %}
+            <div class="metric-item">
+                <span class="label">Earnings CAGR (3Y)</span>
+                <span class="value">{{ growth_metrics.earnings_cagr_3y|format_percent }}</span>
+            </div>
+            {% endif %}
+
+            {% if growth_metrics.revenue_consistency_score %}
+            <div class="metric-item">
+                <span class="label">Revenue Consistency</span>
+                <span class="value consistency-score-{{ 'high' if growth_metrics.revenue_consistency_score >= 70 else 'medium' if growth_metrics.revenue_consistency_score >= 50 else 'low' }}">
+                    {{ growth_metrics.revenue_consistency_score|round(0)|int }}/100
+                </span>
+            </div>
+            {% endif %}
+
+            {% if growth_metrics.earnings_consistency_score %}
+            <div class="metric-item">
+                <span class="label">Earnings Consistency</span>
+                <span class="value consistency-score-{{ 'high' if growth_metrics.earnings_consistency_score >= 70 else 'medium' if growth_metrics.earnings_consistency_score >= 50 else 'low' }}">
+                    {{ growth_metrics.earnings_consistency_score|round(0)|int }}/100
+                </span>
+            </div>
+            {% endif %}
+
+            {% if growth_metrics.consecutive_profitable_quarters %}
+            <div class="metric-item">
+                <span class="label">Profitable Quarters</span>
+                <span class="value">{{ growth_metrics.consecutive_profitable_quarters }} consecutive</span>
+            </div>
+            {% endif %}
+
+            {% if growth_metrics.revenue_growth_accelerating %}
+            <div class="metric-item highlight">
+                <span class="badge accelerating">Revenue Growth Accelerating</span>
+            </div>
+            {% endif %}
+
+            {% if growth_metrics.earnings_growth_accelerating %}
+            <div class="metric-item highlight">
+                <span class="badge accelerating">Earnings Growth Accelerating</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="stock-actions">
     <form method="POST" action="{{ url_for('add_to_watchlist', ticker=stock.ticker) }}" style="display: inline;">
         <button type="submit" class="btn btn-primary">Add to Watchlist</button>

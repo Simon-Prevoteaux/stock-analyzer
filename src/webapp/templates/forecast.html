@@ -119,6 +119,69 @@
     </div>
 </div>
 
+<!-- Growth Rate Source Info -->
+{% if growth_rate_info %}
+<div class="growth-rate-info">
+    <h3>📊 Growth Rate Sources</h3>
+    {% if growth_rate_info.has_historical_data %}
+    <div class="growth-info-banner historical">
+        <span class="badge-historical">✓ Using Historical Data</span>
+        <p>Forecasts are using multi-year historical averages instead of single-point estimates</p>
+    </div>
+    {% else %}
+    <div class="growth-info-banner fallback">
+        <span class="badge-fallback">⚠ Using Single-Point Data</span>
+        <p>No historical data available - using yfinance current values. Fetch historical data for more accurate forecasts.</p>
+    </div>
+    {% endif %}
+
+    <div class="growth-metrics-grid">
+        <div class="growth-metric-card">
+            <h4>Revenue Growth Rate</h4>
+            <div class="metric-value">{{ (growth_rate_info.revenue_growth_used * 100)|round(1) }}%</div>
+            <div class="metric-source">
+                <span class="source-label">Source:</span>
+                <span class="source-value {{ 'historical' if 'Historical' in growth_rate_info.revenue_source else 'fallback' }}">
+                    {{ growth_rate_info.revenue_source }}
+                </span>
+            </div>
+            {% if growth_rate_info.revenue_cagr_3y %}
+            <div class="metric-detail">3Y CAGR: {{ (growth_rate_info.revenue_cagr_3y * 100)|round(1) }}%</div>
+            {% endif %}
+        </div>
+
+        <div class="growth-metric-card">
+            <h4>Earnings Growth Rate</h4>
+            <div class="metric-value">{{ (growth_rate_info.earnings_growth_used * 100)|round(1) }}%</div>
+            <div class="metric-source">
+                <span class="source-label">Source:</span>
+                <span class="source-value {{ 'historical' if 'Historical' in growth_rate_info.earnings_source else 'fallback' }}">
+                    {{ growth_rate_info.earnings_source }}
+                </span>
+            </div>
+            {% if growth_rate_info.earnings_cagr_3y %}
+            <div class="metric-detail">3Y CAGR: {{ (growth_rate_info.earnings_cagr_3y * 100)|round(1) }}%</div>
+            {% endif %}
+        </div>
+
+        {% if growth_rate_info.consistency_score %}
+        <div class="growth-metric-card">
+            <h4>Growth Consistency</h4>
+            <div class="metric-value consistency-{{ 'high' if growth_rate_info.consistency_score >= 70 else 'medium' if growth_rate_info.consistency_score >= 50 else 'low' }}">
+                {{ growth_rate_info.consistency_score|round(0)|int }}
+            </div>
+            <div class="metric-source">
+                <span class="source-label">Quality Score:</span>
+                <span class="source-value">
+                    {{ 'High Quality' if growth_rate_info.consistency_score >= 70 else 'Medium Quality' if growth_rate_info.consistency_score >= 50 else 'Variable' }}
+                </span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Hidden form to maintain state -->
 <form method="GET" id="forecast-form" style="display: none;">
     <input type="hidden" name="ticker" id="form-ticker" value="{{ selected_ticker }}">
@@ -188,6 +251,16 @@
 
         <div class="model-params">
             <h4>Adjust Parameters</h4>
+            {% if growth_rate_info and growth_rate_info.earnings_sources|length > 1 %}
+            <div class="param-item">
+                <label for="earnings_source_selector">Growth Rate Source:</label>
+                <select id="earnings_source_selector" onchange="selectEarningsSource(this.value)" class="source-selector">
+                    {% for source in growth_rate_info.earnings_sources %}
+                    <option value="{{ source.value }}" data-key="{{ source.key }}">{{ source.label }} ({{ (source.value * 100)|round(1) }}%)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
             <div class="param-item">
                 <label for="earnings_growth">EPS Growth Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('eps-growth')">i</button></label>
                 <input type="range" id="earnings_growth" name="earnings_growth" min="0" max="0.5" step="0.01" value="{{ request.args.get('earnings_growth', results.earnings_model.details.get('initial_growth_rate', 15) / 100) }}" oninput="updateParam('earnings_growth', this.value, Math.round(this.value * 100) + '%')">
@@ -231,6 +304,16 @@
 
         <div class="model-params">
             <h4>Adjust Parameters</h4>
+            {% if growth_rate_info and growth_rate_info.revenue_sources|length > 1 %}
+            <div class="param-item">
+                <label for="revenue_source_selector">Growth Rate Source:</label>
+                <select id="revenue_source_selector" onchange="selectRevenueSource(this.value)" class="source-selector">
+                    {% for source in growth_rate_info.revenue_sources %}
+                    <option value="{{ source.value }}" data-key="{{ source.key }}">{{ source.label }} ({{ (source.value * 100)|round(1) }}%)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
             <div class="param-item">
                 <label for="revenue_growth">Revenue Growth Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('eps-growth')">i</button></label>
                 <input type="range" id="revenue_growth" name="revenue_growth" min="0" max="0.5" step="0.01" value="{{ request.args.get('revenue_growth', results.revenue_model.details.get('initial_growth_rate', 20) / 100) }}" oninput="updateParam('revenue_growth', this.value, Math.round(this.value * 100) + '%')">
@@ -431,6 +514,20 @@ function submitForecastForm() {
     document.getElementById('forecast-form').submit();
 }
 
+function selectEarningsSource(value) {
+    // Update the earnings growth slider when source is changed
+    const slider = document.getElementById('earnings_growth');
+    slider.value = value;
+    updateParam('earnings_growth', value, Math.round(value * 100) + '%');
+}
+
+function selectRevenueSource(value) {
+    // Update the revenue growth slider when source is changed
+    const slider = document.getElementById('revenue_growth');
+    slider.value = value;
+    updateParam('revenue_growth', value, Math.round(value * 100) + '%');
+}
+
 const infoContent = {
     'params-general': {
         title: 'About Parameters',
@@ -615,6 +712,141 @@ document.addEventListener('keydown', function(e) {
     border-radius: 12px;
     margin-bottom: 30px;
     border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+/* Growth Rate Info Section */
+.growth-rate-info {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 25px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.growth-rate-info h3 {
+    color: #00ff88;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+.growth-info-banner {
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.growth-info-banner.historical {
+    background: rgba(0, 255, 136, 0.15);
+    border: 1px solid rgba(0, 255, 136, 0.4);
+}
+
+.growth-info-banner.fallback {
+    background: rgba(255, 215, 0, 0.15);
+    border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.badge-historical {
+    background: #00ff88;
+    color: #0a0e27;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.badge-fallback {
+    background: #ffd700;
+    color: #0a0e27;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.growth-info-banner p {
+    margin: 0;
+    color: #e0e6ed;
+    font-size: 0.95rem;
+}
+
+.growth-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.growth-metric-card {
+    background: rgba(10, 14, 39, 0.5);
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.growth-metric-card h4 {
+    color: #a8b2d1;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.growth-metric-card .metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffd700;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 10px;
+}
+
+.growth-metric-card .metric-value.consistency-high {
+    color: #00ff88;
+}
+
+.growth-metric-card .metric-value.consistency-medium {
+    color: #ffd700;
+}
+
+.growth-metric-card .metric-value.consistency-low {
+    color: #ff3366;
+}
+
+.growth-metric-card .metric-source {
+    margin-bottom: 8px;
+}
+
+.growth-metric-card .source-label {
+    color: #6b7a99;
+    font-size: 0.8rem;
+    display: inline-block;
+    margin-right: 6px;
+}
+
+.growth-metric-card .source-value {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.growth-metric-card .source-value.historical {
+    color: #00ff88;
+}
+
+.growth-metric-card .source-value.fallback {
+    color: #ffd700;
+}
+
+.growth-metric-card .metric-detail {
+    color: #a8b2d1;
+    font-size: 0.8rem;
+    margin-top: 5px;
 }
 
 /* Search Input */
