@@ -183,3 +183,82 @@ class StockFetcher:
             return 'Overvalued'
         else:
             return 'Fairly Valued'
+
+    def fetch_historical_financials(self, ticker: str, period_type: str = 'quarterly') -> List[Dict]:
+        """
+        Fetch historical financial statements from yfinance
+
+        Args:
+            ticker: Stock ticker symbol
+            period_type: 'quarterly' or 'annual'
+
+        Returns:
+            List of dictionaries containing financial data points
+        """
+        try:
+            stock = yf.Ticker(ticker)
+
+            # Get income statement based on period type
+            if period_type == 'quarterly':
+                income_stmt = stock.quarterly_income_stmt
+            else:
+                income_stmt = stock.income_stmt
+
+            if income_stmt is None or income_stmt.empty:
+                return []
+
+            # Log how many periods we're getting
+            print(f"  Found {len(income_stmt.columns)} {period_type} periods for {ticker}")
+
+            # Transform from DataFrame to list of dicts
+            financial_data = []
+            for date_col in income_stmt.columns:
+                period_data = {
+                    'ticker': ticker.upper(),
+                    'period_end_date': date_col.strftime('%Y-%m-%d'),
+                    'period_type': period_type,
+                    'revenue': self._safe_get(income_stmt, 'Total Revenue', date_col),
+                    'gross_profit': self._safe_get(income_stmt, 'Gross Profit', date_col),
+                    'operating_income': self._safe_get(income_stmt, 'Operating Income', date_col),
+                    'ebitda': self._safe_get(income_stmt, 'EBITDA', date_col),
+                    'net_income': self._safe_get(income_stmt, 'Net Income', date_col),
+                    'earnings': self._safe_get(income_stmt, 'Net Income', date_col),
+                    # EPS will be calculated from Net Income / Shares Outstanding if needed
+                    'eps': None  # Can be calculated later if we have shares outstanding data
+                }
+
+                financial_data.append(period_data)
+
+            return financial_data
+
+        except Exception as e:
+            print(f"Error fetching historical financials for {ticker}: {str(e)}")
+            return []
+
+    def _safe_get(self, df: pd.DataFrame, row_name: str, col_name) -> Optional[float]:
+        """Safely extract value from DataFrame"""
+        try:
+            if row_name in df.index:
+                value = df.loc[row_name, col_name]
+                return float(value) if pd.notna(value) else None
+            return None
+        except:
+            return None
+
+    def fetch_stock_with_history(self, ticker: str) -> Dict:
+        """
+        Fetch both current data and historical financials
+
+        Returns:
+            Dict with 'current', 'quarterly_history', and 'annual_history' keys
+        """
+        current_data = self.fetch_stock_data(ticker)
+
+        quarterly_history = self.fetch_historical_financials(ticker, 'quarterly')
+        annual_history = self.fetch_historical_financials(ticker, 'annual')
+
+        return {
+            'current': current_data,
+            'quarterly_history': quarterly_history,
+            'annual_history': annual_history
+        }
