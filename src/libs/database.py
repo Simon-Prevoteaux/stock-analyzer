@@ -457,12 +457,16 @@ class StockDatabase:
         """
         Save historical financial data
 
+        Uses INSERT OR IGNORE to preserve existing historical data.
+        This ensures that old data (no longer available from Yahoo Finance)
+        is never lost when refreshing stock data.
+
         Args:
             ticker: Stock ticker
             financial_data: List of financial data points
 
         Returns:
-            Number of records saved
+            Number of NEW records saved (existing records are skipped)
         """
         if not financial_data:
             return 0
@@ -473,7 +477,7 @@ class StockDatabase:
         for record in financial_data:
             try:
                 cursor.execute('''
-                    INSERT OR REPLACE INTO financial_history
+                    INSERT OR IGNORE INTO financial_history
                     (ticker, period_end_date, period_type, revenue, earnings,
                      gross_profit, operating_income, ebitda, net_income, eps, shares_outstanding)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -490,7 +494,9 @@ class StockDatabase:
                     record.get('eps'),
                     record.get('shares_outstanding')
                 ))
-                saved_count += 1
+                # Check if row was actually inserted (rowcount > 0 means new record)
+                if cursor.rowcount > 0:
+                    saved_count += 1
             except Exception as e:
                 print(f"Error saving financial record: {str(e)}")
 
