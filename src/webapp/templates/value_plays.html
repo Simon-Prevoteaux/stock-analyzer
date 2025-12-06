@@ -91,7 +91,10 @@
                         {% endif %}
                     </td>
                     <td>{{ stock.sector }}</td>
-                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a></td>
+                    <td>
+                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                        <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-sm">See Forecast</a>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -137,7 +140,10 @@
                 <td data-value="{{ stock.revenue_growth or 0 }}">{{ stock.revenue_growth|format_percent }}</td>
                 <td data-value="{{ stock.profit_margin or 0 }}">{{ stock.profit_margin|format_percent }}</td>
                 <td>{{ stock.sector }}</td>
-                <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a></td>
+                <td>
+                    <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                    <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-sm">See Forecast</a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -212,7 +218,10 @@
                     <td data-value="{{ stock.revenue_growth or 0 }}">{{ stock.revenue_growth|format_percent }}</td>
                     <td data-value="{{ stock.profit_margin or 0 }}">{{ stock.profit_margin|format_percent }}</td>
                     <td>{{ stock.sector }}</td>
-                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a></td>
+                    <td>
+                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                        <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-sm">See Forecast</a>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

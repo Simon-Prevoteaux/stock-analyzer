@@ -332,7 +332,7 @@ function compareTickers(tickers) {
             <tr>
                 <th>Metric</th>
                 {% for stock in stocks %}
-                <th>{{ stock.ticker }}</th>
+                <th><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" style="color: #00ff88; text-decoration: none;">{{ stock.ticker }}</a></th>
                 {% endfor %}
             </tr>
         </thead>

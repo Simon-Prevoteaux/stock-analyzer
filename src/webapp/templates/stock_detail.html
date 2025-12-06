@@ -251,6 +251,7 @@
     <form method="POST" action="{{ url_for('add_to_watchlist', ticker=stock.ticker) }}" style="display: inline;">
         <button type="submit" class="btn btn-primary">Add to Watchlist</button>
     </form>
+    <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-primary">See Forecast</a>
     <form method="POST" action="{{ url_for('api_refresh_stock', ticker=stock.ticker) }}" style="display: inline;">
         <button type="submit" class="btn btn-secondary">Refresh Data</button>
     </form>
