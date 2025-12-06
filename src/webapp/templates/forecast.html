@@ -195,6 +195,171 @@
     <input type="hidden" name="volatility" id="form-volatility" value="{{ request.args.get('volatility', 0.30) }}">
 </form>
 
+<!-- Valuation Multiples Info -->
+{% if results %}
+<div class="valuation-multiples-section">
+    <h3>📈 Current Valuation Multiples</h3>
+    <p class="section-description">Understanding these multiples helps set realistic terminal values in your forecasts</p>
+
+    <div class="multiples-grid">
+        <!-- P/E Ratio Card -->
+        <div class="multiple-card">
+            <h4>Price-to-Earnings (P/E)</h4>
+            <div class="multiple-main-value">
+                <span class="label">Trailing P/E:</span>
+                <span class="value pe-{{ 'low' if stock.pe_ratio < 15 else 'medium' if stock.pe_ratio < 25 else 'high' if stock.pe_ratio < 40 else 'very-high' }}">
+                    {{ stock.pe_ratio|round(1) if stock.pe_ratio else 'N/A' }}x
+                </span>
+            </div>
+            {% if stock.forward_pe and stock.forward_pe > 0 %}
+            <div class="multiple-secondary">
+                <span class="label">Forward P/E:</span>
+                <span class="value">{{ stock.forward_pe|round(1) }}x</span>
+            </div>
+            {% endif %}
+            <div class="multiple-guide">
+                <strong>Quick Guide:</strong>
+                <ul>
+                    <li>&lt;15: Value territory</li>
+                    <li>15-25: Fairly valued</li>
+                    <li>25-40: Growth premium</li>
+                    <li>&gt;40: High expectations</li>
+                </ul>
+            </div>
+            <div class="multiple-recommendation">
+                {% if stock.pe_ratio < 15 %}
+                <span class="rec-badge rec-conservative">Conservative terminal P/E: 12-18x</span>
+                {% elif stock.pe_ratio < 25 %}
+                <span class="rec-badge rec-moderate">Moderate terminal P/E: 15-22x</span>
+                {% elif stock.pe_ratio < 40 %}
+                <span class="rec-badge rec-growth">Growth terminal P/E: 20-30x</span>
+                {% else %}
+                <span class="rec-badge rec-aggressive">High terminal P/E: 25-35x (risky)</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- P/S Ratio Card -->
+        <div class="multiple-card">
+            <h4>Price-to-Sales (P/S)</h4>
+            <div class="multiple-main-value">
+                <span class="label">Current P/S:</span>
+                <span class="value ps-{{ 'low' if stock.ps_ratio < 3 else 'medium' if stock.ps_ratio < 10 else 'high' if stock.ps_ratio < 20 else 'very-high' }}">
+                    {{ stock.ps_ratio|round(1) if stock.ps_ratio else 'N/A' }}x
+                </span>
+            </div>
+            {% if stock.profit_margin %}
+            <div class="multiple-secondary">
+                <span class="label">Profit Margin:</span>
+                <span class="value">{{ (stock.profit_margin * 100)|round(1) }}%</span>
+            </div>
+            {% endif %}
+            <div class="multiple-guide">
+                <strong>Quick Guide:</strong>
+                <ul>
+                    <li>&lt;3: Value/Traditional</li>
+                    <li>3-10: Moderate growth</li>
+                    <li>10-20: High growth</li>
+                    <li>&gt;20: Very high expectations</li>
+                </ul>
+            </div>
+            <div class="multiple-recommendation">
+                {% if stock.ps_ratio < 3 %}
+                <span class="rec-badge rec-conservative">Conservative terminal P/S: 2-4x</span>
+                {% elif stock.ps_ratio < 10 %}
+                <span class="rec-badge rec-moderate">Moderate terminal P/S: 4-8x</span>
+                {% elif stock.ps_ratio < 20 %}
+                <span class="rec-badge rec-growth">Growth terminal P/S: 6-15x</span>
+                {% else %}
+                <span class="rec-badge rec-aggressive">High terminal P/S: 10-20x (risky)</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Price-to-Book Card (if available) -->
+        {% if stock.price_to_book and stock.price_to_book > 0 %}
+        <div class="multiple-card">
+            <h4>Price-to-Book (P/B)</h4>
+            <div class="multiple-main-value">
+                <span class="label">Current P/B:</span>
+                <span class="value pb-{{ 'low' if stock.price_to_book < 2 else 'medium' if stock.price_to_book < 5 else 'high' }}">
+                    {{ stock.price_to_book|round(1) }}x
+                </span>
+            </div>
+            <div class="multiple-guide">
+                <strong>Quick Guide:</strong>
+                <ul>
+                    <li>&lt;1: Below book value</li>
+                    <li>1-3: Reasonable</li>
+                    <li>3-5: Premium</li>
+                    <li>&gt;5: High intangible value</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Valuation Classification -->
+        <div class="multiple-card classification-card">
+            <h4>Valuation Assessment</h4>
+            {% set is_value = stock.pe_ratio < 20 and stock.ps_ratio < 3 %}
+            {% set is_growth = stock.pe_ratio > 25 or stock.ps_ratio > 10 %}
+            {% set is_premium = stock.pe_ratio > 40 or stock.ps_ratio > 20 %}
+
+            <div class="classification-result">
+                {% if is_premium %}
+                <div class="classification-badge premium">
+                    <span class="icon">🚀</span>
+                    <span class="text">Premium Valuation</span>
+                </div>
+                <p class="classification-desc">Market expects exceptional growth. Use aggressive assumptions carefully.</p>
+                {% elif is_growth %}
+                <div class="classification-badge growth">
+                    <span class="icon">📈</span>
+                    <span class="text">Growth Valuation</span>
+                </div>
+                <p class="classification-desc">Market expects strong growth. Validate growth assumptions.</p>
+                {% elif is_value %}
+                <div class="classification-badge value">
+                    <span class="icon">💎</span>
+                    <span class="text">Value Territory</span>
+                </div>
+                <p class="classification-desc">Trading at attractive multiples. Consider conservative terminal values.</p>
+                {% else %}
+                <div class="classification-badge fair">
+                    <span class="icon">⚖️</span>
+                    <span class="text">Fairly Valued</span>
+                </div>
+                <p class="classification-desc">Trading near market averages. Use moderate assumptions.</p>
+                {% endif %}
+            </div>
+
+            <div class="sector-context">
+                <span class="label">Sector:</span>
+                <span class="value">{{ stock.sector }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="multiples-tips">
+        <h4>💡 Tips for Setting Terminal Multiples</h4>
+        <div class="tips-grid">
+            <div class="tip-item">
+                <strong>Mean Reversion:</strong> High-growth stocks typically see P/E compress toward market average (15-20x) over time
+            </div>
+            <div class="tip-item">
+                <strong>Sustainable Growth:</strong> Terminal P/E should reflect long-term sustainable growth (not peak growth)
+            </div>
+            <div class="tip-item">
+                <strong>Sector Context:</strong> Tech/growth sectors justify higher multiples than mature industries
+            </div>
+            <div class="tip-item">
+                <strong>Conservative Approach:</strong> When in doubt, use lower terminal multiples for a margin of safety
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Scenario Analysis -->
 <div class="forecast-section scenarios-section">
     <div class="scenarios-header">
@@ -256,7 +421,7 @@
                 <label for="earnings_source_selector">Growth Rate Source:</label>
                 <select id="earnings_source_selector" onchange="selectEarningsSource(this.value)" class="source-selector">
                     {% for source in growth_rate_info.earnings_sources %}
-                    <option value="{{ source.value }}" data-key="{{ source.key }}">{{ source.label }} ({{ (source.value * 100)|round(1) }}%)</option>
+                    <option value="{{ source.value }}" data-key="{{ source.key }}" {% if (source.value - (request.args.get('earnings_growth')|float or results.earnings_model.details.get('initial_growth_rate', 15) / 100))|abs < 0.001 %}selected{% endif %}>{{ source.label }} ({{ (source.value * 100)|round(1) }}%)</option>
                     {% endfor %}
                 </select>
             </div>
@@ -309,7 +474,7 @@
                 <label for="revenue_source_selector">Growth Rate Source:</label>
                 <select id="revenue_source_selector" onchange="selectRevenueSource(this.value)" class="source-selector">
                     {% for source in growth_rate_info.revenue_sources %}
-                    <option value="{{ source.value }}" data-key="{{ source.key }}">{{ source.label }} ({{ (source.value * 100)|round(1) }}%)</option>
+                    <option value="{{ source.value }}" data-key="{{ source.key }}" {% if (source.value - (request.args.get('revenue_growth')|float or results.revenue_model.details.get('initial_growth_rate', 20) / 100))|abs < 0.001 %}selected{% endif %}>{{ source.label }} ({{ (source.value * 100)|round(1) }}%)</option>
                     {% endfor %}
                 </select>
             </div>
@@ -510,8 +675,226 @@ function updateParam(name, value, labelText) {
     document.getElementById('form-' + name).value = value;
 }
 
+function formatNumber(value) {
+    if (!value || value === 0) return 'N/A';
+    const num = parseFloat(value);
+    if (num >= 1e12) return '$' + (num / 1e12).toFixed(2) + 'T';
+    if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return '$' + (num / 1e3).toFixed(2) + 'K';
+    return '$' + num.toFixed(2);
+}
+
 function submitForecastForm() {
-    document.getElementById('forecast-form').submit();
+    // Get all parameters from the form
+    const ticker = document.getElementById('form-ticker').value;
+    const params = new URLSearchParams({
+        ticker: ticker,
+        years: document.getElementById('form-years').value,
+        earnings_growth: document.getElementById('form-earnings_growth').value,
+        terminal_pe: document.getElementById('form-terminal_pe').value,
+        revenue_growth: document.getElementById('form-revenue_growth').value,
+        terminal_ps: document.getElementById('form-terminal_ps').value,
+        fcf_growth: document.getElementById('form-fcf_growth').value,
+        discount_rate: document.getElementById('form-discount_rate').value,
+        volatility: document.getElementById('form-volatility').value
+    });
+
+    // Show loading state on all update buttons
+    const updateButtons = document.querySelectorAll('.btn-update');
+    updateButtons.forEach(btn => {
+        btn.textContent = 'UPDATING...';
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+    });
+
+    // Make AJAX request
+    fetch('/api/forecast?' + params.toString())
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+
+            // Update all forecast values in the DOM
+            updateForecastUI(data);
+
+            // Reset button states
+            updateButtons.forEach(btn => {
+                btn.textContent = 'UPDATE';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            });
+        })
+        .catch(error => {
+            console.error('Error updating forecast:', error);
+            alert('Failed to update forecast. Please try again.');
+
+            // Reset button states
+            updateButtons.forEach(btn => {
+                btn.textContent = 'UPDATE';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            });
+        });
+}
+
+function updateForecastUI(data) {
+    // Update Scenarios
+    if (data.scenarios && data.scenarios.scenarios) {
+        const scenarios = data.scenarios.scenarios;
+        ['bear', 'base', 'bull'].forEach(scenario => {
+            if (scenarios[scenario]) {
+                const s = scenarios[scenario];
+                const card = document.querySelector('.scenario-' + scenario);
+                if (card) {
+                    card.querySelector('.target-price').textContent = '$' + s.target_price.toFixed(2);
+                    const upsideEl = card.querySelector('.upside');
+                    upsideEl.textContent = s.upside_percent.toFixed(1) + '%';
+                    upsideEl.className = 'upside ' + (s.upside_percent >= 0 ? 'positive' : 'negative');
+                }
+            }
+        });
+    }
+
+    // Update Earnings Model
+    if (data.earnings_model) {
+        const em = data.earnings_model;
+        updateModelCard('earnings', em);
+
+        // Update details table
+        const earningsTable = document.querySelectorAll('.model-card')[0].querySelector('.model-details table');
+        if (earningsTable && em.details) {
+            earningsTable.innerHTML = `
+                <tr><td>Starting EPS</td><td>$${em.details.starting_eps}</td></tr>
+                <tr><td>Ending EPS</td><td>$${em.details.ending_eps}</td></tr>
+                <tr><td>Growth Rate</td><td>${em.details.initial_growth_rate}%</td></tr>
+                <tr><td>Growth Decay</td><td>${em.details.growth_decay}%/yr</td></tr>
+                <tr><td>Terminal P/E</td><td>${em.details.terminal_pe}x</td></tr>
+            `;
+        }
+    }
+
+    // Update Revenue Model
+    if (data.revenue_model) {
+        const rm = data.revenue_model;
+        updateModelCard('revenue', rm);
+
+        // Update details table
+        const revenueTable = document.querySelectorAll('.model-card')[1].querySelector('.model-details table');
+        if (revenueTable && rm.details) {
+            revenueTable.innerHTML = `
+                <tr><td>Starting Revenue</td><td>${formatNumber(rm.details.starting_revenue)}</td></tr>
+                <tr><td>Ending Revenue</td><td>${formatNumber(rm.details.ending_revenue)}</td></tr>
+                <tr><td>Revenue CAGR</td><td>${rm.details.revenue_cagr}%</td></tr>
+                <tr><td>Terminal P/S</td><td>${rm.details.terminal_ps}x</td></tr>
+                <tr><td>Target Margin</td><td>${rm.details.target_margin}%</td></tr>
+            `;
+        }
+    }
+
+    // Update DCF Model
+    if (data.dcf_model) {
+        const dcf = data.dcf_model;
+        updateModelCard('dcf', dcf);
+
+        // Update details table
+        const dcfTable = document.querySelectorAll('.model-card')[2].querySelector('.model-details table');
+        if (dcfTable && dcf.details) {
+            dcfTable.innerHTML = `
+                <tr><td>Base FCF</td><td>$${dcf.details.base_fcf}B</td></tr>
+                <tr><td>FCF Growth</td><td>${dcf.details.fcf_growth}%</td></tr>
+                <tr><td>Discount Rate</td><td>${dcf.details.discount_rate}%</td></tr>
+                <tr><td>Terminal Growth</td><td>${dcf.details.terminal_growth}%</td></tr>
+                <tr><td>Intrinsic Value</td><td>$${dcf.details.intrinsic_value}B</td></tr>
+            `;
+        }
+    }
+
+    // Update Monte Carlo
+    if (data.monte_carlo) {
+        const mc = data.monte_carlo;
+        const mcCard = document.querySelectorAll('.model-card')[3];
+        if (mcCard && mc.median_target) {
+            mcCard.querySelector('.target-price').textContent = '$' + mc.median_target.toFixed(2);
+            const upsideEl = mcCard.querySelector('.upside');
+            upsideEl.textContent = mc.median_upside.toFixed(1) + '% median upside';
+            upsideEl.className = 'upside ' + (mc.median_upside >= 0 ? 'positive' : 'negative');
+
+            // Update percentiles
+            if (mc.percentiles) {
+                mcCard.querySelector('.p10').textContent = '$' + mc.percentiles.p10;
+                mcCard.querySelector('.p50').textContent = '$' + mc.percentiles.p50;
+                mcCard.querySelector('.p90').textContent = '$' + mc.percentiles.p90;
+            }
+
+            // Update probabilities
+            if (mc.probabilities) {
+                const probItems = mcCard.querySelectorAll('.prob-value');
+                if (probItems.length >= 4) {
+                    probItems[0].textContent = mc.probabilities.profit + '%';
+                    probItems[1].textContent = mc.probabilities.up_50_percent + '%';
+                    probItems[2].textContent = mc.probabilities.double + '%';
+                    probItems[3].textContent = mc.probabilities.down_50_percent + '%';
+                }
+            }
+        }
+    }
+
+    // Update Summary
+    const validTargets = [];
+    if (data.earnings_model && data.earnings_model.target_price > 0) {
+        validTargets.push(data.earnings_model.target_price);
+    }
+    if (data.revenue_model && data.revenue_model.target_price > 0) {
+        validTargets.push(data.revenue_model.target_price);
+    }
+    if (data.dcf_model && data.dcf_model.target_price > 0) {
+        validTargets.push(data.dcf_model.target_price);
+    }
+    if (data.monte_carlo && data.monte_carlo.median_target) {
+        validTargets.push(data.monte_carlo.median_target);
+    }
+
+    if (validTargets.length > 0) {
+        const avgTarget = validTargets.reduce((a, b) => a + b, 0) / validTargets.length;
+        const avgUpside = ((avgTarget / data.current_price) - 1) * 100;
+
+        const summaryItems = document.querySelectorAll('.summary-item .value');
+        if (summaryItems.length >= 3) {
+            summaryItems[0].textContent = '$' + data.current_price.toFixed(2);
+            summaryItems[1].textContent = '$' + avgTarget.toFixed(2);
+            summaryItems[2].textContent = avgUpside.toFixed(1) + '%';
+            summaryItems[2].className = 'value ' + (avgUpside >= 0 ? 'positive' : 'negative');
+        }
+    }
+}
+
+function updateModelCard(modelType, modelData) {
+    // Find the model card by its heading
+    let card;
+    const allCards = document.querySelectorAll('.model-card');
+
+    if (modelType === 'earnings') card = allCards[0];
+    else if (modelType === 'revenue') card = allCards[1];
+    else if (modelType === 'dcf') card = allCards[2];
+
+    if (!card || !modelData.target_price) return;
+
+    // Update target price
+    card.querySelector('.target-price').textContent = '$' + modelData.target_price.toFixed(2);
+
+    // Update upside
+    const upsideEl = card.querySelector('.upside');
+    upsideEl.textContent = modelData.upside_percent.toFixed(1) + '% upside';
+    upsideEl.className = 'upside ' + (modelData.upside_percent >= 0 ? 'positive' : 'negative');
+
+    // Update annual return
+    const returnEl = card.querySelector('.annual-return');
+    if (returnEl) {
+        returnEl.textContent = modelData.annual_return.toFixed(1) + '% annual return';
+    }
 }
 
 function selectEarningsSource(value) {
@@ -847,6 +1230,318 @@ document.addEventListener('keydown', function(e) {
     color: #a8b2d1;
     font-size: 0.8rem;
     margin-top: 5px;
+}
+
+/* Source Selector Dropdown */
+.source-selector {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(10, 14, 39, 0.6);
+    color: #e0e6ed;
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.source-selector:hover {
+    border-color: #00ff88;
+    background: rgba(10, 14, 39, 0.8);
+}
+
+.source-selector:focus {
+    outline: none;
+    border-color: #00ff88;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.source-selector option {
+    background: #1e2139;
+    color: #e0e6ed;
+    padding: 10px;
+}
+
+/* Valuation Multiples Section */
+.valuation-multiples-section {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 25px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.valuation-multiples-section h3 {
+    color: #ffd700;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+.section-description {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+}
+
+.multiples-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.multiple-card {
+    background: rgba(10, 14, 39, 0.5);
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 215, 0, 0.1);
+}
+
+.multiple-card h4 {
+    color: #ffd700;
+    font-size: 0.95rem;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.multiple-main-value {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+}
+
+.multiple-main-value .label {
+    color: #a8b2d1;
+    font-size: 0.85rem;
+}
+
+.multiple-main-value .value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+}
+
+.multiple-main-value .value.pe-low,
+.multiple-main-value .value.ps-low,
+.multiple-main-value .value.pb-low {
+    color: #00ff88;
+}
+
+.multiple-main-value .value.pe-medium,
+.multiple-main-value .value.ps-medium,
+.multiple-main-value .value.pb-medium {
+    color: #ffd700;
+}
+
+.multiple-main-value .value.pe-high,
+.multiple-main-value .value.ps-high,
+.multiple-main-value .value.pb-high {
+    color: #ff9500;
+}
+
+.multiple-main-value .value.pe-very-high,
+.multiple-main-value .value.ps-very-high {
+    color: #ff3366;
+}
+
+.multiple-secondary {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+}
+
+.multiple-secondary .label {
+    color: #6b7a99;
+}
+
+.multiple-secondary .value {
+    color: #e0e6ed;
+    font-weight: 600;
+}
+
+.multiple-guide {
+    background: rgba(0, 255, 136, 0.05);
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 12px;
+    margin-bottom: 12px;
+}
+
+.multiple-guide strong {
+    color: #00ff88;
+    font-size: 0.8rem;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.multiple-guide ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.multiple-guide li {
+    color: #a8b2d1;
+    font-size: 0.75rem;
+    padding: 3px 0;
+    padding-left: 12px;
+    position: relative;
+}
+
+.multiple-guide li:before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: #00ff88;
+}
+
+.multiple-recommendation {
+    margin-top: 10px;
+}
+
+.rec-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    width: 100%;
+}
+
+.rec-badge.rec-conservative {
+    background: rgba(0, 255, 136, 0.15);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+.rec-badge.rec-moderate {
+    background: rgba(255, 215, 0, 0.15);
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.rec-badge.rec-growth {
+    background: rgba(255, 149, 0, 0.15);
+    color: #ff9500;
+    border: 1px solid rgba(255, 149, 0, 0.3);
+}
+
+.rec-badge.rec-aggressive {
+    background: rgba(255, 51, 102, 0.15);
+    color: #ff3366;
+    border: 1px solid rgba(255, 51, 102, 0.3);
+}
+
+.classification-card {
+    background: rgba(10, 14, 39, 0.7);
+    border: 2px solid rgba(255, 215, 0, 0.2);
+}
+
+.classification-result {
+    margin-bottom: 15px;
+}
+
+.classification-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.classification-badge.premium {
+    background: rgba(255, 51, 102, 0.15);
+    border: 2px solid #ff3366;
+}
+
+.classification-badge.growth {
+    background: rgba(255, 149, 0, 0.15);
+    border: 2px solid #ff9500;
+}
+
+.classification-badge.value {
+    background: rgba(0, 255, 136, 0.15);
+    border: 2px solid #00ff88;
+}
+
+.classification-badge.fair {
+    background: rgba(255, 215, 0, 0.15);
+    border: 2px solid #ffd700;
+}
+
+.classification-badge .icon {
+    font-size: 2rem;
+}
+
+.classification-badge .text {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #e0e6ed;
+}
+
+.classification-desc {
+    color: #a8b2d1;
+    font-size: 0.85rem;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.sector-context {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 215, 0, 0.1);
+}
+
+.sector-context .label {
+    color: #6b7a99;
+    font-size: 0.85rem;
+}
+
+.sector-context .value {
+    color: #ffd700;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.multiples-tips {
+    background: rgba(0, 255, 136, 0.05);
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.multiples-tips h4 {
+    color: #00ff88;
+    font-size: 0.95rem;
+    margin-bottom: 15px;
+}
+
+.tips-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.tip-item {
+    color: #a8b2d1;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.tip-item strong {
+    color: #00ff88;
+    display: block;
+    margin-bottom: 5px;
 }
 
 /* Search Input */

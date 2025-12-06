@@ -45,17 +45,24 @@ class StockForecaster:
         self.profit_margin = stock_data.get('profit_margin', 0) or 0
 
         # Use historical growth averages if available, otherwise fall back to single-point values
-        # Priority: 3Y CAGR > Quarterly Average > yfinance single-point value
+        # Priority: 3Y CAGR > Quarterly Average (annualized) > yfinance single-point value
         if growth_metrics:
+            # Annualize quarterly growth: (1 + quarterly_growth)^4 - 1
+            quarterly_rev = growth_metrics.get('avg_quarterly_revenue_growth')
+            quarterly_earn = growth_metrics.get('avg_quarterly_earnings_growth')
+
+            annualized_rev_growth = ((1 + quarterly_rev) ** 4 - 1) if quarterly_rev else None
+            annualized_earn_growth = ((1 + quarterly_earn) ** 4 - 1) if quarterly_earn else None
+
             self.revenue_growth = (
                 growth_metrics.get('revenue_cagr_3y') or
-                growth_metrics.get('avg_quarterly_revenue_growth') or
+                annualized_rev_growth or
                 stock_data.get('revenue_growth', 0) or 0
             )
 
             self.earnings_growth = (
                 growth_metrics.get('earnings_cagr_3y') or
-                growth_metrics.get('avg_quarterly_earnings_growth') or
+                annualized_earn_growth or
                 stock_data.get('earnings_growth', 0) or 0
             )
         else:

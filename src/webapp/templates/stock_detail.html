@@ -178,21 +178,30 @@
         <div class="metrics-grid">
             {% if growth_metrics.revenue_cagr_3y %}
             <div class="metric-item">
-                <span class="label">Revenue CAGR (3Y)</span>
+                <span class="label">
+                    Revenue CAGR (3Y)
+                    <button type="button" class="info-btn" onclick="showInfo('revenue-cagr')">i</button>
+                </span>
                 <span class="value">{{ growth_metrics.revenue_cagr_3y|format_percent }}</span>
             </div>
             {% endif %}
 
             {% if growth_metrics.earnings_cagr_3y %}
             <div class="metric-item">
-                <span class="label">Earnings CAGR (3Y)</span>
+                <span class="label">
+                    Earnings CAGR (3Y)
+                    <button type="button" class="info-btn" onclick="showInfo('earnings-cagr')">i</button>
+                </span>
                 <span class="value">{{ growth_metrics.earnings_cagr_3y|format_percent }}</span>
             </div>
             {% endif %}
 
             {% if growth_metrics.revenue_consistency_score %}
             <div class="metric-item">
-                <span class="label">Revenue Consistency</span>
+                <span class="label">
+                    Revenue Consistency
+                    <button type="button" class="info-btn" onclick="showInfo('revenue-consistency')">i</button>
+                </span>
                 <span class="value consistency-score-{{ 'high' if growth_metrics.revenue_consistency_score >= 70 else 'medium' if growth_metrics.revenue_consistency_score >= 50 else 'low' }}">
                     {{ growth_metrics.revenue_consistency_score|round(0)|int }}/100
                 </span>
@@ -201,7 +210,10 @@
 
             {% if growth_metrics.earnings_consistency_score %}
             <div class="metric-item">
-                <span class="label">Earnings Consistency</span>
+                <span class="label">
+                    Earnings Consistency
+                    <button type="button" class="info-btn" onclick="showInfo('earnings-consistency')">i</button>
+                </span>
                 <span class="value consistency-score-{{ 'high' if growth_metrics.earnings_consistency_score >= 70 else 'medium' if growth_metrics.earnings_consistency_score >= 50 else 'low' }}">
                     {{ growth_metrics.earnings_consistency_score|round(0)|int }}/100
                 </span>
@@ -210,7 +222,10 @@
 
             {% if growth_metrics.consecutive_profitable_quarters %}
             <div class="metric-item">
-                <span class="label">Profitable Quarters</span>
+                <span class="label">
+                    Profitable Quarters
+                    <button type="button" class="info-btn" onclick="showInfo('profitable-quarters')">i</button>
+                </span>
                 <span class="value">{{ growth_metrics.consecutive_profitable_quarters }} consecutive</span>
             </div>
             {% endif %}
@@ -324,6 +339,153 @@ const infoContent = {
             <li>Consider risk level in context with growth rates, profitability trends, and sector norms</li>
             <li>Use as one data point among many in your investment decision</li>
             <li>Be especially cautious with VERY HIGH or EXTREME ratings unless you have strong conviction in the company's growth story</li>
+        </ul>`
+    },
+    'revenue-cagr': {
+        title: 'Revenue CAGR (3Y)',
+        content: `<p><strong>What it is:</strong> Compound Annual Growth Rate - the year-over-year growth rate of revenue over a 3-year period.</p>
+        <p><strong>How it's calculated:</strong></p>
+        <ul>
+            <li>Uses annual financial data from the past 3 years</li>
+            <li>Formula: <code>(End Value / Start Value)^(1 / Years) - 1</code></li>
+            <li>Example: If revenue grew from $100M to $150M over 3 years:
+                <ul>
+                    <li>CAGR = ($150M / $100M)^(1/3) - 1 = 14.5%</li>
+                </ul>
+            </li>
+        </ul>
+        <p><strong>Interpretation:</strong></p>
+        <ul>
+            <li><strong>Negative:</strong> Revenue is declining - major red flag</li>
+            <li><strong>0-10%:</strong> Slow growth - mature company or struggling business</li>
+            <li><strong>10-20%:</strong> Moderate growth - healthy for established companies</li>
+            <li><strong>20-40%:</strong> High growth - strong performing growth company</li>
+            <li><strong>40%+:</strong> Very high growth - exceptional but may not be sustainable</li>
+        </ul>
+        <p><strong>Note:</strong> CAGR smooths out volatility and shows the "steady" growth rate. A company could have uneven growth year-to-year but still have a strong CAGR.</p>`
+    },
+    'earnings-cagr': {
+        title: 'Earnings CAGR (3Y)',
+        content: `<p><strong>What it is:</strong> Compound Annual Growth Rate of earnings (net income) over a 3-year period.</p>
+        <p><strong>How it's calculated:</strong></p>
+        <ul>
+            <li>Uses annual earnings data from the past 3 years</li>
+            <li>Formula: <code>(End Earnings / Start Earnings)^(1 / Years) - 1</code></li>
+            <li>Only calculated if both start and end values are positive</li>
+        </ul>
+        <p><strong>Interpretation:</strong></p>
+        <ul>
+            <li><strong>N/A:</strong> Company was unprofitable in start or end year</li>
+            <li><strong>Negative:</strong> Earnings declining - profitability deteriorating</li>
+            <li><strong>0-15%:</strong> Modest earnings growth - stable but unexciting</li>
+            <li><strong>15-30%:</strong> Strong earnings growth - expanding profitability</li>
+            <li><strong>30%+:</strong> Exceptional earnings growth - very strong performance</li>
+        </ul>
+        <p><strong>Key insights:</strong></p>
+        <ul>
+            <li>Earnings CAGR higher than revenue CAGR = improving margins (good sign)</li>
+            <li>Earnings CAGR lower than revenue CAGR = deteriorating margins (warning sign)</li>
+            <li>Highly volatile for companies near breakeven - small changes have big percentage impact</li>
+        </ul>`
+    },
+    'revenue-consistency': {
+        title: 'Revenue Consistency Score',
+        content: `<p><strong>What it is:</strong> A 0-100 score measuring how consistent and predictable revenue growth has been over recent quarters.</p>
+        <p><strong>How it's calculated:</strong> Based on quarterly data (up to 12 quarters), the score combines three factors:</p>
+        <ul>
+            <li><strong>Positive Growth Frequency (40 points):</strong>
+                <ul>
+                    <li>What percentage of quarters showed revenue growth vs. prior quarter</li>
+                    <li>Example: 8 out of 10 quarters growing = 32/40 points</li>
+                </ul>
+            </li>
+            <li><strong>Low Volatility (30 points):</strong>
+                <ul>
+                    <li>Inverse of coefficient of variation (standard deviation / mean)</li>
+                    <li>Rewards steady, predictable growth rates</li>
+                    <li>Penalizes erratic, unpredictable quarter-to-quarter changes</li>
+                </ul>
+            </li>
+            <li><strong>Positive Average Growth (30 points):</strong>
+                <ul>
+                    <li>Full 30 points if average quarter-over-quarter growth is positive</li>
+                    <li>0 points if average growth is negative or zero</li>
+                </ul>
+            </li>
+        </ul>
+        <p><strong>Score interpretation:</strong></p>
+        <ul>
+            <li><strong>70-100 (High):</strong> Very consistent revenue growth - predictable business model</li>
+            <li><strong>50-69 (Medium):</strong> Moderately consistent - some volatility but overall growing</li>
+            <li><strong>0-49 (Low):</strong> Inconsistent revenue - unpredictable or declining</li>
+        </ul>
+        <p><strong>Investment considerations:</strong></p>
+        <ul>
+            <li>Higher consistency = lower risk, easier to forecast future performance</li>
+            <li>Lower consistency may indicate cyclical business, execution challenges, or market volatility</li>
+            <li>Some great companies have lower scores due to seasonality or lumpy business models</li>
+        </ul>`
+    },
+    'earnings-consistency': {
+        title: 'Earnings Consistency Score',
+        content: `<p><strong>What it is:</strong> A 0-100 score measuring how consistent and reliable quarterly earnings have been.</p>
+        <p><strong>How it's calculated:</strong> Same methodology as Revenue Consistency but applied to quarterly earnings:</p>
+        <ul>
+            <li><strong>Positive Growth Frequency (40 points):</strong> Percentage of quarters with earnings growth</li>
+            <li><strong>Low Volatility (30 points):</strong> Reward for steady, predictable earnings growth rates</li>
+            <li><strong>Positive Average Growth (30 points):</strong> Bonus if average quarterly growth is positive</li>
+        </ul>
+        <p><strong>Score interpretation:</strong></p>
+        <ul>
+            <li><strong>70-100 (High):</strong> Very consistent earnings - high-quality earnings stream</li>
+            <li><strong>50-69 (Medium):</strong> Moderately consistent - some volatility but trending positive</li>
+            <li><strong>0-49 (Low):</strong> Inconsistent earnings - unpredictable profitability</li>
+        </ul>
+        <p><strong>Why it matters:</strong></p>
+        <ul>
+            <li>More important than revenue consistency for mature companies</li>
+            <li>High scores suggest good management execution and pricing power</li>
+            <li>Low scores may indicate:
+                <ul>
+                    <li>Margin pressure or competitive challenges</li>
+                    <li>Cost structure issues</li>
+                    <li>Cyclical business model</li>
+                    <li>One-time charges or accounting adjustments</li>
+                </ul>
+            </li>
+            <li>For growth companies, low scores are common and not necessarily bad - focus on revenue consistency instead</li>
+        </ul>`
+    },
+    'profitable-quarters': {
+        title: 'Consecutive Profitable Quarters',
+        content: `<p><strong>What it is:</strong> The number of consecutive quarters with positive net income, counting backwards from the most recent quarter.</p>
+        <p><strong>How it's calculated:</strong></p>
+        <ul>
+            <li>Start from the most recent quarter</li>
+            <li>Count backwards until finding a quarter with negative or zero earnings</li>
+            <li>Example: If Q1 2024 was profitable, Q4 2023 was profitable, Q3 2023 was profitable, but Q2 2023 was a loss, the count would be 3</li>
+        </ul>
+        <p><strong>Interpretation:</strong></p>
+        <ul>
+            <li><strong>0 quarters:</strong> Currently unprofitable - may be early-stage or struggling</li>
+            <li><strong>1-4 quarters:</strong> Newly profitable - watch to see if it's sustainable</li>
+            <li><strong>4-8 quarters (1-2 years):</strong> Establishing profitability - positive trend</li>
+            <li><strong>8-12 quarters (2-3 years):</strong> Proven profitability - reliable earnings</li>
+            <li><strong>12+ quarters (3+ years):</strong> Consistently profitable - mature business model</li>
+        </ul>
+        <p><strong>Investment considerations:</strong></p>
+        <ul>
+            <li>For growth stocks: Even a few profitable quarters is a major milestone - shows path to sustainable business</li>
+            <li>For mature stocks: Breaking a long streak is a red flag - investigate what changed</li>
+            <li>Context matters: Some seasonal businesses have natural quarterly losses (not a concern)</li>
+            <li>Quality of earnings matters more than the count - are earnings real cash or accounting adjustments?</li>
+        </ul>
+        <p><strong>What can break the streak:</strong></p>
+        <ul>
+            <li>Economic recession or industry downturn</li>
+            <li>One-time restructuring or acquisition costs</li>
+            <li>Major strategic investments for future growth</li>
+            <li>Deteriorating business fundamentals</li>
         </ul>`
     }
 };

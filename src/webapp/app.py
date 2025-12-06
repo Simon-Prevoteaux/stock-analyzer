@@ -286,11 +286,15 @@ def comparison():
     available_stocks = stocks_df['ticker'].tolist() if not stocks_df.empty else []
 
     stocks = []
+    growth_metrics_list = []
     if tickers:
         for ticker in tickers:
             stock = db.get_stock(ticker)
             if stock:
                 stocks.append(stock)
+                # Fetch growth metrics for each stock
+                growth_metrics = db.get_growth_metrics(ticker)
+                growth_metrics_list.append(growth_metrics if growth_metrics else {})
 
     # Get watchlist for suggestions
     watchlist_df = db.get_watchlist()
@@ -330,7 +334,7 @@ def comparison():
         }
     }
 
-    return render_template('comparison.html', stocks=stocks, suggestions=suggestions, available_stocks=available_stocks)
+    return render_template('comparison.html', stocks=stocks, growth_metrics_list=growth_metrics_list, suggestions=suggestions, available_stocks=available_stocks)
 
 
 @app.route('/watchlist')
@@ -605,18 +609,22 @@ def forecast():
                 'value': growth_metrics.get('earnings_cagr_3y')
             })
 
-        # Add quarterly average if available
+        # Add quarterly average if available (annualized)
         if growth_metrics and growth_metrics.get('avg_quarterly_revenue_growth'):
+            quarterly_rev = growth_metrics.get('avg_quarterly_revenue_growth')
+            annualized_rev = ((1 + quarterly_rev) ** 4 - 1) if quarterly_rev else 0
             revenue_sources.append({
                 'key': 'quarterly_avg',
-                'label': 'Quarterly Average (Recent Trend)',
-                'value': growth_metrics.get('avg_quarterly_revenue_growth')
+                'label': 'Quarterly Average - Annualized (Recent Trend)',
+                'value': annualized_rev
             })
         if growth_metrics and growth_metrics.get('avg_quarterly_earnings_growth'):
+            quarterly_earn = growth_metrics.get('avg_quarterly_earnings_growth')
+            annualized_earn = ((1 + quarterly_earn) ** 4 - 1) if quarterly_earn else 0
             earnings_sources.append({
                 'key': 'quarterly_avg',
-                'label': 'Quarterly Average (Recent Trend)',
-                'value': growth_metrics.get('avg_quarterly_earnings_growth')
+                'label': 'Quarterly Average - Annualized (Recent Trend)',
+                'value': annualized_earn
             })
 
         # Always add yfinance single-point as fallback
@@ -655,6 +663,74 @@ def forecast():
                            results=forecast_results,
                            growth_rate_info=growth_rate_info,
                            error=error)
+
+
+@app.route('/api/forecast', methods=['GET'])
+def api_forecast():
+    """API endpoint for AJAX forecast updates"""
+    ticker = request.args.get('ticker', '').upper()
+
+    if not ticker:
+        return jsonify({'error': 'Ticker required'}), 400
+
+    stock_data = db.get_stock(ticker)
+    if not stock_data:
+        return jsonify({'error': f'Stock {ticker} not found'}), 404
+
+    # Get parameters from request
+    years = int(request.args.get('years', 5))
+    earnings_growth = float(request.args.get('earnings_growth', 0.15))
+    terminal_pe = float(request.args.get('terminal_pe', 20))
+    revenue_growth = float(request.args.get('revenue_growth', 0.20))
+    terminal_ps = float(request.args.get('terminal_ps', 5))
+    fcf_growth = float(request.args.get('fcf_growth', 0.10))
+    discount_rate = float(request.args.get('discount_rate', 0.10))
+    volatility = float(request.args.get('volatility', 0.30))
+
+    # Get growth metrics for historical data
+    growth_metrics = db.get_growth_metrics(ticker)
+
+    # Create forecaster
+    forecaster = StockForecaster(stock_data, growth_metrics)
+
+    # Growth decay
+    growth_decay = 0.1 if earnings_growth > 0.2 else 0.05
+    rev_growth_decay = 0.1 if revenue_growth > 0.25 else 0.05
+    terminal_growth = 0.03
+    simulations = 10000
+
+    # Calculate all models
+    results = {
+        "ticker": ticker,
+        "current_price": stock_data.get('current_price', 0),
+        "company_name": stock_data.get('company_name', 'N/A'),
+        "earnings_model": forecaster.earnings_growth_model(
+            growth_rate=earnings_growth,
+            growth_decay=growth_decay,
+            terminal_pe=terminal_pe,
+            years=years
+        ),
+        "revenue_model": forecaster.revenue_growth_model(
+            growth_rate=revenue_growth,
+            growth_decay=rev_growth_decay,
+            terminal_ps=terminal_ps,
+            years=years
+        ),
+        "dcf_model": forecaster.dcf_model(
+            fcf_growth=fcf_growth,
+            discount_rate=discount_rate,
+            terminal_growth=terminal_growth,
+            years=years
+        ),
+        "monte_carlo": forecaster.monte_carlo_simulation(
+            volatility=volatility,
+            years=years,
+            simulations=simulations
+        ),
+        "scenarios": forecaster.scenario_analysis(years=years)
+    }
+
+    return jsonify(results)
 
 
 @app.template_filter('format_number')
