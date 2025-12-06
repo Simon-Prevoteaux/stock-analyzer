@@ -733,6 +733,118 @@ def api_forecast():
     return jsonify(results)
 
 
+@app.route('/upside')
+def upside_calculator():
+    """Upside calculator - see potential upside to target market cap"""
+    # Get all stocks for analysis
+    stocks_df = db.get_all_stocks()
+
+    # Get target market cap from query params (in billions)
+    target_market_cap_b = request.args.get('target', 1000, type=float)
+    target_market_cap = target_market_cap_b * 1_000_000_000  # Convert to actual value
+
+    # Calculate upside for each stock
+    stocks_with_upside = []
+    if not stocks_df.empty:
+        for _, stock in stocks_df.iterrows():
+            current_mc = stock.get('market_cap', 0)
+            if current_mc and current_mc > 0:
+                upside_multiple = target_market_cap / current_mc
+                upside_percent = (upside_multiple - 1) * 100
+                target_price = stock.get('current_price', 0) * upside_multiple
+
+                stocks_with_upside.append({
+                    'ticker': stock['ticker'],
+                    'company_name': stock.get('company_name', 'N/A'),
+                    'current_market_cap': current_mc,
+                    'current_price': stock.get('current_price', 0),
+                    'target_market_cap': target_market_cap,
+                    'upside_multiple': upside_multiple,
+                    'upside_percent': upside_percent,
+                    'target_price': target_price,
+                    'sector': stock.get('sector', 'N/A')
+                })
+
+    # Sort by upside percent (highest first)
+    stocks_with_upside.sort(key=lambda x: x['upside_percent'], reverse=True)
+
+    # Get growth metrics for reverse calculation
+    growth_data = []
+    for stock in stocks_with_upside[:20]:  # Top 20 for performance
+        growth_metrics = db.get_growth_metrics(stock['ticker'])
+        if growth_metrics:
+            growth_data.append({
+                'ticker': stock['ticker'],
+                'revenue_cagr_3y': growth_metrics.get('revenue_cagr_3y', 0),
+                'earnings_cagr_3y': growth_metrics.get('earnings_cagr_3y', 0)
+            })
+
+    return render_template('upside_calculator.html',
+                          stocks=stocks_with_upside,
+                          target_market_cap_b=target_market_cap_b,
+                          growth_data=growth_data)
+
+
+@app.route('/api/calculate-required-growth', methods=['GET'])
+def calculate_required_growth():
+    """Calculate what growth rate is needed to reach target market cap in X years"""
+    ticker = request.args.get('ticker', '').upper()
+    target_mc = float(request.args.get('target_mc', 0))
+    years = int(request.args.get('years', 5))
+
+    stock = db.get_stock(ticker)
+    if not stock:
+        return jsonify({'error': 'Stock not found'}), 404
+
+    current_mc = stock.get('market_cap', 0)
+    if current_mc <= 0:
+        return jsonify({'error': 'Invalid market cap'}), 400
+
+    # Calculate required CAGR: (target/current)^(1/years) - 1
+    required_growth = ((target_mc / current_mc) ** (1 / years)) - 1
+
+    # Get historical growth for comparison
+    growth_metrics = db.get_growth_metrics(ticker)
+
+    # Handle None values - default to 0
+    historical_revenue_growth = growth_metrics.get('revenue_cagr_3y') if growth_metrics else None
+    historical_earnings_growth = growth_metrics.get('earnings_cagr_3y') if growth_metrics else None
+
+    # Convert None to 0 for calculations
+    revenue_growth_val = historical_revenue_growth if historical_revenue_growth is not None else 0
+    earnings_growth_val = historical_earnings_growth if historical_earnings_growth is not None else 0
+
+    # Calculate year-by-year progression
+    progression = []
+    for year in range(1, years + 1):
+        projected_mc = current_mc * ((1 + required_growth) ** year)
+        projected_price = stock.get('current_price', 0) * (projected_mc / current_mc)
+        progression.append({
+            'year': year,
+            'market_cap': projected_mc,
+            'price': projected_price
+        })
+
+    # Determine feasibility based on historical growth
+    is_feasible = None
+    if growth_metrics and (revenue_growth_val > 0 or earnings_growth_val > 0):
+        max_historical_growth = max(revenue_growth_val, earnings_growth_val)
+        is_feasible = required_growth <= max_historical_growth * 1.5
+
+    return jsonify({
+        'ticker': ticker,
+        'company_name': stock.get('company_name', 'N/A'),
+        'current_market_cap': current_mc,
+        'target_market_cap': target_mc,
+        'years': years,
+        'required_cagr': required_growth,
+        'historical_revenue_cagr': revenue_growth_val if revenue_growth_val > 0 else None,
+        'historical_earnings_cagr': earnings_growth_val if earnings_growth_val > 0 else None,
+        'is_feasible': is_feasible,
+        'progression': progression
+    })
+
+
 @app.template_filter('format_number')
 def format_number(value):
     """Format large numbers"""

@@ -934,3 +934,389 @@ footer {
         height: 250px;
     }
 }
+
+/* Upside Calculator Styles */
+.page-header {
+    margin-bottom: 30px;
+}
+
+.page-header h2 {
+    color: #00ff88;
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.card {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    margin-bottom: 20px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.card h3 {
+    color: #00ff88;
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid rgba(0, 255, 136, 0.3);
+    padding-bottom: 10px;
+}
+
+.upside-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.upside-form .form-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.target-input {
+    max-width: 200px;
+}
+
+.quick-targets {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.quick-targets span {
+    color: #a8b2d1;
+    font-weight: 600;
+}
+
+.upside-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+}
+
+.stock-list-panel {
+    min-width: 0;
+}
+
+.details-panel {
+    min-width: 0;
+}
+
+.info-text {
+    color: #a8b2d1;
+    margin-bottom: 15px;
+    font-size: 0.95rem;
+}
+
+.stock-row {
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.stock-row:hover {
+    background: rgba(0, 255, 136, 0.1);
+}
+
+.stock-row.selected {
+    background: rgba(0, 255, 136, 0.15);
+    border-left: 3px solid #00ff88;
+}
+
+.company-name {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+}
+
+.upside-cell {
+    text-align: center;
+}
+
+.upside-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.upside-badge.moderate {
+    background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+    color: #0a0e27;
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.3);
+}
+
+.upside-badge.high {
+    background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+    color: #0a0e27;
+    box-shadow: 0 2px 10px rgba(255, 215, 0, 0.3);
+}
+
+.upside-badge.very-high {
+    background: linear-gradient(135deg, #ff9933 0%, #ff6600 100%);
+    color: white;
+    box-shadow: 0 2px 10px rgba(255, 153, 51, 0.3);
+}
+
+.upside-badge.extreme {
+    background: linear-gradient(135deg, #ff3366 0%, #cc0033 100%);
+    color: white;
+    box-shadow: 0 2px 10px rgba(255, 51, 102, 0.3);
+    animation: pulse 2s infinite;
+}
+
+.btn-select {
+    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.btn-select:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4);
+}
+
+.stock-details {
+    background: rgba(10, 14, 39, 0.4);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row .label {
+    color: #a8b2d1;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+.detail-row .highlight {
+    color: #ffd700;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.detail-row .highlight-green {
+    color: #00ff88;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.growth-calculator {
+    margin-top: 15px;
+}
+
+.input-sm {
+    max-width: 120px;
+    padding: 8px 12px;
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 6px;
+    background: rgba(10, 14, 39, 0.6);
+    color: #e0e6ed;
+    font-size: 0.95rem;
+}
+
+.input-sm:focus {
+    outline: none;
+    border-color: #00ff88;
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+}
+
+.growth-results {
+    margin-top: 25px;
+}
+
+.result-box {
+    background: rgba(0, 255, 136, 0.1);
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #00ff88;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.result-box h4 {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.big-number {
+    color: #00ff88;
+    font-size: 3rem;
+    font-weight: 700;
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+}
+
+.comparison-section {
+    background: rgba(10, 14, 39, 0.4);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.comparison-section h4 {
+    color: #ffd700;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.comparison-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background: rgba(0, 255, 136, 0.05);
+    border-radius: 6px;
+    border: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.comparison-item .label {
+    color: #a8b2d1;
+    font-size: 0.85rem;
+}
+
+.comparison-item .value {
+    color: #00ff88;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.comparison-item.feasibility .value.feasible {
+    color: #00ff88;
+}
+
+.comparison-item.feasibility .value.ambitious {
+    color: #ff9933;
+}
+
+.progression-section {
+    background: rgba(10, 14, 39, 0.4);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.progression-section h4 {
+    color: #ffd700;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: #a8b2d1;
+    font-size: 1.1rem;
+}
+
+/* Upside Table Container - Scrollable */
+.upside-layout .stock-list-panel .table-container {
+    max-height: 600px;
+    overflow-y: auto;
+    position: relative;
+    border-radius: 8px;
+}
+
+/* Sticky table header for upside calculator */
+.upside-layout .stock-list-panel .sortable-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: linear-gradient(135deg, #0a0e27 0%, #1a1d2e 100%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Ensure thead stays on top */
+.upside-layout .stock-list-panel .sortable-table thead th {
+    background: linear-gradient(135deg, #0a0e27 0%, #1a1d2e 100%);
+}
+
+/* Custom scrollbar for upside table */
+.upside-layout .stock-list-panel .table-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.upside-layout .stock-list-panel .table-container::-webkit-scrollbar-track {
+    background: rgba(10, 14, 39, 0.6);
+    border-radius: 4px;
+}
+
+.upside-layout .stock-list-panel .table-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+    border-radius: 4px;
+}
+
+.upside-layout .stock-list-panel .table-container::-webkit-scrollbar-thumb:hover {
+    background: #00ff88;
+}
+
+/* Responsive Upside Calculator */
+@media (max-width: 1200px) {
+    .upside-layout {
+        grid-template-columns: 1fr;
+    }
+
+    /* Adjust height for single column layout */
+    .upside-layout .stock-list-panel .table-container {
+        max-height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .upside-form .form-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .target-input {
+        max-width: 100%;
+    }
+
+    .quick-targets {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .quick-targets button {
+        width: 100%;
+    }
+
+    .comparison-grid {
+        grid-template-columns: 1fr;
+    }
+}
