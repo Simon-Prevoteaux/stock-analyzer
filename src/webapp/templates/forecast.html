@@ -119,70 +119,32 @@
     </div>
 </div>
 
-<!-- Parameter Controls -->
-<div class="parameters-section">
-    <h2>Adjust Parameters <button type="button" class="info-btn" onclick="showInfo('params-general')">i</button></h2>
-    <p class="subtitle">Modify assumptions to see how they affect the forecast</p>
-
-    <form method="GET" id="forecast-form">
-        <input type="hidden" name="ticker" value="{{ selected_ticker }}">
-
-        <div class="params-grid">
-            <div class="param-group">
-                <h4>General</h4>
-                <div class="param-item">
-                    <label for="years">Forecast Years: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('forecast-years')">i</button></label>
-                    <input type="range" id="years" name="years" min="1" max="10" value="{{ request.args.get('years', 5) }}" oninput="updateLabel('years', this.value)">
-                    <span id="years-label">{{ request.args.get('years', 5) }} years</span>
-                </div>
-            </div>
-
-            <div class="param-group">
-                <h4>Earnings Model <button type="button" class="info-btn info-btn-sm" onclick="showInfo('earnings-model')">i</button></h4>
-                <div class="param-item">
-                    <label for="earnings_growth">EPS Growth Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('eps-growth')">i</button></label>
-                    <input type="range" id="earnings_growth" name="earnings_growth" min="0" max="0.5" step="0.01" value="{{ request.args.get('earnings_growth', results.earnings_model.details.get('initial_growth_rate', 15) / 100) }}" oninput="updatePercent('earnings_growth', this.value)">
-                    <span id="earnings_growth-label">{{ "%.0f"|format((request.args.get('earnings_growth', results.earnings_model.details.get('initial_growth_rate', 15) / 100)|float) * 100) }}%</span>
-                </div>
-                <div class="param-item">
-                    <label for="terminal_pe">Terminal P/E: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('terminal-pe')">i</button></label>
-                    <input type="range" id="terminal_pe" name="terminal_pe" min="5" max="50" step="1" value="{{ request.args.get('terminal_pe', results.earnings_model.details.get('terminal_pe', 20)) }}" oninput="updateLabel('terminal_pe', this.value + 'x')">
-                    <span id="terminal_pe-label">{{ request.args.get('terminal_pe', results.earnings_model.details.get('terminal_pe', 20)) }}x</span>
-                </div>
-            </div>
-
-            <div class="param-group">
-                <h4>DCF Model <button type="button" class="info-btn info-btn-sm" onclick="showInfo('dcf-model')">i</button></h4>
-                <div class="param-item">
-                    <label for="fcf_growth">FCF Growth: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('fcf-growth')">i</button></label>
-                    <input type="range" id="fcf_growth" name="fcf_growth" min="0" max="0.3" step="0.01" value="{{ request.args.get('fcf_growth', 0.10) }}" oninput="updatePercent('fcf_growth', this.value)">
-                    <span id="fcf_growth-label">{{ "%.0f"|format((request.args.get('fcf_growth', 0.10)|float) * 100) }}%</span>
-                </div>
-                <div class="param-item">
-                    <label for="discount_rate">Discount Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('discount-rate')">i</button></label>
-                    <input type="range" id="discount_rate" name="discount_rate" min="0.05" max="0.20" step="0.01" value="{{ request.args.get('discount_rate', 0.10) }}" oninput="updatePercent('discount_rate', this.value)">
-                    <span id="discount_rate-label">{{ "%.0f"|format((request.args.get('discount_rate', 0.10)|float) * 100) }}%</span>
-                </div>
-            </div>
-
-            <div class="param-group">
-                <h4>Monte Carlo <button type="button" class="info-btn info-btn-sm" onclick="showInfo('monte-carlo')">i</button></h4>
-                <div class="param-item">
-                    <label for="volatility">Volatility: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('volatility')">i</button></label>
-                    <input type="range" id="volatility" name="volatility" min="0.1" max="0.8" step="0.05" value="{{ request.args.get('volatility', 0.30) }}" oninput="updatePercent('volatility', this.value)">
-                    <span id="volatility-label">{{ "%.0f"|format((request.args.get('volatility', 0.30)|float) * 100) }}%</span>
-                </div>
-            </div>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Update Forecast</button>
-    </form>
-</div>
+<!-- Hidden form to maintain state -->
+<form method="GET" id="forecast-form" style="display: none;">
+    <input type="hidden" name="ticker" id="form-ticker" value="{{ selected_ticker }}">
+    <input type="hidden" name="years" id="form-years" value="{{ request.args.get('years', 5) }}">
+    <input type="hidden" name="earnings_growth" id="form-earnings_growth" value="{{ request.args.get('earnings_growth', results.earnings_model.details.get('initial_growth_rate', 15) / 100 if results else 0.15) }}">
+    <input type="hidden" name="terminal_pe" id="form-terminal_pe" value="{{ request.args.get('terminal_pe', results.earnings_model.details.get('terminal_pe', 20) if results else 20) }}">
+    <input type="hidden" name="revenue_growth" id="form-revenue_growth" value="{{ request.args.get('revenue_growth', results.revenue_model.details.get('initial_growth_rate', 20) / 100 if results else 0.20) }}">
+    <input type="hidden" name="terminal_ps" id="form-terminal_ps" value="{{ request.args.get('terminal_ps', results.revenue_model.details.get('terminal_ps', 5) if results else 5) }}">
+    <input type="hidden" name="fcf_growth" id="form-fcf_growth" value="{{ request.args.get('fcf_growth', 0.10) }}">
+    <input type="hidden" name="discount_rate" id="form-discount_rate" value="{{ request.args.get('discount_rate', 0.10) }}">
+    <input type="hidden" name="volatility" id="form-volatility" value="{{ request.args.get('volatility', 0.30) }}">
+</form>
 
 <!-- Scenario Analysis -->
 <div class="forecast-section scenarios-section">
-    <h2>Scenario Analysis <button type="button" class="info-btn" onclick="showInfo('scenario-analysis')">i</button></h2>
-    <p class="subtitle">Bull, Base, and Bear case projections for {{ results.scenarios.years }} years</p>
+    <div class="scenarios-header">
+        <div>
+            <h2>Scenario Analysis <button type="button" class="info-btn" onclick="showInfo('scenario-analysis')">i</button></h2>
+            <p class="subtitle">Bull, Base, and Bear case projections</p>
+        </div>
+        <div class="param-item">
+            <label for="years">Forecast Years: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('forecast-years')">i</button></label>
+            <input type="range" id="years" name="years" min="1" max="10" value="{{ request.args.get('years', 5) }}" oninput="updateParam('years', this.value, this.value + ' years')">
+            <span id="years-label">{{ request.args.get('years', 5) }} years</span>
+        </div>
+    </div>
 
     <div class="scenarios-grid">
         {% for scenario_name, scenario in results.scenarios.scenarios.items() %}
@@ -223,6 +185,22 @@
                 {{ "%.1f"|format(results.earnings_model.annual_return) }}% annual return
             </div>
         </div>
+
+        <div class="model-params">
+            <h4>Adjust Parameters</h4>
+            <div class="param-item">
+                <label for="earnings_growth">EPS Growth Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('eps-growth')">i</button></label>
+                <input type="range" id="earnings_growth" name="earnings_growth" min="0" max="0.5" step="0.01" value="{{ request.args.get('earnings_growth', results.earnings_model.details.get('initial_growth_rate', 15) / 100) }}" oninput="updateParam('earnings_growth', this.value, Math.round(this.value * 100) + '%')">
+                <span id="earnings_growth-label">{{ "%.0f"|format((request.args.get('earnings_growth', results.earnings_model.details.get('initial_growth_rate', 15) / 100)|float) * 100) }}%</span>
+            </div>
+            <div class="param-item">
+                <label for="terminal_pe">Terminal P/E: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('terminal-pe')">i</button></label>
+                <input type="range" id="terminal_pe" name="terminal_pe" min="5" max="50" step="1" value="{{ request.args.get('terminal_pe', results.earnings_model.details.get('terminal_pe', 20)) }}" oninput="updateParam('terminal_pe', this.value, this.value + 'x')">
+                <span id="terminal_pe-label">{{ request.args.get('terminal_pe', results.earnings_model.details.get('terminal_pe', 20)) }}x</span>
+            </div>
+            <button type="button" class="btn-update" onclick="submitForecastForm()">Update</button>
+        </div>
+
         <div class="model-details">
             <table>
                 <tr><td>Starting EPS</td><td>${{ results.earnings_model.details.starting_eps }}</td></tr>
@@ -250,6 +228,22 @@
                 {{ "%.1f"|format(results.revenue_model.annual_return) }}% annual return
             </div>
         </div>
+
+        <div class="model-params">
+            <h4>Adjust Parameters</h4>
+            <div class="param-item">
+                <label for="revenue_growth">Revenue Growth Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('eps-growth')">i</button></label>
+                <input type="range" id="revenue_growth" name="revenue_growth" min="0" max="0.5" step="0.01" value="{{ request.args.get('revenue_growth', results.revenue_model.details.get('initial_growth_rate', 20) / 100) }}" oninput="updateParam('revenue_growth', this.value, Math.round(this.value * 100) + '%')">
+                <span id="revenue_growth-label">{{ "%.0f"|format((request.args.get('revenue_growth', results.revenue_model.details.get('initial_growth_rate', 20) / 100)|float) * 100) }}%</span>
+            </div>
+            <div class="param-item">
+                <label for="terminal_ps">Terminal P/S: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('terminal-pe')">i</button></label>
+                <input type="range" id="terminal_ps" name="terminal_ps" min="1" max="20" step="0.5" value="{{ request.args.get('terminal_ps', results.revenue_model.details.get('terminal_ps', 5)) }}" oninput="updateParam('terminal_ps', this.value, this.value + 'x')">
+                <span id="terminal_ps-label">{{ request.args.get('terminal_ps', results.revenue_model.details.get('terminal_ps', 5)) }}x</span>
+            </div>
+            <button type="button" class="btn-update" onclick="submitForecastForm()">Update</button>
+        </div>
+
         <div class="model-details">
             <table>
                 <tr><td>Starting Revenue</td><td>{{ results.revenue_model.details.starting_revenue|format_number }}</td></tr>
@@ -277,6 +271,22 @@
                 {{ "%.1f"|format(results.dcf_model.annual_return) }}% annual return
             </div>
         </div>
+
+        <div class="model-params">
+            <h4>Adjust Parameters</h4>
+            <div class="param-item">
+                <label for="fcf_growth">FCF Growth: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('fcf-growth')">i</button></label>
+                <input type="range" id="fcf_growth" name="fcf_growth" min="0" max="0.3" step="0.01" value="{{ request.args.get('fcf_growth', 0.10) }}" oninput="updateParam('fcf_growth', this.value, Math.round(this.value * 100) + '%')">
+                <span id="fcf_growth-label">{{ "%.0f"|format((request.args.get('fcf_growth', 0.10)|float) * 100) }}%</span>
+            </div>
+            <div class="param-item">
+                <label for="discount_rate">Discount Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('discount-rate')">i</button></label>
+                <input type="range" id="discount_rate" name="discount_rate" min="0.05" max="0.20" step="0.01" value="{{ request.args.get('discount_rate', 0.10) }}" oninput="updateParam('discount_rate', this.value, Math.round(this.value * 100) + '%')">
+                <span id="discount_rate-label">{{ "%.0f"|format((request.args.get('discount_rate', 0.10)|float) * 100) }}%</span>
+            </div>
+            <button type="button" class="btn-update" onclick="submitForecastForm()">Update</button>
+        </div>
+
         <div class="model-details">
             <table>
                 <tr><td>Base FCF</td><td>${{ results.dcf_model.details.base_fcf }}B</td></tr>
@@ -303,6 +313,16 @@
             <div class="simulation-info">
                 {{ results.monte_carlo.simulations }} simulations
             </div>
+        </div>
+
+        <div class="model-params">
+            <h4>Adjust Parameters</h4>
+            <div class="param-item">
+                <label for="volatility">Volatility: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('volatility')">i</button></label>
+                <input type="range" id="volatility" name="volatility" min="0.1" max="0.8" step="0.05" value="{{ request.args.get('volatility', 0.30) }}" oninput="updateParam('volatility', this.value, Math.round(this.value * 100) + '%')">
+                <span id="volatility-label">{{ "%.0f"|format((request.args.get('volatility', 0.30)|float) * 100) }}%</span>
+            </div>
+            <button type="button" class="btn-update" onclick="submitForecastForm()">Update</button>
         </div>
 
         <div class="percentiles">
@@ -400,12 +420,15 @@
 </div>
 
 <script>
-function updateLabel(id, value) {
-    document.getElementById(id + '-label').textContent = value;
+function updateParam(name, value, labelText) {
+    // Update the label
+    document.getElementById(name + '-label').textContent = labelText;
+    // Update the hidden form field
+    document.getElementById('form-' + name).value = value;
 }
 
-function updatePercent(id, value) {
-    document.getElementById(id + '-label').textContent = Math.round(value * 100) + '%';
+function submitForecastForm() {
+    document.getElementById('forecast-form').submit();
 }
 
 const infoContent = {
@@ -692,42 +715,7 @@ document.addEventListener('keydown', function(e) {
     font-family: 'Courier New', monospace;
 }
 
-/* Parameters Section */
-.parameters-section {
-    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
-    padding: 30px;
-    border-radius: 12px;
-    margin-bottom: 30px;
-    border: 1px solid rgba(0, 255, 136, 0.2);
-}
-
-.parameters-section h2 {
-    color: #00ff88;
-    margin-bottom: 10px;
-}
-
-.params-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 25px;
-    margin-bottom: 25px;
-}
-
-.param-group {
-    background: rgba(10, 14, 39, 0.4);
-    padding: 20px;
-    border-radius: 8px;
-    border: 1px solid rgba(0, 255, 136, 0.1);
-}
-
-.param-group h4 {
-    color: #00ff88;
-    margin-bottom: 15px;
-    font-size: 0.95rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
+/* Generic Parameter Item Styles */
 .param-item {
     margin-bottom: 15px;
 }
@@ -773,6 +761,19 @@ document.addEventListener('keydown', function(e) {
     border-radius: 12px;
     margin-bottom: 30px;
     border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.scenarios-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 30px;
+}
+
+.scenarios-header .param-item {
+    min-width: 200px;
+    margin: 0;
 }
 
 .scenarios-section h2 {
@@ -925,6 +926,48 @@ document.addEventListener('keydown', function(e) {
     padding: 20px;
 }
 
+/* Model Parameters */
+.model-params {
+    background: rgba(10, 14, 39, 0.4);
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 255, 136, 0.1);
+    margin-bottom: 20px;
+}
+
+.model-params h4 {
+    color: #00ff88;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.model-params .param-item:last-of-type {
+    margin-bottom: 20px;
+}
+
+.btn-update {
+    width: 100%;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+    color: #0a0e27;
+    border: none;
+    border-radius: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.9rem;
+}
+
+.btn-update:hover {
+    background: linear-gradient(135deg, #00cc6a 0%, #00ff88 100%);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+    transform: translateY(-2px);
+}
+
 /* Monte Carlo Specific */
 .percentiles {
     margin: 20px 0;
@@ -1054,6 +1097,16 @@ document.addEventListener('keydown', function(e) {
 @media (max-width: 768px) {
     .scenarios-grid {
         grid-template-columns: 1fr;
+    }
+
+    .scenarios-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 20px;
+    }
+
+    .scenarios-header .param-item {
+        width: 100%;
     }
 
     .summary-grid {
