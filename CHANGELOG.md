@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2025-12-07
+
+### Added
+- **Upside Calculator**: New dedicated page for calculating potential upside to target market caps
+  - Set custom target market cap (with quick buttons for $10B, $100B, $500B, $1T, $2T, $5T)
+  - View all stocks ranked by upside potential to the target
+  - Interactive selection to view detailed stock information
+  - Visual market cap progression chart (current vs target)
+  - Required growth calculator: Calculate what annual growth rate (CAGR) is needed to reach target over a specified timeframe
+  - Historical growth comparison: Compare required growth against historical revenue/earnings CAGR
+  - Feasibility assessment: Determines if the target is "Achievable" or "Ambitious" based on historical performance
+  - Year-by-year progression visualization showing projected market cap and stock price growth path
+  - Real-time calculations and dual-axis charts (market cap + stock price)
+- **Stock Analysis Dropdown Menu**: Improved navigation with organized analysis tools
+  - Added dropdown menu in navigation bar for "Stock Analysis" section
+  - Grouped related analysis pages: Screener, Compare, Forecast, Upside, Value Plays, Bubble Territory
+  - Cleaner navigation with better discoverability of features
+  - Hover-activated dropdown with smooth animations
+
+### Changed
+- **Code Organization**: Centralized CSS and JavaScript for better maintainability
+  - Moved inline CSS to centralized stylesheets in `src/webapp/static/css/`:
+    - `search.css`: Search component styles (quick search, autocomplete, chips)
+    - `modal.css`: Modal component styles (info modals, section headers)
+  - Moved inline JavaScript to centralized files in `src/webapp/static/js/`:
+    - `search.js`: Stock search functionality (autocomplete, keyboard navigation)
+    - `comparison.js`: Stock comparison logic (multi-select, chip management)
+    - `upside-calculator.js`: Upside calculator functionality (charts, growth calculations)
+    - `modal.js`: Info modal functionality (metric explanations, tooltips)
+  - Updated templates to use centralized files:
+    - `screener.html`: Removed ~95 lines of inline CSS/JS
+    - `comparison.html`: Removed ~580 lines of inline CSS/JS
+    - `upside_calculator.html`: Removed ~290 lines of inline JS
+  - Added global CSS includes in `base.html` for site-wide availability
+  - **Benefits**: Easier maintenance, better caching, cleaner template code, reusable components
+
 ## [1.1.1] - 2025-12-06
 ### Added
 - various links in the app to help navigation between pages

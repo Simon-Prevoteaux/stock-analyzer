@@ -1,0 +1,161 @@
+/* Search Component Styles */
+
+/* Quick Search Section */
+.quick-search-section {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    padding: 20px 25px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.quick-search-section .form-group {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.quick-search-section label {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.search-container {
+    position: relative;
+    flex: 1;
+    max-width: 400px;
+}
+
+.quick-search-section input[type="text"],
+.comparison-search input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 1rem;
+    background: rgba(10, 14, 39, 0.6);
+    color: #e0e6ed;
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 6px;
+    transition: all 0.3s;
+}
+
+.quick-search-section input[type="text"]:focus,
+.comparison-search input[type="text"]:focus {
+    outline: none;
+    border-color: #00ff88;
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+}
+
+.quick-search-section input[type="text"]::placeholder,
+.comparison-search input[type="text"]::placeholder {
+    color: #a8b2d1;
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.search-result-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    color: #e0e6ed;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+    transition: all 0.3s;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover,
+.search-result-item.active {
+    background: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+}
+
+/* Selected Stocks */
+.selected-stocks {
+    display: none;
+    margin-top: 20px;
+}
+
+.selected-label {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.selected-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.stock-chip {
+    display: inline-flex;
+    align-items: center;
+    background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+    color: #0a0e27;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.3);
+}
+
+.chip-text {
+    margin-right: 8px;
+}
+
+.chip-remove {
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.chip-remove:hover {
+    opacity: 1;
+}
+
+/* Actions */
+.comparison-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.comparison-actions .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .quick-search-section .form-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-container {
+        max-width: none;
+    }
+}
