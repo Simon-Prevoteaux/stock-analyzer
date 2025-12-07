@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Upside Calculator - Stock Analyzer{% endblock %}
+
+{% block content %}
+<script src="{{ url_for('static', filename='js/upside-calculator.js') }}"></script>
+
+<div class="page-header">
+    <h2>Upside Calculator</h2>
+    <p class="subtitle">Calculate potential upside to target market cap and required growth rates</p>
+</div>
+
+<!-- Target Market Cap Setting -->
+<div class="card">
+    <h3>Set Target Market Cap</h3>
+    <form method="get" action="{{ url_for('upside_calculator') }}" class="upside-form">
+        <div class="form-group">
+            <label for="target">Target Market Cap (Billions):</label>
+            <input type="number"
+                   id="target"
+                   name="target"
+                   value="{{ target_market_cap_b }}"
+                   step="1"
+                   min="0.01"
+                   max="100000"
+                   class="target-input">
+            <button type="submit" class="btn btn-primary">Calculate Upside</button>
+        </div>
+        <div class="quick-targets">
+            <span>Quick targets:</span>
+            <button type="button" onclick="setTarget(10)" class="btn-sm">$10B</button>
+            <button type="button" onclick="setTarget(100)" class="btn-sm">$100B</button>
+            <button type="button" onclick="setTarget(500)" class="btn-sm">$500B</button>
+            <button type="button" onclick="setTarget(1000)" class="btn-sm">$1T</button>
+            <button type="button" onclick="setTarget(2000)" class="btn-sm">$2T</button>
+            <button type="button" onclick="setTarget(5000)" class="btn-sm">$5T</button>
+        </div>
+    </form>
+</div>
+
+<!-- Two Column Layout -->
+<div class="upside-layout">
+    <!-- Left Column: Stock List -->
+    <div class="stock-list-panel">
+        <div class="card">
+            <h3>Stocks Ranked by Upside Potential</h3>
+            <p class="info-text">Target: <strong>${{ '{:,.0f}'.format(target_market_cap_b) }}B</strong></p>
+
+            {% if stocks %}
+            <div class="table-container">
+                <table class="stock-table sortable-table" id="upsideTable">
+                    <thead>
+                        <tr>
+                            <th data-sortable data-type="text">Ticker</th>
+                            <th data-sortable data-type="text">Company</th>
+                            <th data-sortable data-type="number">Current MC</th>
+                            <th data-sortable data-type="number">Upside</th>
+                            <th data-sortable data-type="number">Multiple</th>
+                            <th data-sortable data-type="number">Target Price</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stock in stocks %}
+                        <tr class="stock-row {% if loop.index0 == 0 %}selected{% endif %}"
+                            data-ticker="{{ stock.ticker }}"
+                            onclick="selectStock('{{ stock.ticker }}', {{ stock.current_market_cap }}, {{ stock.upside_multiple }}, {{ stock.current_price }}, {{ stock.target_price }}, '{{ stock.company_name }}', {{ stock.target_market_cap }})">
+                            <td><strong>{{ stock.ticker }}</strong></td>
+                            <td class="company-name">{{ stock.company_name }}</td>
+                            <td>{{ stock.current_market_cap|format_number }}</td>
+                            <td class="upside-cell">
+                                <span class="upside-badge {% if stock.upside_percent > 1000 %}extreme{% elif stock.upside_percent > 500 %}very-high{% elif stock.upside_percent > 100 %}high{% else %}moderate{% endif %}">
+                                    +{{ stock.upside_percent|round(0)|int }}%
+                                </span>
+                            </td>
+                            <td>{{ stock.upside_multiple|round(1) }}x</td>
+                            <td>${{ stock.target_price|round(2) }}</td>
+                            <td>
+                                <button class="btn-sm btn-select" onclick="event.stopPropagation(); selectStock('{{ stock.ticker }}', {{ stock.current_market_cap }}, {{ stock.upside_multiple }}, {{ stock.current_price }}, {{ stock.target_price }}, '{{ stock.company_name }}', {{ stock.target_market_cap }})">
+                                    Select
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="no-data">No stocks available. Please fetch some stock data first.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Column: Selected Stock Details & Charts -->
+    <div class="details-panel">
+        <!-- Selected Stock Info -->
+        <div class="card" id="selectedStockCard">
+            <h3>Selected Stock: <span id="selectedTicker">{{ stocks[0].ticker if stocks else 'None' }}</span></h3>
+            <div class="stock-details">
+                <div class="detail-row">
+                    <span class="label">Company:</span>
+                    <span id="selectedCompany">{{ stocks[0].company_name if stocks else 'N/A' }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Current Market Cap:</span>
+                    <span id="selectedCurrentMC">{{ stocks[0].current_market_cap|format_number if stocks else 'N/A' }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Current Price:</span>
+                    <span id="selectedCurrentPrice">${{ stocks[0].current_price|round(2) if stocks else 'N/A' }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Target Market Cap:</span>
+                    <span id="selectedTargetMC">{{ stocks[0].target_market_cap|format_number if stocks else 'N/A' }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Target Price:</span>
+                    <span id="selectedTargetPrice" class="highlight">${{ stocks[0].target_price|round(2) if stocks else 'N/A' }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Upside:</span>
+                    <span id="selectedUpside" class="highlight-green">+{{ (stocks[0].upside_percent|round(0)|int) if stocks else 'N/A' }}%</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Multiple:</span>
+                    <span id="selectedMultiple">{{ stocks[0].upside_multiple|round(2) if stocks else 'N/A' }}x</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upside Visualization Chart -->
+        <div class="card">
+            <h3>Market Cap Progression</h3>
+            <canvas id="upsideChart" width="400" height="250"></canvas>
+        </div>
+
+        <!-- Reverse Calculator: Required Growth Rate -->
+        <div class="card">
+            <h3>Required Growth Calculator</h3>
+            <p class="info-text">What annual growth rate is needed to reach the target?</p>
+
+            <div class="growth-calculator">
+                <div class="form-group">
+                    <label for="timeframe">Timeframe (years):</label>
+                    <input type="number" id="timeframe" value="5" min="1" max="30" class="input-sm">
+                    <button onclick="calculateRequiredGrowth()" class="btn btn-primary">Calculate</button>
+                </div>
+
+                <div id="growthResults" class="growth-results" style="display: none;">
+                    <div class="result-box">
+                        <h4>Required Annual Growth (CAGR)</h4>
+                        <div class="big-number" id="requiredCAGR">-</div>
+                    </div>
+
+                    <div class="comparison-section">
+                        <h4>Historical Growth Comparison</h4>
+                        <div class="comparison-grid">
+                            <div class="comparison-item">
+                                <span class="label">Revenue CAGR (3Y):</span>
+                                <span id="historicalRevenue" class="value">-</span>
+                            </div>
+                            <div class="comparison-item">
+                                <span class="label">Earnings CAGR (3Y):</span>
+                                <span id="historicalEarnings" class="value">-</span>
+                            </div>
+                            <div class="comparison-item feasibility">
+                                <span class="label">Feasibility:</span>
+                                <span id="feasibility" class="value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="progression-section">
+                        <h4>Year-by-Year Progression</h4>
+                        <canvas id="progressionChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if stocks %}
+    initializeUpsideCalculator({
+        ticker: '{{ stocks[0].ticker }}',
+        currentMarketCap: {{ stocks[0].current_market_cap }},
+        targetMarketCap: {{ stocks[0].target_market_cap }}
+    });
+    {% endif %}
+});
+</script>
+
+{% endblock %}

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Stock Analyzer{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/search.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -14,11 +16,17 @@
             <ul class="nav-links">
                 <li><a href="{{ url_for('index') }}">Home</a></li>
                 <li><a href="{{ url_for('fetch_stocks') }}">Fetch Data</a></li>
-                <li><a href="{{ url_for('screener') }}">Screener</a></li>
-                <li><a href="{{ url_for('comparison') }}">Compare</a></li>
-                <li><a href="{{ url_for('forecast') }}">Forecast</a></li>
-                <li><a href="{{ url_for('value_plays') }}">Value Plays</a></li>
-                <li><a href="{{ url_for('bubble_territory') }}">Bubble Territory</a></li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn">Stock Analysis ▾</a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('screener') }}">Screener</a>
+                        <a href="{{ url_for('comparison') }}">Compare</a>
+                        <a href="{{ url_for('forecast') }}">Forecast</a>
+                        <a href="{{ url_for('upside_calculator') }}">Upside</a>
+                        <a href="{{ url_for('value_plays') }}">Value Plays</a>
+                        <a href="{{ url_for('bubble_territory') }}">Bubble Territory</a>
+                    </div>
+                </li>
                 <li><a href="{{ url_for('watchlist') }}">Watchlist</a></li>
             </ul>
         </div>
