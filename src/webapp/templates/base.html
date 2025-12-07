@@ -14,12 +14,17 @@
             <ul class="nav-links">
                 <li><a href="{{ url_for('index') }}">Home</a></li>
                 <li><a href="{{ url_for('fetch_stocks') }}">Fetch Data</a></li>
-                <li><a href="{{ url_for('screener') }}">Screener</a></li>
-                <li><a href="{{ url_for('comparison') }}">Compare</a></li>
-                <li><a href="{{ url_for('forecast') }}">Forecast</a></li>
-                <li><a href="{{ url_for('upside_calculator') }}">Upside</a></li>
-                <li><a href="{{ url_for('value_plays') }}">Value Plays</a></li>
-                <li><a href="{{ url_for('bubble_territory') }}">Bubble Territory</a></li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn">Stock Analysis ▾</a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('screener') }}">Screener</a>
+                        <a href="{{ url_for('comparison') }}">Compare</a>
+                        <a href="{{ url_for('forecast') }}">Forecast</a>
+                        <a href="{{ url_for('upside_calculator') }}">Upside</a>
+                        <a href="{{ url_for('value_plays') }}">Value Plays</a>
+                        <a href="{{ url_for('bubble_territory') }}">Bubble Territory</a>
+                    </div>
+                </li>
                 <li><a href="{{ url_for('watchlist') }}">Watchlist</a></li>
             </ul>
         </div>
