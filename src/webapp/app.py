@@ -370,6 +370,22 @@ def api_search():
     return jsonify([])
 
 
+@app.route('/api/all-tickers')
+def api_all_tickers():
+    """API endpoint to get all tickers as comma-separated string"""
+    stocks_df = db.get_all_stocks()
+    if stocks_df.empty:
+        return jsonify({'tickers': '', 'count': 0})
+
+    tickers = sorted(stocks_df['ticker'].tolist())
+    ticker_string = ', '.join(tickers)
+
+    return jsonify({
+        'tickers': ticker_string,
+        'count': len(tickers)
+    })
+
+
 @app.route('/api/refresh/<ticker>', methods=['POST'])
 def api_refresh_stock(ticker):
     """API endpoint to refresh stock data with historical financials"""

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2025-12-09
+
+### Added
+- **Share Your Stock List**: New feature on the fetch data page to share your stock database with friends
+  - Added "Generate Ticker List" button that retrieves all stocks from your database
+  - Generates a comma-separated list of all stock tickers (e.g., "AAPL, AMD, GOOGL, MSFT, NVDA")
+  - Displays count of stocks in database for quick reference
+  - One-click "Copy to Clipboard" functionality with visual feedback
+  - Friends can paste the list directly into the fetch form to replicate your stock database
+  - New API endpoint `/api/all-tickers` that returns sorted ticker list and count
+  - Tickers are automatically sorted alphabetically for consistency
+
 ## [1.1.2] - 2025-12-07
 
 ### Added

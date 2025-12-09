@@ -361,6 +361,30 @@ document.addEventListener('DOMContentLoaded', function() {
     </form>
 </div>
 
+<div class="export-container">
+    <h2>Share Your Stock List</h2>
+    <p class="subtitle">Generate a comma-separated list of all stocks in your database to share with friends</p>
+
+    <button type="button" class="btn btn-secondary" onclick="generateTickerList()">
+        Generate Ticker List
+    </button>
+
+    <div id="ticker-result" style="display: none; margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label for="ticker-list" style="color: #00ff88; font-weight: 600;">
+                <span id="ticker-count"></span>
+            </label>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="copyTickerList()">
+                Copy to Clipboard
+            </button>
+        </div>
+        <textarea id="ticker-list" readonly style="width: 100%; min-height: 100px; padding: 12px; background: rgba(10, 14, 39, 0.8); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 6px; color: #e0e6ed; font-family: 'Courier New', monospace; font-size: 0.9rem; resize: vertical;"></textarea>
+        <div id="copy-feedback" style="margin-top: 8px; color: #00ff88; font-size: 0.85rem; display: none;">
+            ✓ Copied to clipboard!
+        </div>
+    </div>
+</div>
+
 <div class="refresh-container">
     <h2>Refresh Existing Data</h2>
     <p class="subtitle">Update all stocks in your database with the latest data</p>
@@ -392,6 +416,43 @@ function fillTickers(tickers) {
     document.getElementById('tickers').value = tickers;
     // Scroll to the form
     document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function generateTickerList() {
+    try {
+        const response = await fetch('/api/all-tickers');
+        const data = await response.json();
+
+        if (data.tickers) {
+            document.getElementById('ticker-list').value = data.tickers;
+            document.getElementById('ticker-count').textContent = `${data.count} stocks in your database:`;
+            document.getElementById('ticker-result').style.display = 'block';
+            document.getElementById('copy-feedback').style.display = 'none';
+        } else {
+            alert('No stocks found in database. Please fetch some stocks first.');
+        }
+    } catch (error) {
+        console.error('Error generating ticker list:', error);
+        alert('Failed to generate ticker list. Please try again.');
+    }
+}
+
+function copyTickerList() {
+    const textarea = document.getElementById('ticker-list');
+    textarea.select();
+    textarea.setSelectionRange(0, 99999); // For mobile devices
+
+    try {
+        document.execCommand('copy');
+        const feedback = document.getElementById('copy-feedback');
+        feedback.style.display = 'block';
+        setTimeout(() => {
+            feedback.style.display = 'none';
+        }, 3000);
+    } catch (err) {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy to clipboard. Please select and copy manually.');
+    }
 }
 </script>
 {% endblock %}
