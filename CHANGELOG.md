@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.4] - 2025-12-10
+
+### Added
+- **Portfolio Feature**: New portfolio management system alongside watchlist
+  - Created `portfolio` database table for storing portfolio stocks
+  - Added backend functions: `add_to_portfolio()`, `get_portfolio()`, `remove_from_portfolio()`
+  - New dedicated portfolio page at `/portfolio` with full CRUD functionality
+  - Portfolio stocks can be viewed, added, and removed similar to watchlist
+  - Portfolio integration in comparison page: Added "My Portfolio" to Quick Comparison Groups
+  - Portfolio count now displayed on home page statistics
+
+### Changed
+- **Navigation Redesign**: Replaced single "Watchlist" link with "My Stocks" dropdown menu
+  - Dropdown now contains both "Watchlist" and "Portfolio" options
+  - Consistent navigation pattern with "Stock Analysis" dropdown
+  - Better organization of personal stock lists
+- **Stock Detail Page UX Improvements**: Complete reorganization of action buttons
+  - Moved action button bar from bottom to top of page (right after stock header)
+  - Organized buttons into three logical groups with headers:
+    - "Add to Lists": Add to Watchlist + Add to Portfolio
+    - "Analysis": See Forecast
+    - "Data Management": Refresh Data + Back to Screener
+  - Improved visual layout with better spacing and alignment
+  - Added descriptive section headers for better clarity
+
+### Technical Details
+- Database: New `portfolio` table with same schema as `watchlist` (ticker, added_date, notes)
+- Routes: `/portfolio`, `/portfolio/add/<ticker>`, `/portfolio/remove/<ticker>`
+- Templates: New `portfolio.html` template mirroring watchlist functionality
+- CSS: Added `.action-group` styling for organized button layout on stock detail page
+
 ## [1.1.3] - 2025-12-09
 
 ### Added

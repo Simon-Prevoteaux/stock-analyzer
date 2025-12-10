@@ -8,6 +8,31 @@
     <p class="sector-info">{{ stock.sector }} / {{ stock.industry }}</p>
 </div>
 
+<div class="stock-actions">
+    <div class="action-group">
+        <h4>Add to Lists</h4>
+        <form method="POST" action="{{ url_for('add_to_watchlist', ticker=stock.ticker) }}" style="display: inline;">
+            <button type="submit" class="btn btn-primary">Add to Watchlist</button>
+        </form>
+        <form method="POST" action="{{ url_for('add_to_portfolio', ticker=stock.ticker) }}" style="display: inline;">
+            <button type="submit" class="btn btn-primary">Add to Portfolio</button>
+        </form>
+    </div>
+
+    <div class="action-group">
+        <h4>Analysis</h4>
+        <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-primary">See Forecast</a>
+    </div>
+
+    <div class="action-group">
+        <h4>Data Management</h4>
+        <form method="POST" action="{{ url_for('api_refresh_stock', ticker=stock.ticker) }}" style="display: inline;">
+            <button type="submit" class="btn btn-secondary">Refresh Data</button>
+        </form>
+        <a href="{{ url_for('screener') }}" class="btn btn-secondary">Back to Screener</a>
+    </div>
+</div>
+
 <div class="stock-detail-grid">
     <div class="detail-card">
         <h3>Valuation Metrics</h3>
@@ -246,17 +271,6 @@
     {% endif %}
 </div>
 {% endif %}
-
-<div class="stock-actions">
-    <form method="POST" action="{{ url_for('add_to_watchlist', ticker=stock.ticker) }}" style="display: inline;">
-        <button type="submit" class="btn btn-primary">Add to Watchlist</button>
-    </form>
-    <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-primary">See Forecast</a>
-    <form method="POST" action="{{ url_for('api_refresh_stock', ticker=stock.ticker) }}" style="display: inline;">
-        <button type="submit" class="btn btn-secondary">Refresh Data</button>
-    </form>
-    <a href="{{ url_for('screener') }}" class="btn btn-secondary">Back to Screener</a>
-</div>
 
 <div class="last-updated">
     Last updated: {{ stock.last_updated }}

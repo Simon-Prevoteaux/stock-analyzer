@@ -27,7 +27,13 @@
                         <a href="{{ url_for('bubble_territory') }}">Bubble Territory</a>
                     </div>
                 </li>
-                <li><a href="{{ url_for('watchlist') }}">Watchlist</a></li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn">My Stocks ▾</a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('watchlist') }}">Watchlist</a>
+                        <a href="{{ url_for('portfolio') }}">Portfolio</a>
+                    </div>
+                </li>
             </ul>
         </div>
     </nav>

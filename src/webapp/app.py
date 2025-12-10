@@ -35,7 +35,8 @@ def index():
         'total_stocks': len(db.get_all_stocks()),
         'sectors': len(db.get_sectors()),
         'high_risk': len(db.get_high_risk_stocks()),
-        'watchlist_count': len(db.get_watchlist())
+        'watchlist_count': len(db.get_watchlist()),
+        'portfolio_count': len(db.get_portfolio())
     }
     return render_template('index.html', stats=stats)
 
@@ -308,6 +309,16 @@ def comparison():
     else:
         watchlist_tickers = []
 
+    # Get portfolio for suggestions
+    portfolio_df = db.get_portfolio()
+    if not portfolio_df.empty:
+        if isinstance(portfolio_df['ticker'], pd.DataFrame):
+            portfolio_tickers = portfolio_df['ticker'].iloc[:, 0].tolist()
+        else:
+            portfolio_tickers = portfolio_df['ticker'].tolist()
+    else:
+        portfolio_tickers = []
+
     # Get some curated comparison suggestions
     stock_lists = get_all_lists()
     suggestions = {
@@ -315,6 +326,11 @@ def comparison():
             'name': 'My Watchlist',
             'tickers': watchlist_tickers[:10],  # Limit to 10 for comparison
             'description': 'Compare stocks from your watchlist'
+        },
+        'portfolio': {
+            'name': 'My Portfolio',
+            'tickers': portfolio_tickers[:10],  # Limit to 10 for comparison
+            'description': 'Compare stocks from your portfolio'
         },
         'mag_7': stock_lists.get('mag_7', {}),
         'software_cloud': {
@@ -358,6 +374,29 @@ def remove_from_watchlist(ticker):
     """Remove stock from watchlist"""
     db.remove_from_watchlist(ticker)
     return redirect(url_for('watchlist'))
+
+
+@app.route('/portfolio')
+def portfolio():
+    """User's portfolio"""
+    portfolio_df = db.get_portfolio()
+    return render_template('portfolio.html',
+                           stocks=portfolio_df.to_dict('records') if not portfolio_df.empty else [])
+
+
+@app.route('/portfolio/add/<ticker>', methods=['POST'])
+def add_to_portfolio(ticker):
+    """Add stock to portfolio"""
+    notes = request.form.get('notes', '')
+    db.add_to_portfolio(ticker, notes)
+    return redirect(url_for('portfolio'))
+
+
+@app.route('/portfolio/remove/<ticker>', methods=['POST'])
+def remove_from_portfolio(ticker):
+    """Remove stock from portfolio"""
+    db.remove_from_portfolio(ticker)
+    return redirect(url_for('portfolio'))
 
 
 @app.route('/api/search')
