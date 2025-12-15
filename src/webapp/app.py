@@ -216,25 +216,35 @@ def stock_detail(ticker):
         # Sort by date
         sorted_quarterly = sorted(quarterly_history, key=lambda x: x['period_end_date'])
 
+        # Filter out zero values for revenue chart
+        filtered_revenue = [(h['period_end_date'][:7], h['revenue'])
+                            for h in sorted_quarterly
+                            if h['revenue'] and h['revenue'] > 0]
+
         revenue_chart_data_quarterly = {
-            'labels': [h['period_end_date'][:7] for h in sorted_quarterly],  # YYYY-MM format
+            'labels': [item[0] for item in filtered_revenue],  # YYYY-MM format
             'datasets': [{
                 'label': 'Quarterly Revenue',
-                'data': [h['revenue'] if h['revenue'] else 0 for h in sorted_quarterly],
+                'data': [item[1] for item in filtered_revenue],
                 'borderColor': '#00ff88',
                 'fill': True
             }]
-        }
+        } if filtered_revenue else None
+
+        # Filter out zero values for earnings chart
+        filtered_earnings = [(h['period_end_date'][:7], h['earnings'])
+                             for h in sorted_quarterly
+                             if h['earnings'] and h['earnings'] != 0]  # Allow negative earnings
 
         earnings_chart_data_quarterly = {
-            'labels': [h['period_end_date'][:7] for h in sorted_quarterly],
+            'labels': [item[0] for item in filtered_earnings],
             'datasets': [{
                 'label': 'Quarterly Earnings',
-                'data': [h['earnings'] if h['earnings'] else 0 for h in sorted_quarterly],
+                'data': [item[1] for item in filtered_earnings],
                 'borderColor': '#ffd700',
                 'fill': True
             }]
-        }
+        } if filtered_earnings else None
 
     # Prepare annual chart data (goes back further - usually 4-5 years)
     revenue_chart_data_annual = None
@@ -244,25 +254,35 @@ def stock_detail(ticker):
         # Sort by date
         sorted_annual = sorted(annual_history, key=lambda x: x['period_end_date'])
 
+        # Filter out zero values for revenue chart
+        filtered_revenue_annual = [(h['period_end_date'][:4], h['revenue'])
+                                   for h in sorted_annual
+                                   if h['revenue'] and h['revenue'] > 0]
+
         revenue_chart_data_annual = {
-            'labels': [h['period_end_date'][:4] for h in sorted_annual],  # YYYY format
+            'labels': [item[0] for item in filtered_revenue_annual],  # YYYY format
             'datasets': [{
                 'label': 'Annual Revenue',
-                'data': [h['revenue'] if h['revenue'] else 0 for h in sorted_annual],
+                'data': [item[1] for item in filtered_revenue_annual],
                 'borderColor': '#00ff88',
                 'fill': True
             }]
-        }
+        } if filtered_revenue_annual else None
+
+        # Filter out zero values for earnings chart
+        filtered_earnings_annual = [(h['period_end_date'][:4], h['earnings'])
+                                    for h in sorted_annual
+                                    if h['earnings'] and h['earnings'] != 0]  # Allow negative earnings
 
         earnings_chart_data_annual = {
-            'labels': [h['period_end_date'][:4] for h in sorted_annual],
+            'labels': [item[0] for item in filtered_earnings_annual],
             'datasets': [{
                 'label': 'Annual Earnings',
-                'data': [h['earnings'] if h['earnings'] else 0 for h in sorted_annual],
+                'data': [item[1] for item in filtered_earnings_annual],
                 'borderColor': '#ffd700',
                 'fill': True
             }]
-        }
+        } if filtered_earnings_annual else None
 
     return render_template('stock_detail.html',
                          stock=stock,

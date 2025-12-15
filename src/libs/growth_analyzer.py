@@ -38,8 +38,10 @@ class GrowthAnalyzer:
         if self.df.empty or metric not in self.df.columns:
             return None
 
-        # Filter to annual data for CAGR
+        # Filter to annual data for CAGR and exclude zero values
         annual_data = self.df[self.df['period_type'] == 'annual'].copy()
+        annual_data = annual_data[annual_data[metric].notna() & (annual_data[metric] != 0)]
+
         if len(annual_data) < 2:
             return None
 
@@ -79,7 +81,10 @@ class GrowthAnalyzer:
         if self.df.empty or metric not in self.df.columns:
             return None
 
+        # Filter quarterly data and exclude zero values
         quarterly_data = self.df[self.df['period_type'] == 'quarterly'].copy()
+        quarterly_data = quarterly_data[quarterly_data[metric].notna() & (quarterly_data[metric] != 0)]
+
         if len(quarterly_data) < 2:
             return None
 
@@ -117,7 +122,10 @@ class GrowthAnalyzer:
         if self.df.empty or metric not in self.df.columns:
             return 0.0
 
+        # Filter quarterly data and exclude zero values
         quarterly_data = self.df[self.df['period_type'] == 'quarterly'].copy()
+        quarterly_data = quarterly_data[quarterly_data[metric].notna() & (quarterly_data[metric] != 0)]
+
         if len(quarterly_data) < 3:
             return 0.0
 
@@ -172,7 +180,10 @@ class GrowthAnalyzer:
         if self.df.empty or metric not in self.df.columns:
             return False
 
+        # Filter quarterly data and exclude zero values
         quarterly_data = self.df[self.df['period_type'] == 'quarterly'].copy()
+        quarterly_data = quarterly_data[quarterly_data[metric].notna() & (quarterly_data[metric] != 0)]
+
         if len(quarterly_data) < 6:
             return False
 
@@ -196,7 +207,10 @@ class GrowthAnalyzer:
         if self.df.empty or 'net_income' not in self.df.columns:
             return 0
 
+        # Filter quarterly data and exclude zero values
         quarterly_data = self.df[self.df['period_type'] == 'quarterly'].copy()
+        quarterly_data = quarterly_data[quarterly_data['net_income'].notna() & (quarterly_data['net_income'] != 0)]
+
         if quarterly_data.empty:
             return 0
 

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.5] - 2025-12-15
+
+### Fixed
+- **Zero Value Filtering**: Improved data quality by excluding zero values from Yahoo Finance API
+  - **Chart Rendering**: Stock detail page charts now filter out zero values
+    - Quarterly revenue/earnings charts exclude data points with zero values
+    - Annual revenue/earnings charts exclude data points with zero values
+    - Negative earnings are preserved (important for tracking losses)
+    - Location: `src/webapp/app.py:219-285` - Chart data preparation logic
+  - **Growth Calculations**: All growth metrics now exclude zero values from calculations
+    - CAGR calculation (`calculate_cagr()`) filters out zero and null values
+    - Quarterly growth averages (`calculate_average_quarterly_growth()`) exclude zeros
+    - Consistency scores (`calculate_consistency_score()`) remove zero values before analysis
+    - Growth acceleration detection (`detect_growth_acceleration()`) filters zeros
+    - Consecutive profitable quarters (`count_consecutive_profitable_quarters()`) excludes zero net income
+    - Location: `src/libs/growth_analyzer.py:43, 86, 127, 177, 201`
+  - **Forecast Accuracy**: Forecast models automatically benefit from cleaner growth metrics
+    - 3-Year CAGR calculations no longer skewed by zero values
+    - Quarterly average growth rates exclude bad data points
+    - More reliable historical data for model inputs
+
+### Impact
+- More accurate revenue and earnings trend visualization
+- Better growth rate calculations that aren't distorted by API errors
+- Improved forecast reliability using cleaner historical data
+- Enhanced consistency scores reflecting true performance patterns
+
 ## [1.1.4] - 2025-12-10
 
 ### Added
