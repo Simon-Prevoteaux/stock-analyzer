@@ -38,6 +38,21 @@
     </form>
 </div>
 
+<!-- Stock Selector -->
+<div class="card">
+    <h3>Quick Stock Jump</h3>
+    <div class="form-group">
+        <label for="upside-ticker-search">Search for a stock:</label>
+        <div class="search-container">
+            <input type="text"
+                   id="upside-ticker-search"
+                   placeholder="Type ticker symbol (e.g., AAPL, MSFT)..."
+                   autocomplete="off">
+            <div class="search-results" id="upside-search-results"></div>
+        </div>
+    </div>
+</div>
+
 <!-- Two Column Layout -->
 <div class="upside-layout">
     <!-- Left Column: Stock List -->
@@ -182,6 +197,34 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const availableStocks = {{ available_stocks | tojson | safe }};
+
+    // Initialize stock search for quick jump
+    initializeStockSearch(availableStocks, {
+        searchInputId: 'upside-ticker-search',
+        searchResultsId: 'upside-search-results',
+        redirectToDetail: false,
+        onSelect: function(ticker) {
+            // Find the stock in the table and scroll to it
+            const stockRow = document.querySelector(`tr[data-ticker="${ticker}"]`);
+            if (stockRow) {
+                // Remove previous selection
+                document.querySelectorAll('.stock-row.selected').forEach(row => {
+                    row.classList.remove('selected');
+                });
+
+                // Add selection to found stock
+                stockRow.classList.add('selected');
+
+                // Scroll to the stock in table
+                stockRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Click on it to select and show details
+                stockRow.click();
+            }
+        }
+    });
+
     {% if stocks %}
     initializeUpsideCalculator({
         ticker: '{{ stocks[0].ticker }}',

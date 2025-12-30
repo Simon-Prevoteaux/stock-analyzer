@@ -224,6 +224,64 @@ class GrowthAnalyzer:
 
         return consecutive
 
+    def calculate_peg_ratio(self, pe_ratio: Optional[float]) -> Dict[str, Optional[float]]:
+        """
+        Calculate PEG ratio (Price/Earnings to Growth) using Peter Lynch's methodology
+
+        PEG = P/E Ratio / Earnings Growth Rate (in %)
+
+        We calculate 3 PEG ratios using different growth measures:
+        1. peg_3y_cagr: Using 3-year CAGR
+        2. peg_quarterly: Using annualized quarterly average growth
+        3. peg_yfinance: Using yfinance earnings growth (fallback)
+
+        Interpretation (Peter Lynch):
+        - PEG < 1.0: Undervalued (good)
+        - PEG 1.0-2.0: Fairly valued (OK)
+        - PEG > 2.0: Overvalued (high)
+
+        Args:
+            pe_ratio: Current P/E ratio from stock data
+
+        Returns:
+            Dictionary with peg_3y_cagr, peg_quarterly, peg_yfinance, peg_average
+        """
+        result = {
+            'peg_3y_cagr': None,
+            'peg_quarterly': None,
+            'peg_yfinance': None,
+            'peg_average': None
+        }
+
+        # Can't calculate PEG without P/E ratio
+        if not pe_ratio or pe_ratio <= 0:
+            return result
+
+        # Get earnings growth rates
+        earnings_cagr_3y = self.calculate_cagr('earnings', 3)
+        avg_quarterly_earnings = self.calculate_average_quarterly_growth('earnings')
+
+        peg_values = []
+
+        # PEG using 3-year CAGR
+        if earnings_cagr_3y and earnings_cagr_3y > 0:
+            growth_percent = earnings_cagr_3y * 100  # Convert to percentage
+            result['peg_3y_cagr'] = pe_ratio / growth_percent
+            peg_values.append(result['peg_3y_cagr'])
+
+        # PEG using annualized quarterly average
+        if avg_quarterly_earnings and avg_quarterly_earnings > 0:
+            # Annualize quarterly growth: (1 + quarterly_rate)^4 - 1
+            annualized_growth = ((1 + avg_quarterly_earnings) ** 4 - 1) * 100
+            result['peg_quarterly'] = pe_ratio / annualized_growth
+            peg_values.append(result['peg_quarterly'])
+
+        # Calculate average of available PEG ratios
+        if peg_values:
+            result['peg_average'] = sum(peg_values) / len(peg_values)
+
+        return result
+
     def calculate_all_metrics(self) -> Dict:
         """
         Calculate all growth metrics

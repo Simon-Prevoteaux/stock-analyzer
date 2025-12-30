@@ -28,6 +28,15 @@ db_path = os.path.join(project_root, 'data', 'stocks.db')
 db = StockDatabase(db_path)
 
 
+# Make available stocks list available to all templates
+@app.context_processor
+def inject_available_stocks():
+    """Inject available stocks list into all templates for global search"""
+    stocks_df = db.get_all_stocks()
+    available_stocks = stocks_df['ticker'].tolist() if not stocks_df.empty else []
+    return dict(available_stocks=available_stocks)
+
+
 @app.route('/')
 def index():
     """Home page with overview"""
@@ -76,6 +85,23 @@ def fetch_stocks():
                         if all_history:
                             analyzer = GrowthAnalyzer(all_history)
                             metrics = analyzer.calculate_all_metrics()
+
+                            # Calculate PEG ratios
+                            pe_ratio = full_data['current'].get('pe_ratio')
+                            peg_ratios = analyzer.calculate_peg_ratio(pe_ratio)
+                            metrics.update(peg_ratios)
+
+                            # Also calculate PEG using yfinance earnings growth as fallback
+                            earnings_growth_yf = full_data['current'].get('earnings_growth')
+                            if pe_ratio and pe_ratio > 0 and earnings_growth_yf and earnings_growth_yf > 0:
+                                metrics['peg_yfinance'] = pe_ratio / (earnings_growth_yf * 100)
+                                # Recalculate average including yfinance PEG
+                                peg_values = [v for v in [metrics.get('peg_3y_cagr'),
+                                                          metrics.get('peg_quarterly'),
+                                                          metrics.get('peg_yfinance')] if v is not None]
+                                if peg_values:
+                                    metrics['peg_average'] = sum(peg_values) / len(peg_values)
+
                             db.save_growth_metrics(ticker, metrics)
 
                         saved_count += 1
@@ -139,6 +165,23 @@ def fetch_with_history():
                 if all_history:
                     analyzer = GrowthAnalyzer(all_history)
                     metrics = analyzer.calculate_all_metrics()
+
+                    # Calculate PEG ratios
+                    pe_ratio = full_data['current'].get('pe_ratio')
+                    peg_ratios = analyzer.calculate_peg_ratio(pe_ratio)
+                    metrics.update(peg_ratios)
+
+                    # Also calculate PEG using yfinance earnings growth as fallback
+                    earnings_growth_yf = full_data['current'].get('earnings_growth')
+                    if pe_ratio and pe_ratio > 0 and earnings_growth_yf and earnings_growth_yf > 0:
+                        metrics['peg_yfinance'] = pe_ratio / (earnings_growth_yf * 100)
+                        # Recalculate average including yfinance PEG
+                        peg_values = [v for v in [metrics.get('peg_3y_cagr'),
+                                                  metrics.get('peg_quarterly'),
+                                                  metrics.get('peg_yfinance')] if v is not None]
+                        if peg_values:
+                            metrics['peg_average'] = sum(peg_values) / len(peg_values)
+
                     db.save_growth_metrics(ticker, metrics)
 
                 results.append({'ticker': ticker, 'success': True})
@@ -165,6 +208,7 @@ def screener():
     sector = request.args.get('sector')
     min_growth = request.args.get('min_growth', type=float)
     risk_level = request.args.get('risk_level')
+    max_peg = request.args.get('max_peg', type=float)
 
     if not stocks_df.empty:
         if min_market_cap:
@@ -179,6 +223,8 @@ def screener():
             stocks_df = stocks_df[stocks_df['revenue_growth'] >= min_growth]
         if risk_level:
             stocks_df = stocks_df[stocks_df['risk_level'] == risk_level]
+        if max_peg:
+            stocks_df = stocks_df[stocks_df['peg_average'].notna() & (stocks_df['peg_average'] <= max_peg)]
 
         # Add comparison metrics
         stocks_df = fetcher.compare_stocks(stocks_df)
@@ -472,6 +518,23 @@ def api_refresh_stock(ticker):
             if all_history:
                 analyzer = GrowthAnalyzer(all_history)
                 metrics = analyzer.calculate_all_metrics()
+
+                # Calculate PEG ratios
+                pe_ratio = full_data['current'].get('pe_ratio')
+                peg_ratios = analyzer.calculate_peg_ratio(pe_ratio)
+                metrics.update(peg_ratios)
+
+                # Also calculate PEG using yfinance earnings growth as fallback
+                earnings_growth_yf = full_data['current'].get('earnings_growth')
+                if pe_ratio and pe_ratio > 0 and earnings_growth_yf and earnings_growth_yf > 0:
+                    metrics['peg_yfinance'] = pe_ratio / (earnings_growth_yf * 100)
+                    # Recalculate average including yfinance PEG
+                    peg_values = [v for v in [metrics.get('peg_3y_cagr'),
+                                              metrics.get('peg_quarterly'),
+                                              metrics.get('peg_yfinance')] if v is not None]
+                    if peg_values:
+                        metrics['peg_average'] = sum(peg_values) / len(peg_values)
+
                 db.save_growth_metrics(ticker, metrics)
 
             return jsonify({'success': True, 'data': full_data['current']})
@@ -516,6 +579,23 @@ def refresh_all_stocks():
                 if all_history:
                     analyzer = GrowthAnalyzer(all_history)
                     metrics = analyzer.calculate_all_metrics()
+
+                    # Calculate PEG ratios
+                    pe_ratio = full_data['current'].get('pe_ratio')
+                    peg_ratios = analyzer.calculate_peg_ratio(pe_ratio)
+                    metrics.update(peg_ratios)
+
+                    # Also calculate PEG using yfinance earnings growth as fallback
+                    earnings_growth_yf = full_data['current'].get('earnings_growth')
+                    if pe_ratio and pe_ratio > 0 and earnings_growth_yf and earnings_growth_yf > 0:
+                        metrics['peg_yfinance'] = pe_ratio / (earnings_growth_yf * 100)
+                        # Recalculate average including yfinance PEG
+                        peg_values = [v for v in [metrics.get('peg_3y_cagr'),
+                                                  metrics.get('peg_quarterly'),
+                                                  metrics.get('peg_yfinance')] if v is not None]
+                        if peg_values:
+                            metrics['peg_average'] = sum(peg_values) / len(peg_values)
+
                     db.save_growth_metrics(ticker, metrics)
 
                 saved_count += 1

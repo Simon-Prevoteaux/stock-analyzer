@@ -16,6 +16,7 @@
                 <th>Market Cap</th>
                 <th>P/E Ratio</th>
                 <th>P/S Ratio</th>
+                <th>PEG Avg</th>
                 <th>Revenue Growth</th>
                 <th>Profitable?</th>
                 <th>Bubble Score</th>
@@ -31,6 +32,15 @@
                 <td>{{ stock.market_cap|format_number }}</td>
                 <td>{{ stock.pe_ratio|format_ratio }}</td>
                 <td>{{ stock.ps_ratio|format_ratio }}</td>
+                <td>
+                    {% if stock.peg_average %}
+                        <span style="color: {% if stock.peg_average < 1 %}#90EE90{% elif stock.peg_average <= 2 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                            {{ "%.2f"|format(stock.peg_average) }}
+                        </span>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
                 <td>{{ stock.revenue_growth|format_percent }}</td>
                 <td>{% if stock.is_profitable %}Yes{% else %}No{% endif %}</td>
                 <td><strong>{{ stock.bubble_score }}/10</strong></td>

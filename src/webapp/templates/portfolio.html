@@ -16,6 +16,7 @@
                 <th>Market Cap</th>
                 <th>P/E</th>
                 <th>P/S</th>
+                <th>PEG Avg</th>
                 <th>Growth</th>
                 <th>Risk Level</th>
                 <th>Added</th>
@@ -32,6 +33,15 @@
                 <td>{{ stock.market_cap|format_number }}</td>
                 <td>{{ stock.pe_ratio|format_ratio }}</td>
                 <td>{{ stock.ps_ratio|format_ratio }}</td>
+                <td>
+                    {% if stock.peg_average %}
+                        <span style="color: {% if stock.peg_average < 1 %}#90EE90{% elif stock.peg_average <= 2 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                            {{ "%.2f"|format(stock.peg_average) }}
+                        </span>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
                 <td>{{ stock.revenue_growth|format_percent }}</td>
                 <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
                 <td>{{ stock.added_date }}</td>

@@ -182,9 +182,20 @@ class StockDatabase:
                 oldest_data_date TEXT,
                 newest_data_date TEXT,
                 last_calculated TIMESTAMP,
+                peg_3y_cagr REAL,
+                peg_quarterly REAL,
+                peg_yfinance REAL,
+                peg_average REAL,
                 FOREIGN KEY (ticker) REFERENCES stocks(ticker)
             )
         ''')
+
+        # Add PEG columns if they don't exist (for existing databases)
+        for col in ['peg_3y_cagr', 'peg_quarterly', 'peg_yfinance', 'peg_average']:
+            try:
+                cursor.execute(f'ALTER TABLE growth_metrics ADD COLUMN {col} REAL')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
 
         self.conn.commit()
 
@@ -282,12 +293,17 @@ class StockDatabase:
 
     def get_all_stocks(self) -> pd.DataFrame:
         """
-        Retrieve all stocks from database
+        Retrieve all stocks from database with growth metrics
 
         Returns:
-            DataFrame containing all stock data
+            DataFrame containing all stock data with PEG ratios
         """
-        query = 'SELECT * FROM stocks ORDER BY market_cap DESC'
+        query = '''
+            SELECT s.*, g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance
+            FROM stocks s
+            LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+            ORDER BY s.market_cap DESC
+        '''
         return pd.read_sql_query(query, self.conn)
 
     def get_stocks_by_sector(self, sector: str) -> pd.DataFrame:
@@ -311,9 +327,15 @@ class StockDatabase:
             min_bubble_score: Minimum bubble score threshold
 
         Returns:
-            DataFrame containing high-risk stocks
+            DataFrame containing high-risk stocks with growth metrics
         """
-        query = 'SELECT * FROM stocks WHERE bubble_score >= ? ORDER BY bubble_score DESC'
+        query = '''
+            SELECT s.*, g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance
+            FROM stocks s
+            LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+            WHERE s.bubble_score >= ?
+            ORDER BY s.bubble_score DESC
+        '''
         return pd.read_sql_query(query, self.conn, params=(min_bubble_score,))
 
     def get_value_stocks(self, max_pe: float = 20, max_ps: float = 3) -> pd.DataFrame:
@@ -325,12 +347,14 @@ class StockDatabase:
             max_ps: Maximum P/S ratio
 
         Returns:
-            DataFrame containing value stocks
+            DataFrame containing value stocks with growth metrics
         """
         query = '''
-            SELECT * FROM stocks
-            WHERE pe_ratio <= ? AND ps_ratio <= ? AND is_profitable = 1
-            ORDER BY ps_ratio ASC
+            SELECT s.*, g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance
+            FROM stocks s
+            LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+            WHERE s.pe_ratio <= ? AND s.ps_ratio <= ? AND s.is_profitable = 1
+            ORDER BY s.ps_ratio ASC
         '''
         return pd.read_sql_query(query, self.conn, params=(max_pe, max_ps))
 
@@ -349,18 +373,20 @@ class StockDatabase:
             DataFrame containing near-value stocks
         """
         query = '''
-            SELECT * FROM stocks
-            WHERE is_profitable = 1
-            AND NOT (pe_ratio <= 20 AND ps_ratio <= 3)
+            SELECT s.*, g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance
+            FROM stocks s
+            LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+            WHERE s.is_profitable = 1
+            AND NOT (s.pe_ratio <= 20 AND s.ps_ratio <= 3)
             AND (
-                (pe_ratio > 20 AND pe_ratio <= 30 AND ps_ratio <= 5)
-                OR (pe_ratio <= 25 AND ps_ratio > 3 AND ps_ratio <= 5)
+                (s.pe_ratio > 20 AND s.pe_ratio <= 30 AND s.ps_ratio <= 5)
+                OR (s.pe_ratio <= 25 AND s.ps_ratio > 3 AND s.ps_ratio <= 5)
             )
             ORDER BY
                 CASE
-                    WHEN pe_ratio <= 20 THEN ps_ratio - 3
-                    WHEN ps_ratio <= 3 THEN pe_ratio - 20
-                    ELSE (pe_ratio - 20) / 10.0 + (ps_ratio - 3) / 2.0
+                    WHEN s.pe_ratio <= 20 THEN s.ps_ratio - 3
+                    WHEN s.ps_ratio <= 3 THEN s.pe_ratio - 20
+                    ELSE (s.pe_ratio - 20) / 10.0 + (s.ps_ratio - 3) / 2.0
                 END ASC
         '''
         return pd.read_sql_query(query, self.conn)
@@ -389,11 +415,12 @@ class StockDatabase:
             return False
 
     def get_watchlist(self) -> pd.DataFrame:
-        """Get all stocks in watchlist"""
+        """Get all stocks in watchlist with growth metrics"""
         query = '''
-            SELECT w.ticker, w.added_date, w.notes, s.*
+            SELECT w.ticker, w.added_date, w.notes, s.*, g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance
             FROM watchlist w
             LEFT JOIN stocks s ON w.ticker = s.ticker
+            LEFT JOIN growth_metrics g ON w.ticker = g.ticker
             ORDER BY w.added_date DESC
         '''
         return pd.read_sql_query(query, self.conn)
@@ -433,11 +460,12 @@ class StockDatabase:
             return False
 
     def get_portfolio(self) -> pd.DataFrame:
-        """Get all stocks in portfolio"""
+        """Get all stocks in portfolio with growth metrics"""
         query = '''
-            SELECT p.ticker, p.added_date, p.notes, s.*
+            SELECT p.ticker, p.added_date, p.notes, s.*, g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance
             FROM portfolio p
             LEFT JOIN stocks s ON p.ticker = s.ticker
+            LEFT JOIN growth_metrics g ON p.ticker = g.ticker
             ORDER BY p.added_date DESC
         '''
         return pd.read_sql_query(query, self.conn)
@@ -594,8 +622,9 @@ class StockDatabase:
                     revenue_consistency_score, earnings_consistency_score,
                     revenue_growth_accelerating, earnings_growth_accelerating,
                     consecutive_profitable_quarters, data_points_count,
-                    oldest_data_date, newest_data_date, last_calculated
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    oldest_data_date, newest_data_date, last_calculated,
+                    peg_3y_cagr, peg_quarterly, peg_yfinance, peg_average
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
             ''', (
                 ticker.upper(),
                 metrics.get('revenue_cagr_3y'),
@@ -611,7 +640,11 @@ class StockDatabase:
                 metrics.get('consecutive_profitable_quarters'),
                 metrics.get('data_points_count'),
                 metrics.get('oldest_data_date'),
-                metrics.get('newest_data_date')
+                metrics.get('newest_data_date'),
+                metrics.get('peg_3y_cagr'),
+                metrics.get('peg_quarterly'),
+                metrics.get('peg_yfinance'),
+                metrics.get('peg_average')
             ))
             self.conn.commit()
             return True
