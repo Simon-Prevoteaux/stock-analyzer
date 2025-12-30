@@ -58,6 +58,7 @@
                     <th data-sortable data-type="number">Market Cap</th>
                     <th data-sortable data-type="number">P/E</th>
                     <th data-sortable data-type="number">P/S</th>
+                    <th data-sortable data-type="number">PEG Avg</th>
                     <th data-sortable data-type="number">Consistency Score</th>
                     <th data-sortable data-type="number">Revenue CAGR (3Y)</th>
                     <th>Growth Trend</th>
@@ -73,6 +74,15 @@
                     <td data-value="{{ stock.market_cap or 0 }}">{{ stock.market_cap|format_number }}</td>
                     <td data-value="{{ stock.pe_ratio or 0 }}">{{ stock.pe_ratio|format_ratio }}</td>
                     <td data-value="{{ stock.ps_ratio or 0 }}">{{ stock.ps_ratio|format_ratio }}</td>
+                    <td data-value="{{ stock.peg_average or 999 }}">
+                        {% if stock.peg_average %}
+                            <span style="color: {% if stock.peg_average < 1 %}#90EE90{% elif stock.peg_average <= 2 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                                {{ "%.2f"|format(stock.peg_average) }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
                     <td data-value="{{ stock.revenue_consistency_score or 0 }}">
                         <span class="consistency-badge consistency-{{ 'high' if stock.revenue_consistency_score >= 70 else 'medium' if stock.revenue_consistency_score >= 50 else 'low' }}">
                             {{ stock.revenue_consistency_score|round(0)|int if stock.revenue_consistency_score else 'N/A' }}
@@ -123,6 +133,7 @@
                 <th data-sortable data-type="number">Market Cap</th>
                 <th data-sortable data-type="number">P/E Ratio</th>
                 <th data-sortable data-type="number">P/S Ratio</th>
+                <th data-sortable data-type="number">PEG Avg</th>
                 <th data-sortable data-type="number">Revenue Growth</th>
                 <th data-sortable data-type="number">Profit Margin</th>
                 <th data-sortable data-type="string">Sector</th>
@@ -137,6 +148,15 @@
                 <td data-value="{{ stock.market_cap or 0 }}">{{ stock.market_cap|format_number }}</td>
                 <td data-value="{{ stock.pe_ratio or 0 }}">{{ stock.pe_ratio|format_ratio }}</td>
                 <td data-value="{{ stock.ps_ratio or 0 }}">{{ stock.ps_ratio|format_ratio }}</td>
+                <td data-value="{{ stock.peg_average or 999 }}">
+                    {% if stock.peg_average %}
+                        <span style="color: {% if stock.peg_average < 1 %}#90EE90{% elif stock.peg_average <= 2 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                            {{ "%.2f"|format(stock.peg_average) }}
+                        </span>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
                 <td data-value="{{ stock.revenue_growth or 0 }}">{{ stock.revenue_growth|format_percent }}</td>
                 <td data-value="{{ stock.profit_margin or 0 }}">{{ stock.profit_margin|format_percent }}</td>
                 <td>{{ stock.sector }}</td>
@@ -178,6 +198,7 @@
                     <th data-sortable data-type="string">Company</th>
                     <th data-sortable data-type="number">P/E Ratio</th>
                     <th data-sortable data-type="number">P/S Ratio</th>
+                    <th data-sortable data-type="number">PEG Avg</th>
                     <th>Status</th>
                     <th data-sortable data-type="number">Revenue Growth</th>
                     <th data-sortable data-type="number">Profit Margin</th>
@@ -204,6 +225,15 @@
                         <span class="criteria-badge ps-good" title="P/S in value range">OK</span>
                         {% elif stock.ps_ratio and stock.ps_ratio <= 5 %}
                         <span class="criteria-badge ps-close" title="P/S approaching value range">Close</span>
+                        {% endif %}
+                    </td>
+                    <td data-value="{{ stock.peg_average or 999 }}">
+                        {% if stock.peg_average %}
+                            <span style="color: {% if stock.peg_average < 1 %}#90EE90{% elif stock.peg_average <= 2 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                                {{ "%.2f"|format(stock.peg_average) }}
+                            </span>
+                        {% else %}
+                            N/A
                         {% endif %}
                     </td>
                     <td>

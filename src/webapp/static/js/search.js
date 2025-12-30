@@ -7,7 +7,8 @@ function initializeStockSearch(availableStocks, options = {}) {
     const {
         searchInputId = 'ticker-search',
         searchResultsId = 'search-results',
-        redirectToDetail = true
+        redirectToDetail = true,
+        onSelect = null
     } = options;
 
     const searchInput = document.getElementById(searchInputId);
@@ -16,6 +17,16 @@ function initializeStockSearch(availableStocks, options = {}) {
     if (!searchInput || !resultsDiv) {
         console.warn('Search elements not found');
         return;
+    }
+
+    function selectStock(stock) {
+        if (onSelect) {
+            onSelect(stock);
+        } else if (redirectToDetail) {
+            window.location.href = '/stock/' + stock;
+        }
+        searchInput.value = '';
+        resultsDiv.style.display = 'none';
     }
 
     searchInput.addEventListener('input', function() {
@@ -38,9 +49,7 @@ function initializeStockSearch(availableStocks, options = {}) {
                 div.className = 'search-result-item';
                 div.textContent = stock;
                 div.addEventListener('click', function() {
-                    if (redirectToDetail) {
-                        window.location.href = '/stock/' + stock;
-                    }
+                    selectStock(stock);
                 });
                 resultsDiv.appendChild(div);
             });
@@ -70,13 +79,9 @@ function initializeStockSearch(availableStocks, options = {}) {
         } else if (e.key === 'Enter') {
             e.preventDefault();
             if (active) {
-                if (redirectToDetail) {
-                    window.location.href = '/stock/' + active.textContent;
-                }
+                selectStock(active.textContent);
             } else if (availableStocks.includes(searchInput.value.toUpperCase())) {
-                if (redirectToDetail) {
-                    window.location.href = '/stock/' + searchInput.value.toUpperCase();
-                }
+                selectStock(searchInput.value.toUpperCase());
             }
         } else if (e.key === 'Escape') {
             resultsDiv.style.display = 'none';

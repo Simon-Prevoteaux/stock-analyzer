@@ -35,6 +35,16 @@
                     </div>
                 </li>
             </ul>
+            <!-- Global Quick Search in Navbar -->
+            <div class="navbar-search">
+                <div class="search-container">
+                    <input type="text"
+                           id="global-ticker-search"
+                           placeholder="Jump to stock..."
+                           autocomplete="off">
+                    <div class="search-results" id="global-search-results"></div>
+                </div>
+            </div>
         </div>
     </nav>
 
@@ -47,5 +57,17 @@
     </footer>
 
     <script src="{{ url_for('static', filename='js/table-sort.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/search.js') }}"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const availableStocks = {{ available_stocks | tojson | safe }};
+        // Initialize global search with custom IDs
+        initializeStockSearch(availableStocks, {
+            searchInputId: 'global-ticker-search',
+            searchResultsId: 'global-search-results',
+            redirectToDetail: true
+        });
+    });
+    </script>
 </body>
 </html>

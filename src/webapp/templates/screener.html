@@ -5,28 +5,6 @@
 {% block content %}
 <h1>Stock Screener</h1>
 
-<!-- Quick Search -->
-<div class="quick-search-section">
-    <div class="form-group">
-        <label for="ticker-search">Quick Search:</label>
-        <div class="search-container">
-            <input type="text"
-                   id="ticker-search"
-                   placeholder="Jump to stock (e.g., AAPL, MSFT)..."
-                   autocomplete="off">
-            <div class="search-results" id="search-results"></div>
-        </div>
-    </div>
-</div>
-
-<script src="{{ url_for('static', filename='js/search.js') }}"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const availableStocks = {{ available_stocks | tojson | safe }};
-    initializeStockSearch(availableStocks);
-});
-</script>
-
 <div class="screener-filters">
     <form method="GET" class="filter-form">
         <div class="filter-grid">
@@ -69,6 +47,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     {% endfor %}
                 </select>
             </div>
+
+            <div class="form-group">
+                <label for="max_peg">Max PEG Average:</label>
+                <input type="number" id="max_peg" name="max_peg" step="0.1" placeholder="e.g., 2.0">
+            </div>
         </div>
 
         <div class="filter-actions">
@@ -91,6 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <th data-sortable data-type="number">Market Cap</th>
                     <th data-sortable data-type="number">P/E</th>
                     <th data-sortable data-type="number">P/S</th>
+                    <th data-sortable data-type="number">PEG Avg</th>
                     <th data-sortable data-type="number">Revenue Growth</th>
                     <th data-sortable data-type="text">Sector</th>
                     <th data-sortable data-type="text">Risk Level</th>
@@ -106,6 +90,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     <td>{{ stock.market_cap|format_number }}</td>
                     <td>{{ stock.pe_ratio|format_ratio }}</td>
                     <td>{{ stock.ps_ratio|format_ratio }}</td>
+                    <td>
+                        {% if stock.peg_average %}
+                            <span style="color: {% if stock.peg_average < 1 %}#90EE90{% elif stock.peg_average <= 2 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                                {{ "%.2f"|format(stock.peg_average) }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
                     <td>{{ stock.revenue_growth|format_percent }}</td>
                     <td>{{ stock.sector }}</td>
                     <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
