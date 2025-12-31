@@ -54,7 +54,11 @@ class StockFetcher:
                 'current_ratio': info.get('currentRatio', 0),
                 'free_cash_flow': info.get('freeCashflow', 0),
                 'enterprise_value': info.get('enterpriseValue', 0),
-                'target_price': info.get('targetMeanPrice', 0)
+                'target_price': info.get('targetMeanPrice', 0),
+                # Metrics for new forecasting models
+                'book_value': info.get('bookValue', 0),
+                'dividend_rate': info.get('dividendRate', 0),
+                'dividend_yield': info.get('dividendYield', 0)
             }
 
             # Calculate bubble score (simple heuristic)

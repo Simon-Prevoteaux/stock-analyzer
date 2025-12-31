@@ -472,6 +472,297 @@ class StockForecaster:
             "scenarios": scenarios
         }
 
+    def graham_number_model(self) -> Dict:
+        """
+        Benjamin Graham's intrinsic value formula
+        Graham Number = √(22.5 × EPS × Book Value Per Share)
+
+        Returns:
+            Dictionary with Graham Number valuation
+        """
+        book_value_per_share = self.data.get('book_value', 0) or 0
+
+        if self.eps <= 0 or book_value_per_share <= 0:
+            return {
+                "method": "Graham Number",
+                "current_price": self.current_price,
+                "intrinsic_value": 0,
+                "margin_of_safety": 0,
+                "recommendation": "N/A",
+                "error": "Requires positive EPS and book value"
+            }
+
+        # Graham Number = √(22.5 × EPS × Book Value Per Share)
+        graham_number = (22.5 * self.eps * book_value_per_share) ** 0.5
+
+        # Margin of Safety: how much cheaper current price is vs intrinsic value
+        margin_of_safety = ((graham_number - self.current_price) / graham_number) * 100 if graham_number > 0 else 0
+
+        # Recommendation based on margin of safety
+        if margin_of_safety > 30:
+            recommendation = "Strong Buy"
+        elif margin_of_safety > 20:
+            recommendation = "Buy"
+        elif margin_of_safety > 0:
+            recommendation = "Fair Value"
+        elif margin_of_safety > -20:
+            recommendation = "Overvalued"
+        else:
+            recommendation = "Significantly Overvalued"
+
+        return {
+            "method": "Graham Number",
+            "current_price": self.current_price,
+            "intrinsic_value": round(graham_number, 2),
+            "eps": round(self.eps, 2),
+            "book_value_per_share": round(book_value_per_share, 2),
+            "margin_of_safety": round(margin_of_safety, 2),
+            "upside_percent": round(margin_of_safety, 2),
+            "recommendation": recommendation
+        }
+
+    def gordon_growth_model(
+        self,
+        required_return: float = 0.10,
+        dividend_growth: float = None
+    ) -> Dict:
+        """
+        Gordon Growth Model (Dividend Discount Model)
+        Fair Value = D1 / (r - g) where D1 = next year dividend
+
+        Args:
+            required_return: Required rate of return (default 10%)
+            dividend_growth: Dividend growth rate (default: use revenue growth as proxy)
+
+        Returns:
+            Dictionary with dividend-based valuation
+        """
+        dividend_per_share = self.data.get('dividend_rate', 0) or 0
+        dividend_yield = self.data.get('dividend_yield', 0) or 0
+
+        # If no dividend data, can't use this model
+        if dividend_per_share <= 0:
+            return {
+                "method": "Gordon Growth Model",
+                "current_price": self.current_price,
+                "intrinsic_value": 0,
+                "upside_percent": 0,
+                "error": "Stock does not pay dividends"
+            }
+
+        # Estimate dividend growth rate
+        if dividend_growth is None:
+            # Use revenue growth as a conservative proxy
+            dividend_growth = min(self.revenue_growth if self.revenue_growth > 0 else 0.05, 0.08)
+
+        # Gordon model requires g < r
+        if dividend_growth >= required_return:
+            dividend_growth = required_return * 0.8  # Cap at 80% of required return
+
+        # Calculate next year's dividend
+        d1 = dividend_per_share * (1 + dividend_growth)
+
+        # Gordon Growth formula
+        intrinsic_value = d1 / (required_return - dividend_growth)
+
+        upside = ((intrinsic_value - self.current_price) / self.current_price) * 100 if self.current_price > 0 else 0
+
+        return {
+            "method": "Gordon Growth Model",
+            "current_price": self.current_price,
+            "intrinsic_value": round(intrinsic_value, 2),
+            "upside_percent": round(upside, 2),
+            "current_dividend": round(dividend_per_share, 2),
+            "next_year_dividend": round(d1, 2),
+            "dividend_growth_rate": round(dividend_growth * 100, 1),
+            "required_return": round(required_return * 100, 1),
+            "dividend_yield": round(dividend_yield * 100, 2)
+        }
+
+    def peg_based_valuation(
+        self,
+        fair_peg: float = 1.5,
+        growth_rate: float = None
+    ) -> Dict:
+        """
+        PEG-based Fair Value
+        Fair P/E = Fair PEG × Growth Rate (%)
+        Fair Price = Fair P/E × EPS
+
+        Args:
+            fair_peg: Fair PEG ratio (default 1.5)
+            growth_rate: Earnings growth rate (default: use calculated growth)
+
+        Returns:
+            Dictionary with PEG-based valuation
+        """
+        if self.eps <= 0:
+            return {
+                "method": "PEG-Based Valuation",
+                "current_price": self.current_price,
+                "fair_price": 0,
+                "upside_percent": 0,
+                "error": "Requires positive EPS"
+            }
+
+        if growth_rate is None:
+            growth_rate = self.earnings_growth if self.earnings_growth > 0 else 0.15
+
+        # Fair P/E = Fair PEG × Growth Rate (in percentage)
+        fair_pe = fair_peg * (growth_rate * 100)
+
+        # Fair Price = Fair P/E × EPS
+        fair_price = fair_pe * self.eps
+
+        upside = ((fair_price - self.current_price) / self.current_price) * 100 if self.current_price > 0 else 0
+
+        # Current PEG for comparison
+        current_peg = (self.pe_ratio / (growth_rate * 100)) if growth_rate > 0 and self.pe_ratio > 0 else None
+
+        return {
+            "method": "PEG-Based Valuation",
+            "current_price": self.current_price,
+            "fair_price": round(fair_price, 2),
+            "upside_percent": round(upside, 2),
+            "fair_peg": fair_peg,
+            "fair_pe": round(fair_pe, 1),
+            "current_pe": round(self.pe_ratio, 1) if self.pe_ratio > 0 else None,
+            "current_peg": round(current_peg, 2) if current_peg else None,
+            "growth_rate": round(growth_rate * 100, 1),
+            "eps": round(self.eps, 2)
+        }
+
+    def ps_sector_valuation(
+        self,
+        sector_median_ps: float = None
+    ) -> Dict:
+        """
+        Price-to-Sales Fair Value using sector median
+        Fair Price = Sector Median P/S × Revenue Per Share
+
+        Args:
+            sector_median_ps: Sector median P/S ratio (if None, uses current P/S)
+
+        Returns:
+            Dictionary with P/S-based valuation
+        """
+        if self.revenue <= 0 or self.shares_outstanding <= 0:
+            return {
+                "method": "P/S Sector Valuation",
+                "current_price": self.current_price,
+                "fair_price": 0,
+                "upside_percent": 0,
+                "error": "Requires revenue and shares outstanding data"
+            }
+
+        revenue_per_share = self.revenue / self.shares_outstanding
+
+        # If no sector median provided, use current P/S as baseline
+        if sector_median_ps is None:
+            # Conservative estimate: use current P/S or reasonable default
+            sector_median_ps = self.ps_ratio if self.ps_ratio > 0 else 5.0
+
+        # Fair Price = Sector P/S × Revenue Per Share
+        fair_price = sector_median_ps * revenue_per_share
+
+        upside = ((fair_price - self.current_price) / self.current_price) * 100 if self.current_price > 0 else 0
+
+        return {
+            "method": "P/S Sector Valuation",
+            "current_price": self.current_price,
+            "fair_price": round(fair_price, 2),
+            "upside_percent": round(upside, 2),
+            "sector_median_ps": round(sector_median_ps, 2),
+            "current_ps": round(self.ps_ratio, 2) if self.ps_ratio > 0 else None,
+            "revenue_per_share": round(revenue_per_share, 2),
+            "total_revenue": round(self.revenue / 1e9, 2)
+        }
+
+    def calculate_consensus(self, models_results: List[Dict]) -> Dict:
+        """
+        Calculate consensus target price from multiple models
+
+        Args:
+            models_results: List of model result dictionaries
+
+        Returns:
+            Dictionary with consensus metrics
+        """
+        # Extract target prices from different models
+        target_prices = []
+
+        for model in models_results:
+            if isinstance(model, ForecastResult):
+                if model.target_price > 0 and model.target_price < 1e10:  # Filter outliers
+                    target_prices.append(model.target_price)
+            elif isinstance(model, dict):
+                # Handle different field names
+                price = (model.get('target_price') or
+                        model.get('fair_price') or
+                        model.get('intrinsic_value') or
+                        model.get('median_target'))
+                if price and price > 0 and price < 1e10 and not model.get('error'):  # Filter outliers
+                    target_prices.append(price)
+
+        if not target_prices:
+            return {
+                "consensus_target": 0,
+                "consensus_upside": 0,
+                "agreement_score": 0,
+                "recommendation": "Insufficient Data",
+                "num_models": 0,
+                "price_range": {"min": 0, "max": 0}
+            }
+
+        # Calculate statistics
+        consensus_target = np.mean(target_prices)
+        median_target = np.median(target_prices)
+        std_dev = np.std(target_prices)
+
+        # Agreement score: lower std dev relative to mean = higher agreement
+        # Score from 0-100, where 100 = perfect agreement
+        if consensus_target > 0:
+            coefficient_of_variation = std_dev / consensus_target
+            agreement_score = max(0, 100 - (coefficient_of_variation * 100))
+        else:
+            agreement_score = 0
+
+        # Calculate upside
+        consensus_upside = ((consensus_target - self.current_price) / self.current_price) * 100 if self.current_price > 0 else 0
+
+        # Recommendation based on upside and agreement
+        if agreement_score > 70:
+            if consensus_upside > 30:
+                recommendation = "Strong Buy"
+            elif consensus_upside > 15:
+                recommendation = "Buy"
+            elif consensus_upside > -10:
+                recommendation = "Hold"
+            else:
+                recommendation = "Sell"
+        else:
+            # Low agreement - more conservative
+            if consensus_upside > 50:
+                recommendation = "Speculative Buy"
+            elif consensus_upside > -20:
+                recommendation = "Hold"
+            else:
+                recommendation = "Sell"
+
+        return {
+            "consensus_target": round(consensus_target, 2),
+            "median_target": round(median_target, 2),
+            "consensus_upside": round(consensus_upside, 2),
+            "agreement_score": round(agreement_score, 1),
+            "recommendation": recommendation,
+            "num_models": len(target_prices),
+            "price_range": {
+                "min": round(min(target_prices), 2),
+                "max": round(max(target_prices), 2)
+            },
+            "std_dev": round(std_dev, 2)
+        }
+
     def run_all_models(self, years: int = 5) -> Dict:
         """
         Run all forecasting models with default parameters
@@ -479,13 +770,44 @@ class StockForecaster:
         Returns:
             Dictionary containing results from all models
         """
+        # Run all models
+        earnings_model = self.earnings_growth_model(years=years)
+        revenue_model = self.revenue_growth_model(years=years)
+        dcf_model = self.dcf_model(years=years)
+        monte_carlo = self.monte_carlo_simulation(years=years)
+        scenarios = self.scenario_analysis(years=years)
+
+        # New classical models
+        graham_model = self.graham_number_model()
+        gordon_model = self.gordon_growth_model()
+        peg_model = self.peg_based_valuation()
+        ps_model = self.ps_sector_valuation()
+
+        # Calculate consensus
+        all_models = [
+            earnings_model,
+            revenue_model,
+            dcf_model,
+            graham_model,
+            gordon_model,
+            peg_model,
+            ps_model
+        ]
+
+        consensus = self.calculate_consensus(all_models)
+
         return {
             "ticker": self.ticker,
             "current_price": self.current_price,
             "company_name": self.data.get('company_name', 'N/A'),
-            "earnings_model": self.earnings_growth_model(years=years),
-            "revenue_model": self.revenue_growth_model(years=years),
-            "dcf_model": self.dcf_model(years=years),
-            "monte_carlo": self.monte_carlo_simulation(years=years),
-            "scenarios": self.scenario_analysis(years=years)
+            "earnings_model": earnings_model,
+            "revenue_model": revenue_model,
+            "dcf_model": dcf_model,
+            "monte_carlo": monte_carlo,
+            "scenarios": scenarios,
+            "graham_number": graham_model,
+            "gordon_growth": gordon_model,
+            "peg_valuation": peg_model,
+            "ps_sector": ps_model,
+            "consensus": consensus
         }

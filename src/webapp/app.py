@@ -901,35 +901,50 @@ def forecast():
             volatility = request.args.get('volatility', 0.30, type=float)
             simulations = request.args.get('simulations', 1000, type=int)
 
-            forecast_results = {
-                "ticker": ticker,
-                "current_price": stock_data.get('current_price', 0),
-                "company_name": stock_data.get('company_name', 'N/A'),
-                "earnings_model": forecaster.earnings_growth_model(
+            # Use run_all_models which includes new classical models and consensus
+            forecast_results = forecaster.run_all_models(years=years)
+
+            # Override with custom parameters if provided
+            if earnings_growth or terminal_pe:
+                forecast_results["earnings_model"] = forecaster.earnings_growth_model(
                     growth_rate=earnings_growth,
                     growth_decay=growth_decay,
                     terminal_pe=terminal_pe,
                     years=years
-                ),
-                "revenue_model": forecaster.revenue_growth_model(
+                )
+            if revenue_growth or terminal_ps:
+                forecast_results["revenue_model"] = forecaster.revenue_growth_model(
                     growth_rate=revenue_growth,
                     growth_decay=rev_growth_decay,
                     terminal_ps=terminal_ps,
                     years=years
-                ),
-                "dcf_model": forecaster.dcf_model(
+                )
+            if fcf_growth != 0.10 or discount_rate != 0.10:
+                forecast_results["dcf_model"] = forecaster.dcf_model(
                     fcf_growth=fcf_growth,
                     discount_rate=discount_rate,
                     terminal_growth=terminal_growth,
                     years=years
-                ),
-                "monte_carlo": forecaster.monte_carlo_simulation(
+                )
+            if volatility != 0.30 or simulations != 1000:
+                forecast_results["monte_carlo"] = forecaster.monte_carlo_simulation(
                     volatility=volatility,
                     years=years,
                     simulations=simulations
-                ),
-                "scenarios": forecaster.scenario_analysis(years=years)
-            }
+                )
+
+            # Recalculate consensus if any models were overridden
+            if earnings_growth or terminal_pe or revenue_growth or terminal_ps or fcf_growth != 0.10:
+                all_models = [
+                    forecast_results["earnings_model"],
+                    forecast_results["revenue_model"],
+                    forecast_results["dcf_model"],
+                    forecast_results.get("graham_number"),
+                    forecast_results.get("gordon_growth"),
+                    forecast_results.get("peg_valuation"),
+                    forecast_results.get("ps_sector")
+                ]
+                forecast_results["consensus"] = forecaster.calculate_consensus([m for m in all_models if m])
         else:
             error = f"Stock {ticker} not found in database. Please fetch it first."
 
