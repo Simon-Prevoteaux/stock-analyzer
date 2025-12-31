@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+
+{% block title %}Growth Inflection - Stock Analyzer{% endblock %}
+
+{% block content %}
+<script src="{{ url_for('static', filename='js/search.js') }}"></script>
+
+<div class="page-header">
+    <h2>Growth Inflection Detector</h2>
+    <p class="subtitle">Catch stocks at inflection points - where growth is accelerating from historical trends</p>
+</div>
+
+<!-- Strategy Explanation Card -->
+<div class="info-card">
+    <h3>🔄 What is Growth Inflection?</h3>
+    <p>This strategy identifies stocks where <strong>growth is accelerating</strong> - catching momentum before it's widely recognized:</p>
+    <ul class="strategy-points">
+        <li><strong>Accelerating Growth</strong> - Recent quarterly growth exceeds historical average by 5%+</li>
+        <li><strong>Minimum Consistency (60+)</strong> - Filters out erratic, unreliable growth patterns</li>
+        <li><strong>Reasonable Valuation (P/E ≤ 40)</strong> - Not chasing already-overvalued momentum</li>
+        <li><strong>Turnaround or Momentum</strong> - Stocks turning positive or maintaining acceleration</li>
+    </ul>
+    <p class="strategy-note"><strong>Why it works:</strong> Catching stocks where growth is inflecting upward allows you to benefit from momentum before the market fully prices it in. These are often turnaround stories or companies hitting inflection points in their business model.</p>
+</div>
+
+<!-- Filters Section -->
+<div class="filter-section">
+    <h3>Filter Growth Inflection Stocks</h3>
+    <form method="GET" action="{{ url_for('growth_inflection') }}" class="filter-form">
+        <div class="filter-grid">
+            <div class="filter-item">
+                <label for="min_consistency">
+                    Minimum Consistency Score
+                    <button type="button" class="info-btn-inline" onclick="showMetricInfo('consistency')">ℹ️</button>
+                </label>
+                <input type="range" id="min_consistency" name="min_consistency"
+                       min="0" max="100" step="5" value="{{ min_consistency }}"
+                       oninput="document.getElementById('consistency-value').textContent = this.value">
+                <span id="consistency-value" class="range-value">{{ min_consistency }}</span>
+            </div>
+
+            <div class="filter-item">
+                <label for="max_pe">
+                    Maximum P/E Ratio
+                    <button type="button" class="info-btn-inline" onclick="showMetricInfo('pe')">ℹ️</button>
+                </label>
+                <input type="range" id="max_pe" name="max_pe"
+                       min="10" max="100" step="5" value="{{ max_pe }}"
+                       oninput="document.getElementById('pe-value').textContent = this.value">
+                <span id="pe-value" class="range-value">{{ max_pe }}</span>
+            </div>
+
+            <div class="filter-item">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Results Section -->
+{% if stocks %}
+<div class="results-section">
+    <h3>Found {{ stocks|length }} Stock{% if stocks|length != 1 %}s{% endif %} at Growth Inflection Points</h3>
+
+    <div class="table-container">
+        <table class="stock-table sortable-table">
+            <thead>
+                <tr>
+                    <th data-sortable data-type="text">Ticker</th>
+                    <th data-sortable data-type="text">Company</th>
+                    <th data-sortable data-type="text">Acceleration</th>
+                    <th data-sortable data-type="number">
+                        CAGR 3Y
+                        <button type="button" class="info-btn-inline" onclick="showMetricInfo('cagr')">ℹ️</button>
+                    </th>
+                    <th data-sortable data-type="number">
+                        Recent Qtr Growth
+                        <button type="button" class="info-btn-inline" onclick="showMetricInfo('quarterly')">ℹ️</button>
+                    </th>
+                    <th data-sortable data-type="number">
+                        Consistency
+                        <button type="button" class="info-btn-inline" onclick="showMetricInfo('consistency')">ℹ️</button>
+                    </th>
+                    <th data-sortable data-type="number">P/E Ratio</th>
+                    <th data-sortable data-type="text">Sector</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stock in stocks %}
+                <tr>
+                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}"><strong>{{ stock.ticker }}</strong></a></td>
+                    <td class="company-name">{{ stock.company_name }}</td>
+                    <td>
+                        {% if stock.revenue_growth_accelerating == 1 and stock.earnings_growth_accelerating == 1 %}
+                            <span class="accel-badge accel-both">📈 Both</span>
+                        {% elif stock.revenue_growth_accelerating == 1 %}
+                            <span class="accel-badge accel-revenue">💰 Revenue</span>
+                        {% elif stock.earnings_growth_accelerating == 1 %}
+                            <span class="accel-badge accel-earnings">💵 Earnings</span>
+                        {% else %}
+                            <span class="accel-badge accel-none">-</span>
+                        {% endif %}
+                    </td>
+                    <td data-value="{{ (stock.revenue_cagr_3y or 0) * 100 }}">
+                        {% if stock.revenue_cagr_3y %}
+                            <span style="color: {% if stock.revenue_cagr_3y >= 0.5 %}#90EE90{% elif stock.revenue_cagr_3y >= 0.3 %}#00ff88{% elif stock.revenue_cagr_3y >= 0.2 %}#ffd700{% else %}#ff9933{% endif %};">
+                                {{ (stock.revenue_cagr_3y * 100)|round(1) }}%
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td data-value="{{ (stock.avg_quarterly_revenue_growth or stock.avg_quarterly_earnings_growth or 0) * 100 }}">
+                        {% if stock.avg_quarterly_revenue_growth %}
+                            <span style="color: {% if stock.avg_quarterly_revenue_growth >= 0.3 %}#90EE90{% elif stock.avg_quarterly_revenue_growth >= 0.15 %}#ffd700{% else %}#ff9933{% endif %};">
+                                {{ (stock.avg_quarterly_revenue_growth * 100)|round(1) }}%
+                            </span>
+                        {% elif stock.avg_quarterly_earnings_growth %}
+                            <span style="color: {% if stock.avg_quarterly_earnings_growth >= 0.3 %}#90EE90{% elif stock.avg_quarterly_earnings_growth >= 0.15 %}#ffd700{% else %}#ff9933{% endif %};">
+                                {{ (stock.avg_quarterly_earnings_growth * 100)|round(1) }}%
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td data-value="{{ stock.earnings_consistency_score or stock.revenue_consistency_score or 0 }}">
+                        <span class="consistency-badge consistency-{{ 'high' if (stock.earnings_consistency_score or stock.revenue_consistency_score or 0) >= 85 else 'medium' if (stock.earnings_consistency_score or stock.revenue_consistency_score or 0) >= 70 else 'low' }}">
+                            {{ ((stock.earnings_consistency_score or stock.revenue_consistency_score or 0)|round(0)|int) if (stock.earnings_consistency_score or stock.revenue_consistency_score) else 'N/A' }}
+                        </span>
+                    </td>
+                    <td data-value="{{ stock.pe_ratio or 0 }}">
+                        {% if stock.pe_ratio %}
+                            <span style="color: {% if stock.pe_ratio <= 20 %}#90EE90{% elif stock.pe_ratio <= 30 %}#ffd700{% else %}#ff9933{% endif %};">
+                                {{ stock.pe_ratio|round(1) }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ stock.sector }}</td>
+                    <td>
+                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                        <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-sm">Forecast</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="no-results-box">
+    <p>No stocks showing growth inflection with current filters.</p>
+    <p class="hint">Currently, no stocks in your database meet the acceleration criteria. This may change as you refresh data or as the acceleration detection logic updates.</p>
+</div>
+{% endif %}
+
+<!-- Metric Info Modal -->
+<div id="metricModal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeMetricInfo()">&times;</span>
+        <div id="metricInfo"></div>
+    </div>
+</div>
+
+<style>
+/* Info Card Styling */
+.info-card {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%);
+    border: 2px solid rgba(255, 215, 0, 0.3);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.info-card h3 {
+    color: #ffd700;
+    margin-bottom: 15px;
+}
+
+.info-card p {
+    color: #e0e6ed;
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.strategy-points {
+    list-style: none;
+    padding-left: 0;
+    margin: 15px 0;
+}
+
+.strategy-points li {
+    padding: 10px 0;
+    color: #a8b2d1;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+}
+
+.strategy-points li:last-child {
+    border-bottom: none;
+}
+
+.strategy-points strong {
+    color: #ffd700;
+}
+
+.strategy-note {
+    background: rgba(0, 255, 136, 0.1);
+    border-left: 3px solid #00ff88;
+    padding: 12px;
+    margin-top: 15px;
+    border-radius: 4px;
+    color: #e0e6ed !important;
+}
+
+/* Filter Section */
+.filter-section {
+    background: linear-gradient(135deg, #1a1d2e 0%, #2d3250 100%);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.filter-section h3 {
+    color: #ffd700;
+    margin-bottom: 20px;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    align-items: end;
+}
+
+.filter-item label {
+    display: block;
+    color: #a8b2d1;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.info-btn-inline {
+    background: none;
+    border: none;
+    color: #ffd700;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0 4px;
+    margin-left: 4px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.info-btn-inline:hover {
+    opacity: 1;
+}
+
+.filter-item input[type="range"] {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 215, 0, 0.2);
+    border-radius: 3px;
+    outline: none;
+}
+
+.filter-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #ffd700;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.filter-item input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #ffd700;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    border: none;
+}
+
+.range-value {
+    display: inline-block;
+    margin-left: 10px;
+    color: #ffd700;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+/* Results Section */
+.results-section h3 {
+    color: #ffd700;
+    margin-bottom: 20px;
+}
+
+/* Acceleration Badges */
+.accel-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.accel-badge.accel-both {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid #00ff88;
+}
+
+.accel-badge.accel-revenue {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid #ffd700;
+}
+
+.accel-badge.accel-earnings {
+    background: rgba(100, 149, 237, 0.2);
+    color: #6495ed;
+    border: 1px solid #6495ed;
+}
+
+.accel-badge.accel-none {
+    background: rgba(169, 169, 169, 0.2);
+    color: #a9a9a9;
+    border: 1px solid #a9a9a9;
+}
+
+/* Consistency Badges */
+.consistency-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.consistency-badge.consistency-high {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid #00ff88;
+}
+
+.consistency-badge.consistency-medium {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid #ffd700;
+}
+
+.consistency-badge.consistency-low {
+    background: rgba(255, 153, 51, 0.2);
+    color: #ff9933;
+    border: 1px solid #ff9933;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    margin: 10% auto;
+    padding: 30px;
+    border: 2px solid rgba(255, 215, 0, 0.3);
+    border-radius: 12px;
+    width: 80%;
+    max-width: 600px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.close {
+    color: #a8b2d1;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.close:hover {
+    color: #ffd700;
+}
+
+#metricInfo h4 {
+    color: #ffd700;
+    margin-top: 0;
+}
+
+#metricInfo p {
+    color: #e0e6ed;
+    line-height: 1.6;
+}
+
+.no-results-box {
+    background: rgba(10, 14, 39, 0.4);
+    padding: 40px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.no-results-box p {
+    color: #a8b2d1;
+    margin: 10px 0;
+}
+
+.no-results-box .hint {
+    font-size: 0.9rem;
+    color: #6b7a99;
+}
+
+.company-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+// Metric information definitions
+const metricDefinitions = {
+    cagr: {
+        title: 'CAGR (Compound Annual Growth Rate)',
+        description: 'Measures the average annual growth rate over 3 years. Shows the historical growth trajectory.<br><br><strong>Good:</strong> ≥30% (Exceptional), 20-30% (Strong)<br><strong>Note:</strong> For inflection stocks, recent quarterly growth may exceed historical CAGR.'
+    },
+    quarterly: {
+        title: 'Recent Quarterly Growth',
+        description: 'Average growth rate over the most recent 4 quarters. This is what drives the "acceleration" signal.<br><br><strong>Accelerating if:</strong> Recent growth > Historical growth × 1.05<br><strong>Interpretation:</strong> Higher recent growth vs historical indicates momentum building.'
+    },
+    consistency: {
+        title: 'Consistency Score (0-100)',
+        description: 'Measures how smooth the growth pattern is. Filters out stocks with erratic, unpredictable growth.<br><br><strong>Excellent:</strong> 85+ (Very smooth)<br><strong>Good:</strong> 70-85 (Reliable)<br><strong>Acceptable:</strong> 60-70 (Moderate volatility)<br><strong>Note:</strong> Lower threshold for inflection stocks to catch turnarounds.'
+    },
+    pe: {
+        title: 'P/E Ratio (Price-to-Earnings)',
+        description: 'Valuation metric comparing stock price to earnings. Helps avoid overpaying for momentum.<br><br><strong>Value:</strong> < 15<br><strong>Fair:</strong> 15-25<br><strong>Growth Premium:</strong> 25-40<br><strong>Note:</strong> Inflection stocks may trade at higher P/E due to expected acceleration.'
+    }
+};
+
+function showMetricInfo(metric) {
+    const modal = document.getElementById('metricModal');
+    const infoDiv = document.getElementById('metricInfo');
+    const def = metricDefinitions[metric];
+
+    if (def) {
+        infoDiv.innerHTML = `
+            <h4>${def.title}</h4>
+            <p>${def.description}</p>
+        `;
+        modal.style.display = 'block';
+    }
+}
+
+function closeMetricInfo() {
+    document.getElementById('metricModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('metricModal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Initialize search if available
+document.addEventListener('DOMContentLoaded', function() {
+    const availableStocks = {{ available_stocks | tojson | safe }};
+    // Can add search functionality here if needed
+});
+</script>
+
+{% endblock %}

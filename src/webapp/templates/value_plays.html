@@ -4,7 +4,38 @@
 
 {% block content %}
 <h1>Value Plays</h1>
-<p class="subtitle">Stocks with P/E &lt; 20 and P/S &lt; 3 that are profitable</p>
+<p class="subtitle">Undervalued stocks trading at attractive valuations relative to earnings and sales</p>
+
+<!-- Explanation Card -->
+<div class="card" style="margin-bottom: 20px; background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.2);">
+    <h3 style="color: #00ff88; margin-top: 0;">What are Value Plays?</h3>
+    <p><strong>Value investing</strong> focuses on finding stocks trading below their intrinsic value - companies that the market has underpriced. These stocks typically have low valuation multiples relative to their earnings and sales.</p>
+
+    <p><strong>Traditional Value Criteria:</strong></p>
+    <ul style="margin: 10px 0;">
+        <li><strong>P/E Ratio &lt; 20:</strong> Price-to-Earnings below market average (S&P 500 average ~20-25)</li>
+        <li><strong>P/S Ratio &lt; 3:</strong> Price-to-Sales indicates reasonable valuation relative to revenue</li>
+        <li><strong>Profitable:</strong> Positive earnings (no negative P/E ratios)</li>
+    </ul>
+
+    <p><strong>Enhanced Value Filters (Optional):</strong></p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+        <div style="padding: 10px; background: rgba(144, 238, 144, 0.1); border-radius: 5px;">
+            <strong style="color: #90EE90;">Consistency Score</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Measures historical growth stability (0-100). Higher scores = smoother, more predictable growth.</p>
+        </div>
+        <div style="padding: 10px; background: rgba(255, 215, 0, 0.1); border-radius: 5px;">
+            <strong style="color: #ffd700;">Growth Requirement</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Filter for "Value + Growth" - undervalued stocks that are still growing (≥5% quarterly avg).</p>
+        </div>
+        <div style="padding: 10px; background: rgba(0, 255, 136, 0.1); border-radius: 5px;">
+            <strong style="color: #00ff88;">Accelerating Growth</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Badge indicates recent growth is faster than historical - potential inflection point.</p>
+        </div>
+    </div>
+
+    <p style="margin-top: 15px;"><strong>Why Value Investing Works:</strong> Markets can misprice stocks due to temporary setbacks, sector rotation, or lack of investor attention. Value plays offer potential upside when the market "corrects" these mispricings.</p>
+</div>
 
 <!-- Enhanced Filters -->
 <div class="filter-section">

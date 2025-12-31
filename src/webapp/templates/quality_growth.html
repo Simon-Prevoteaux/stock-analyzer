@@ -1,0 +1,498 @@
+{% extends "base.html" %}
+
+{% block title %}Quality Growth - Stock Analyzer{% endblock %}
+
+{% block content %}
+<script src="{{ url_for('static', filename='js/search.js') }}"></script>
+
+<div class="page-header">
+    <h2>Quality Growth Stocks</h2>
+    <p class="subtitle">High-growth companies with consistent, sustainable patterns and reasonable valuations</p>
+</div>
+
+<!-- Strategy Explanation Card -->
+<div class="info-card">
+    <h3>📊 What is Quality Growth?</h3>
+    <p>This strategy identifies stocks that combine <strong>high growth</strong> with <strong>quality fundamentals</strong>:</p>
+    <ul class="strategy-points">
+        <li><strong>High CAGR (20%+)</strong> - Earnings or revenue growing at least 20% annually over 3 years</li>
+        <li><strong>Consistent Growth (70+ score)</strong> - Smooth, predictable growth pattern (not erratic)</li>
+        <li><strong>Reasonable Valuation (PEG ≤ 2.5)</strong> - Not overpriced relative to growth rate</li>
+        <li><strong>Accelerating Momentum</strong> - Recent quarters growing faster than historical average</li>
+    </ul>
+    <p class="strategy-note"><strong>Why it works:</strong> These stocks have proven growth track records with momentum, minimizing the risk of overpaying for inconsistent or slowing growth.</p>
+</div>
+
+<!-- Filters Section -->
+<div class="filter-section">
+    <h3>Filter Quality Growth Stocks</h3>
+    <form method="GET" action="{{ url_for('quality_growth') }}" class="filter-form">
+        <div class="filter-grid">
+            <div class="filter-item">
+                <label for="min_cagr">
+                    Minimum CAGR (%)
+                    <button type="button" class="info-btn-inline" onclick="showMetricInfo('cagr')">ℹ️</button>
+                </label>
+                <input type="range" id="min_cagr" name="min_cagr"
+                       min="10" max="100" step="5" value="{{ min_cagr }}"
+                       oninput="document.getElementById('cagr-value').textContent = this.value">
+                <span id="cagr-value" class="range-value">{{ min_cagr }}%</span>
+            </div>
+
+            <div class="filter-item">
+                <label for="min_consistency">
+                    Minimum Consistency Score
+                    <button type="button" class="info-btn-inline" onclick="showMetricInfo('consistency')">ℹ️</button>
+                </label>
+                <input type="range" id="min_consistency" name="min_consistency"
+                       min="0" max="100" step="5" value="{{ min_consistency }}"
+                       oninput="document.getElementById('consistency-value').textContent = this.value">
+                <span id="consistency-value" class="range-value">{{ min_consistency }}</span>
+            </div>
+
+            <div class="filter-item">
+                <label for="max_peg">
+                    Maximum PEG Ratio
+                    <button type="button" class="info-btn-inline" onclick="showMetricInfo('peg')">ℹ️</button>
+                </label>
+                <input type="range" id="max_peg" name="max_peg"
+                       min="0.5" max="5" step="0.1" value="{{ max_peg }}"
+                       oninput="document.getElementById('peg-value').textContent = parseFloat(this.value).toFixed(1)">
+                <span id="peg-value" class="range-value">{{ max_peg }}</span>
+            </div>
+
+            <div class="filter-item">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Results Section -->
+{% if stocks %}
+<div class="results-section">
+    <h3>Found {{ stocks|length }} Quality Growth Stock{% if stocks|length != 1 %}s{% endif %}</h3>
+
+    <div class="table-container">
+        <table class="stock-table sortable-table">
+            <thead>
+                <tr>
+                    <th data-sortable data-type="text">Ticker</th>
+                    <th data-sortable data-type="text">Company</th>
+                    <th data-sortable data-type="number">
+                        CAGR 3Y
+                        <button type="button" class="info-btn-inline" onclick="showMetricInfo('cagr')">ℹ️</button>
+                    </th>
+                    <th data-sortable data-type="number">
+                        Consistency
+                        <button type="button" class="info-btn-inline" onclick="showMetricInfo('consistency')">ℹ️</button>
+                    </th>
+                    <th data-sortable data-type="number">
+                        PEG Ratio
+                        <button type="button" class="info-btn-inline" onclick="showMetricInfo('peg')">ℹ️</button>
+                    </th>
+                    <th data-sortable data-type="text">Growth Stage</th>
+                    <th data-sortable data-type="number">Market Cap</th>
+                    <th data-sortable data-type="text">Sector</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stock in stocks %}
+                <tr>
+                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}"><strong>{{ stock.ticker }}</strong></a></td>
+                    <td class="company-name">{{ stock.company_name }}</td>
+                    <td data-value="{{ (stock.earnings_cagr_3y or stock.revenue_cagr_3y or 0) * 100 }}">
+                        {% if stock.earnings_cagr_3y %}
+                            <span style="color: {% if stock.earnings_cagr_3y >= 0.5 %}#90EE90{% elif stock.earnings_cagr_3y >= 0.3 %}#00ff88{% elif stock.earnings_cagr_3y >= 0.2 %}#ffd700{% else %}#ff9933{% endif %};">
+                                {{ (stock.earnings_cagr_3y * 100)|round(1) }}%
+                            </span>
+                        {% elif stock.revenue_cagr_3y %}
+                            <span style="color: {% if stock.revenue_cagr_3y >= 0.5 %}#90EE90{% elif stock.revenue_cagr_3y >= 0.3 %}#00ff88{% elif stock.revenue_cagr_3y >= 0.2 %}#ffd700{% else %}#ff9933{% endif %};">
+                                {{ (stock.revenue_cagr_3y * 100)|round(1) }}%
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td data-value="{{ stock.earnings_consistency_score or 0 }}">
+                        <span class="consistency-badge consistency-{{ 'high' if stock.earnings_consistency_score >= 85 else 'medium' if stock.earnings_consistency_score >= 70 else 'low' }}">
+                            {{ stock.earnings_consistency_score|round(0)|int if stock.earnings_consistency_score else 'N/A' }}
+                        </span>
+                    </td>
+                    <td data-value="{{ stock.peg_average or 999 }}">
+                        {% if stock.peg_average %}
+                            <span style="color: {% if stock.peg_average < 1 %}#90EE90{% elif stock.peg_average <= 1.5 %}#00ff88{% elif stock.peg_average <= 2 %}#ffd700{% else %}#ff9933{% endif %};">
+                                {{ stock.peg_average|round(2) }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.growth_stage %}
+                            <span class="growth-stage-badge stage-{{ stock.growth_stage }}">
+                                {{ stock.growth_stage|replace('_', ' ')|title }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td data-value="{{ stock.market_cap or 0 }}">{{ stock.market_cap|format_number }}</td>
+                    <td>{{ stock.sector }}</td>
+                    <td>
+                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                        <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-sm">Forecast</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="no-results-box">
+    <p>No stocks meet the Quality Growth criteria with current filters.</p>
+    <p class="hint">Try lowering the minimum CAGR, reducing the consistency threshold, or increasing the maximum PEG ratio.</p>
+</div>
+{% endif %}
+
+<!-- Metric Info Modal -->
+<div id="metricModal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeMetricInfo()">&times;</span>
+        <div id="metricInfo"></div>
+    </div>
+</div>
+
+<style>
+/* Info Card Styling */
+.info-card {
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 255, 136, 0.05) 100%);
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.info-card h3 {
+    color: #00ff88;
+    margin-bottom: 15px;
+}
+
+.info-card p {
+    color: #e0e6ed;
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.strategy-points {
+    list-style: none;
+    padding-left: 0;
+    margin: 15px 0;
+}
+
+.strategy-points li {
+    padding: 10px 0;
+    color: #a8b2d1;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.strategy-points li:last-child {
+    border-bottom: none;
+}
+
+.strategy-points strong {
+    color: #00ff88;
+}
+
+.strategy-note {
+    background: rgba(255, 215, 0, 0.1);
+    border-left: 3px solid #ffd700;
+    padding: 12px;
+    margin-top: 15px;
+    border-radius: 4px;
+    color: #e0e6ed !important;
+}
+
+/* Filter Section */
+.filter-section {
+    background: linear-gradient(135deg, #1a1d2e 0%, #2d3250 100%);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.filter-section h3 {
+    color: #00ff88;
+    margin-bottom: 20px;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    align-items: end;
+}
+
+.filter-item label {
+    display: block;
+    color: #a8b2d1;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.info-btn-inline {
+    background: none;
+    border: none;
+    color: #00ff88;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0 4px;
+    margin-left: 4px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.info-btn-inline:hover {
+    opacity: 1;
+}
+
+.filter-item input[type="range"] {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 255, 136, 0.2);
+    border-radius: 3px;
+    outline: none;
+}
+
+.filter-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #00ff88;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+.filter-item input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #00ff88;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    border: none;
+}
+
+.range-value {
+    display: inline-block;
+    margin-left: 10px;
+    color: #00ff88;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+/* Results Section */
+.results-section h3 {
+    color: #00ff88;
+    margin-bottom: 20px;
+}
+
+/* Consistency Badges */
+.consistency-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.consistency-badge.consistency-high {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid #00ff88;
+}
+
+.consistency-badge.consistency-medium {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid #ffd700;
+}
+
+.consistency-badge.consistency-low {
+    background: rgba(255, 153, 51, 0.2);
+    color: #ff9933;
+    border: 1px solid #ff9933;
+}
+
+/* Growth Stage Badges */
+.growth-stage-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.growth-stage-badge.stage-early_growth {
+    background: rgba(138, 43, 226, 0.2);
+    color: #ba55d3;
+    border: 1px solid #ba55d3;
+}
+
+.growth-stage-badge.stage-rapid_growth {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid #00ff88;
+}
+
+.growth-stage-badge.stage-mature_growth {
+    background: rgba(100, 149, 237, 0.2);
+    color: #6495ed;
+    border: 1px solid #6495ed;
+}
+
+.growth-stage-badge.stage-inflection {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid #ffd700;
+}
+
+.growth-stage-badge.stage-stable {
+    background: rgba(169, 169, 169, 0.2);
+    color: #a9a9a9;
+    border: 1px solid #a9a9a9;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #1e2139 0%, #2d3250 100%);
+    margin: 10% auto;
+    padding: 30px;
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 12px;
+    width: 80%;
+    max-width: 600px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.close {
+    color: #a8b2d1;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.close:hover {
+    color: #00ff88;
+}
+
+#metricInfo h4 {
+    color: #00ff88;
+    margin-top: 0;
+}
+
+#metricInfo p {
+    color: #e0e6ed;
+    line-height: 1.6;
+}
+
+.no-results-box {
+    background: rgba(10, 14, 39, 0.4);
+    padding: 40px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.no-results-box p {
+    color: #a8b2d1;
+    margin: 10px 0;
+}
+
+.no-results-box .hint {
+    font-size: 0.9rem;
+    color: #6b7a99;
+}
+
+.company-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+// Metric information definitions
+const metricDefinitions = {
+    cagr: {
+        title: 'CAGR (Compound Annual Growth Rate)',
+        description: 'Measures the average annual growth rate of earnings or revenue over 3 years. A CAGR of 20% means the company has grown at least 20% per year on average.<br><br><strong>Good:</strong> ≥30% (Exceptional), 20-30% (Strong)<br><strong>Interpretation:</strong> Higher is better, but verify it\'s sustainable with consistency score.'
+    },
+    consistency: {
+        title: 'Consistency Score (0-100)',
+        description: 'Measures how smooth and predictable the growth pattern is. A score of 70+ means growth has been steady without major volatility quarter-to-quarter.<br><br><strong>Excellent:</strong> 85+ (Very smooth)<br><strong>Good:</strong> 70-85 (Reliable)<br><strong>Fair:</strong> 50-70 (Somewhat volatile)<br><strong>Interpretation:</strong> High consistency reduces risk of surprises.'
+    },
+    peg: {
+        title: 'PEG Ratio (Price/Earnings to Growth)',
+        description: 'Compares the P/E ratio to growth rate. Shows if you\'re overpaying for growth. PEG = P/E ÷ Growth Rate.<br><br><strong>Excellent:</strong> < 1.0 (Undervalued growth)<br><strong>Good:</strong> 1.0-1.5 (Fair value)<br><strong>Acceptable:</strong> 1.5-2.5 (Slight premium)<br><strong>Interpretation:</strong> Lower is better. A PEG of 1.0 means fairly valued.'
+    }
+};
+
+function showMetricInfo(metric) {
+    const modal = document.getElementById('metricModal');
+    const infoDiv = document.getElementById('metricInfo');
+    const def = metricDefinitions[metric];
+
+    if (def) {
+        infoDiv.innerHTML = `
+            <h4>${def.title}</h4>
+            <p>${def.description}</p>
+        `;
+        modal.style.display = 'block';
+    }
+}
+
+function closeMetricInfo() {
+    document.getElementById('metricModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('metricModal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Initialize search if available
+document.addEventListener('DOMContentLoaded', function() {
+    const availableStocks = {{ available_stocks | tojson | safe }};
+    // Can add search functionality here if needed
+});
+</script>
+
+{% endblock %}

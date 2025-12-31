@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+
+{% block title %}Margin Expansion{% endblock %}
+
+{% block content %}
+<h1>Margin Expansion Tracker</h1>
+<p class="subtitle">Growing companies with improving profitability - earnings growing faster than revenue</p>
+
+<!-- Explanation Card -->
+<div class="card" style="margin-bottom: 20px; background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.2);">
+    <h3 style="color: #00ff88; margin-top: 0;">What is Margin Expansion?</h3>
+    <p><strong>Margin expansion</strong> occurs when a company's profit margins improve over time while maintaining revenue growth. This indicates the business is becoming more efficient and profitable as it scales.</p>
+
+    <p><strong>Key Metrics:</strong></p>
+    <ul style="margin: 10px 0;">
+        <li><strong>Operating Leverage:</strong> Earnings Growth ÷ Revenue Growth. Values > 1.0 mean earnings are growing faster than revenue (improving profitability).</li>
+        <li><strong>Margin Trend:</strong> Compares recent 4 quarters vs previous 4 quarters. "Expanding" means margins are improving.</li>
+    </ul>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+        <div style="padding: 10px; background: rgba(144, 238, 144, 0.1); border-radius: 5px;">
+            <strong style="color: #90EE90;">Operating Leverage > 1.5</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Exceptional efficiency gains - earnings growing much faster than revenue</p>
+        </div>
+        <div style="padding: 10px; background: rgba(255, 215, 0, 0.1); border-radius: 5px;">
+            <strong style="color: #ffd700;">Operating Leverage 1.0-1.5</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Good efficiency - margins expanding alongside growth</p>
+        </div>
+        <div style="padding: 10px; background: rgba(255, 107, 107, 0.1); border-radius: 5px;">
+            <strong style="color: #ff6b6b;">Operating Leverage < 1.0</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Margins not improving - revenue growing faster than earnings</p>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="screener-filters">
+    <form method="GET" class="filter-form">
+        <div class="filter-grid">
+            <div class="form-group">
+                <label for="min_revenue_growth">Minimum Revenue Growth (%):</label>
+                <input type="number" id="min_revenue_growth" name="min_revenue_growth" value="{{ min_revenue_growth }}" step="1" placeholder="e.g., 15">
+                <small>Default: 15% (moderate growth)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="min_operating_leverage">Minimum Operating Leverage:</label>
+                <input type="number" id="min_operating_leverage" name="min_operating_leverage" value="{{ min_operating_leverage }}" step="0.1" placeholder="e.g., 1.0">
+                <small>Default: 1.0 (earnings growing as fast as revenue)</small>
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+            <a href="{{ url_for('margin_expansion') }}" class="btn btn-secondary">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Results Section -->
+<div class="results-section">
+    <h2>Results ({{ stocks|length }} stocks)</h2>
+
+    {% if stocks %}
+    <div class="table-container">
+        <table class="stock-table sortable-table">
+            <thead>
+                <tr>
+                    <th data-sortable data-type="text">Ticker</th>
+                    <th data-sortable data-type="text">Company</th>
+                    <th data-sortable data-type="number">
+                        Operating Leverage
+                        <span class="info-tooltip">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">
+                                <strong>Operating Leverage:</strong> Earnings Growth ÷ Revenue Growth.
+                                >1.5 = Exceptional, 1.0-1.5 = Good, <1.0 = Margins not improving.
+                            </span>
+                        </span>
+                    </th>
+                    <th data-sortable data-type="number">Revenue Growth (3Y)</th>
+                    <th data-sortable data-type="number">Earnings Growth (3Y)</th>
+                    <th data-sortable data-type="text">
+                        Margin Trend
+                        <span class="info-tooltip">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">
+                                <strong>Margin Trend:</strong> Compares recent 4Q vs previous 4Q profit margins.
+                                Expanding = margins improving, Stable = consistent, Contracting = declining.
+                            </span>
+                        </span>
+                    </th>
+                    <th data-sortable data-type="number">Current Profit Margin</th>
+                    <th data-sortable data-type="number">Market Cap</th>
+                    <th data-sortable data-type="text">Sector</th>
+                    <th data-sortable data-type="text">Growth Stage</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stock in stocks %}
+                <tr>
+                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
+                    <td>{{ stock.company_name }}</td>
+                    <td>
+                        {% if stock.operating_leverage %}
+                            <span style="font-weight: bold; color: {% if stock.operating_leverage >= 1.5 %}#90EE90{% elif stock.operating_leverage >= 1.0 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                                {{ stock.operating_leverage|round(2) }}x
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.revenue_cagr_3y %}
+                            {{ (stock.revenue_cagr_3y * 100)|round(1) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.earnings_cagr_3y %}
+                            {{ (stock.earnings_cagr_3y * 100)|round(1) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.margin_trend %}
+                            <span class="margin-badge margin-{{ stock.margin_trend }}">
+                                {% if stock.margin_trend == 'expanding' %}
+                                    📈 Expanding
+                                {% elif stock.margin_trend == 'contracting' %}
+                                    📉 Contracting
+                                {% else %}
+                                    ➡️ Stable
+                                {% endif %}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.profit_margin %}
+                            {{ (stock.profit_margin * 100)|round(1) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ stock.market_cap|format_number }}</td>
+                    <td>{{ stock.sector }}</td>
+                    <td>
+                        {% if stock.growth_stage %}
+                            <span class="badge badge-{{ stock.growth_stage }}">
+                                {{ stock.growth_stage|replace('_', ' ')|title }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="no-results">No stocks found with expanding margins. Try lowering the minimum thresholds or <a href="{{ url_for('fetch_stocks') }}">fetch some data</a>.</p>
+    {% endif %}
+</div>
+
+<!-- Info Modal -->
+<div id="infoModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeInfo()">&times;</span>
+        <div id="infoContent"></div>
+    </div>
+</div>
+
+<style>
+/* Badge Styling for Growth Stages */
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.badge-early_growth {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 107, 107, 0.4);
+}
+
+.badge-rapid_growth {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+}
+
+.badge-mature_growth {
+    background: rgba(135, 206, 250, 0.2);
+    color: #87CEEB;
+    border: 1px solid rgba(135, 206, 250, 0.4);
+}
+
+.badge-inflection {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.badge-declining {
+    background: rgba(128, 128, 128, 0.2);
+    color: #808080;
+    border: 1px solid rgba(128, 128, 128, 0.4);
+}
+
+.badge-stable {
+    background: rgba(200, 200, 200, 0.2);
+    color: #c8c8c8;
+    border: 1px solid rgba(200, 200, 200, 0.4);
+}
+
+/* Margin Trend Badges */
+.margin-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.margin-expanding {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+}
+
+.margin-contracting {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 107, 107, 0.4);
+}
+
+.margin-stable {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+/* Info Tooltip for Table Headers */
+.info-tooltip {
+    position: relative;
+    display: inline-block;
+    margin-left: 5px;
+}
+
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(0, 255, 136, 0.4);
+    color: #00ff88;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: help;
+    font-family: serif;
+    font-style: italic;
+    transition: all 0.2s ease;
+}
+
+.info-icon:hover {
+    background: rgba(0, 255, 136, 0.4);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    transform: scale(1.1);
+}
+
+.tooltip-text {
+    visibility: hidden;
+    opacity: 0;
+    position: fixed;
+    z-index: 10000;
+    width: 320px;
+    background-color: rgba(20, 20, 30, 0.98);
+    color: #e0e0e0;
+    text-align: left;
+    padding: 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    font-size: 13px;
+    line-height: 1.5;
+    transition: opacity 0.3s, visibility 0.3s;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    white-space: normal;
+}
+
+/* Tooltip arrow for above positioning */
+.tooltip-text.tooltip-above::after {
+    content: "";
+    position: absolute;
+    bottom: -7px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 7px;
+    border-style: solid;
+    border-color: rgba(20, 20, 30, 0.98) transparent transparent transparent;
+}
+
+/* Tooltip arrow for below positioning */
+.tooltip-text.tooltip-below::after {
+    content: "";
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 7px;
+    border-style: solid;
+    border-color: transparent transparent rgba(20, 20, 30, 0.98) transparent;
+}
+
+.info-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+</style>
+
+<script>
+// Dynamic tooltip positioning
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltips = document.querySelectorAll('.info-tooltip');
+
+    tooltips.forEach(tooltip => {
+        const icon = tooltip.querySelector('.info-icon');
+        const text = tooltip.querySelector('.tooltip-text');
+
+        icon.addEventListener('mouseenter', function() {
+            const rect = icon.getBoundingClientRect();
+            const tooltipHeight = 100; // Approximate tooltip height
+            const spaceAbove = rect.top;
+            const spaceBelow = window.innerHeight - rect.bottom;
+
+            // Position tooltip based on available space
+            if (spaceAbove > tooltipHeight || spaceAbove > spaceBelow) {
+                // Position above
+                text.style.top = (rect.top - tooltipHeight - 10) + 'px';
+                text.style.left = (rect.left + rect.width / 2 - 160) + 'px';
+                text.classList.add('tooltip-above');
+                text.classList.remove('tooltip-below');
+            } else {
+                // Position below
+                text.style.top = (rect.bottom + 10) + 'px';
+                text.style.left = (rect.left + rect.width / 2 - 160) + 'px';
+                text.classList.add('tooltip-below');
+                text.classList.remove('tooltip-above');
+            }
+        });
+    });
+});
+
+// Info modal content
+const infoContent = {
+    'operating-leverage': {
+        title: 'Operating Leverage',
+        content: `
+            <p><strong>What it is:</strong> Operating leverage measures how efficiently a company converts revenue growth into earnings growth. It's calculated as: <strong>Earnings Growth Rate ÷ Revenue Growth Rate</strong></p>
+
+            <p><strong>How to interpret:</strong></p>
+            <ul>
+                <li><strong>Operating Leverage > 1.0:</strong> <span style="color: #90EE90;">Good</span> - Earnings growing faster than revenue. The company is improving profitability as it scales.</li>
+                <li><strong>Operating Leverage = 1.0:</strong> <span style="color: #ffd700;">Neutral</span> - Earnings and revenue growing at the same rate. Margins are stable.</li>
+                <li><strong>Operating Leverage < 1.0:</strong> <span style="color: #ff6b6b;">Concerning</span> - Revenue growing faster than earnings. Margins are compressing.</li>
+            </ul>
+
+            <p><strong>Example:</strong></p>
+            <ul>
+                <li>If revenue grows 20% and earnings grow 30%, operating leverage = 30% ÷ 20% = 1.5x</li>
+                <li>This means for every 1% of revenue growth, earnings grow by 1.5%</li>
+                <li>This indicates improving efficiency and margin expansion</li>
+            </ul>
+
+            <p><strong>Why it matters:</strong> Companies with high operating leverage are becoming more profitable as they grow. This is a sign of competitive advantages, economies of scale, or operational improvements.</p>
+        `
+    },
+    'margin-trend': {
+        title: 'Margin Trend',
+        content: `
+            <p><strong>What it is:</strong> Margin trend analyzes whether a company's profit margins are improving, declining, or staying stable over time by comparing recent quarters to historical quarters.</p>
+
+            <p><strong>How it's calculated:</strong></p>
+            <ul>
+                <li>Compare average profit margin of <strong>recent 4 quarters</strong> vs <strong>previous 4 quarters</strong></li>
+                <li><strong>Expanding:</strong> Recent margins are 10%+ higher than previous period</li>
+                <li><strong>Contracting:</strong> Recent margins are 10%+ lower than previous period</li>
+                <li><strong>Stable:</strong> Recent margins within ±10% of previous period</li>
+            </ul>
+
+            <p><strong>Interpretation:</strong></p>
+            <ul>
+                <li><strong>📈 Expanding:</strong> <span style="color: #90EE90;">Excellent</span> - Company is becoming more profitable. Could indicate pricing power, cost efficiencies, or economies of scale.</li>
+                <li><strong>➡️ Stable:</strong> <span style="color: #ffd700;">Good</span> - Consistent profitability. The business model is sustainable.</li>
+                <li><strong>📉 Contracting:</strong> <span style="color: #ff6b6b;">Concerning</span> - Profitability declining. Could indicate increased competition, rising costs, or pricing pressure.</li>
+            </ul>
+
+            <p><strong>Why it matters:</strong> Margin expansion is a key sign of business quality. Companies that can grow revenue while improving margins often have strong competitive moats and pricing power.</p>
+        `
+    }
+};
+
+function showInfo(metric) {
+    const modal = document.getElementById('infoModal');
+    const content = document.getElementById('infoContent');
+    const info = infoContent[metric];
+
+    if (info) {
+        content.innerHTML = `
+            <h3>${info.title}</h3>
+            ${info.content}
+        `;
+        modal.style.display = 'block';
+    }
+}
+
+function closeInfo() {
+    const modal = document.getElementById('infoModal');
+    modal.style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('infoModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+
+{% endblock %}

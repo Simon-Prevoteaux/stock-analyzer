@@ -199,8 +199,15 @@ class GrowthAnalyzer:
         if recent_growth is None or historical_growth is None:
             return False
 
-        # Accelerating if recent > historical by significant margin
-        return recent_growth > (historical_growth * 1.1)
+        # More permissive: Accelerating if recent growth is positive and >= historical
+        # OR if recent growth is at least 5% higher than historical
+        # This catches both consistent growers and true accelerators
+        if historical_growth <= 0:
+            # If historical was flat/negative, any positive recent growth counts
+            return recent_growth > 0
+        else:
+            # If both positive, recent just needs to match or exceed historical by 5%+
+            return recent_growth >= (historical_growth * 1.05)
 
     def count_consecutive_profitable_quarters(self) -> int:
         """Count consecutive quarters with positive earnings"""
@@ -282,9 +289,189 @@ class GrowthAnalyzer:
 
         return result
 
-    def calculate_all_metrics(self) -> Dict:
+    def calculate_fcf_metrics(self, current_fcf: Optional[float] = None, current_revenue: Optional[float] = None) -> Dict:
+        """
+        Calculate Free Cash Flow metrics
+
+        Args:
+            current_fcf: Current free cash flow (optional)
+            current_revenue: Current revenue (optional)
+
+        Returns:
+            Dictionary with fcf_cagr_3y, fcf_margin, cash_conversion_ratio
+        """
+        result = {
+            'fcf_cagr_3y': None,
+            'fcf_margin': None,
+            'cash_conversion_ratio': None
+        }
+
+        # Calculate FCF CAGR if we have historical FCF data
+        if 'free_cash_flow_calculated' in self.df.columns:
+            result['fcf_cagr_3y'] = self.calculate_cagr('free_cash_flow_calculated', 3)
+
+        # Calculate FCF Margin = FCF / Revenue
+        if current_fcf is not None and current_revenue is not None and current_revenue > 0:
+            result['fcf_margin'] = current_fcf / current_revenue
+
+        # Calculate Cash Conversion Ratio = FCF / Net Income
+        if current_fcf is not None and 'net_income' in self.df.columns:
+            quarterly_data = self.df[self.df['period_type'] == 'quarterly'].copy()
+            if not quarterly_data.empty:
+                latest_net_income = quarterly_data['net_income'].iloc[-1]
+                if latest_net_income and latest_net_income > 0:
+                    result['cash_conversion_ratio'] = current_fcf / latest_net_income
+
+        return result
+
+    def calculate_rule_of_40(self, revenue_growth: Optional[float], fcf_margin: Optional[float]) -> Optional[float]:
+        """
+        Calculate Rule of 40 (Growth + Profitability metric for SaaS)
+
+        Rule of 40 = Revenue Growth % + FCF Margin %
+
+        Args:
+            revenue_growth: Revenue growth rate (as decimal, e.g., 0.25 for 25%)
+            fcf_margin: FCF margin (as decimal, e.g., 0.15 for 15%)
+
+        Returns:
+            Rule of 40 score (as number, e.g., 40 for 40%)
+        """
+        if revenue_growth is None or fcf_margin is None:
+            return None
+
+        return (revenue_growth * 100) + (fcf_margin * 100)
+
+    def calculate_operating_leverage(self) -> Optional[float]:
+        """
+        Calculate Operating Leverage = Earnings Growth / Revenue Growth
+
+        Operating leverage > 1.0 indicates improving profitability
+        (earnings growing faster than revenue)
+
+        Returns:
+            Operating leverage ratio
+        """
+        earnings_growth = self.calculate_average_quarterly_growth('earnings')
+        revenue_growth = self.calculate_average_quarterly_growth('revenue')
+
+        if earnings_growth is None or revenue_growth is None or revenue_growth <= 0:
+            return None
+
+        return earnings_growth / revenue_growth
+
+    def calculate_margin_trend(self) -> Optional[str]:
+        """
+        Analyze if profit margins are expanding, contracting, or stable
+
+        Compares recent quarters vs earlier quarters (adaptive based on data availability)
+        - If 8+ quarters: compare recent 4Q vs previous 4Q
+        - If 6-7 quarters: compare recent 3Q vs previous 3Q
+        - If 4-5 quarters: compare recent 2Q vs previous 2Q
+        - If <4 quarters: insufficient data
+
+        Returns:
+            'expanding', 'contracting', or 'stable'
+        """
+        if self.df.empty or 'profit_margin_quarterly' not in self.df.columns:
+            return None
+
+        # Filter quarterly data with valid margins
+        quarterly_data = self.df[self.df['period_type'] == 'quarterly'].copy()
+        quarterly_data = quarterly_data[quarterly_data['profit_margin_quarterly'].notna()]
+
+        total_quarters = len(quarterly_data)
+
+        if total_quarters < 4:
+            return None
+
+        # Adaptive comparison based on available data
+        if total_quarters >= 8:
+            # Compare recent 4Q vs previous 4Q
+            recent_data = quarterly_data.tail(8)
+            previous_avg = recent_data.head(4)['profit_margin_quarterly'].mean()
+            recent_avg = recent_data.tail(4)['profit_margin_quarterly'].mean()
+        elif total_quarters >= 6:
+            # Compare recent 3Q vs previous 3Q
+            recent_data = quarterly_data.tail(6)
+            previous_avg = recent_data.head(3)['profit_margin_quarterly'].mean()
+            recent_avg = recent_data.tail(3)['profit_margin_quarterly'].mean()
+        else:
+            # Compare recent 2Q vs previous 2Q (for 4-5 quarters)
+            recent_data = quarterly_data.tail(4)
+            previous_avg = recent_data.head(2)['profit_margin_quarterly'].mean()
+            recent_avg = recent_data.tail(2)['profit_margin_quarterly'].mean()
+
+        if pd.isna(previous_avg) or pd.isna(recent_avg):
+            return None
+
+        # Determine trend (use 10% threshold for significant change)
+        change_pct = (recent_avg - previous_avg) / abs(previous_avg) if previous_avg != 0 else 0
+
+        if change_pct > 0.10:
+            return 'expanding'
+        elif change_pct < -0.10:
+            return 'contracting'
+        else:
+            return 'stable'
+
+    def classify_growth_stage(self, metrics: Dict) -> Optional[str]:
+        """
+        Classify stock into growth lifecycle stage
+
+        Stages:
+        - early_growth: Very high growth (>50%), low margins, high volatility
+        - rapid_growth: High growth (20-50%), accelerating
+        - mature_growth: Moderate growth (5-20%), consistent, profitable
+        - inflection: Accelerating from lower base (<20% historical)
+        - declining: Negative or very low growth
+
+        Args:
+            metrics: Dictionary containing calculated metrics (CAGR, margins, etc.)
+
+        Returns:
+            Growth stage classification string
+        """
+        cagr = metrics.get('earnings_cagr_3y', 0) or 0
+        revenue_cagr = metrics.get('revenue_cagr_3y', 0) or 0
+
+        # Use whichever is available (prefer earnings CAGR)
+        primary_cagr = cagr if cagr != 0 else revenue_cagr
+
+        # Get additional context
+        accelerating = metrics.get('revenue_growth_accelerating', False) or metrics.get('earnings_growth_accelerating', False)
+
+        # Get profit margin from current data if available
+        profit_margin = 0
+        if 'profit_margin_quarterly' in self.df.columns:
+            quarterly_data = self.df[self.df['period_type'] == 'quarterly'].copy()
+            if not quarterly_data.empty and 'profit_margin_quarterly' in quarterly_data.columns:
+                latest_margin = quarterly_data['profit_margin_quarterly'].iloc[-1]
+                if pd.notna(latest_margin):
+                    profit_margin = latest_margin
+
+        # Classification logic
+        if primary_cagr > 0.50 and profit_margin < 0.10:
+            return 'early_growth'
+        elif primary_cagr >= 0.20 and primary_cagr <= 0.50 and accelerating:
+            return 'rapid_growth'
+        elif primary_cagr >= 0.05 and primary_cagr < 0.20 and profit_margin > 0.10:
+            return 'mature_growth'
+        elif accelerating and primary_cagr < 0.20:
+            return 'inflection'
+        elif primary_cagr < 0:
+            return 'declining'
+        else:
+            return 'stable'
+
+    def calculate_all_metrics(self, current_fcf: Optional[float] = None,
+                             current_revenue: Optional[float] = None) -> Dict:
         """
         Calculate all growth metrics
+
+        Args:
+            current_fcf: Current free cash flow (optional, for FCF metrics)
+            current_revenue: Current revenue (optional, for FCF margin and Rule of 40)
 
         Returns:
             Dictionary with all calculated metrics
@@ -317,5 +504,27 @@ class GrowthAnalyzer:
             'oldest_data_date': self.df['period_end_date'].min().strftime('%Y-%m-%d'),
             'newest_data_date': self.df['period_end_date'].max().strftime('%Y-%m-%d'),
         }
+
+        # Add new FCF metrics
+        fcf_metrics = self.calculate_fcf_metrics(current_fcf, current_revenue)
+        metrics.update(fcf_metrics)
+
+        # Add operating leverage
+        metrics['operating_leverage'] = self.calculate_operating_leverage()
+
+        # Add margin trend
+        metrics['margin_trend'] = self.calculate_margin_trend()
+
+        # Calculate Rule of 40 if we have FCF margin and revenue growth
+        if fcf_metrics['fcf_margin'] is not None and metrics.get('revenue_cagr_3y') is not None:
+            metrics['rule_of_40'] = self.calculate_rule_of_40(
+                metrics['revenue_cagr_3y'],
+                fcf_metrics['fcf_margin']
+            )
+        else:
+            metrics['rule_of_40'] = None
+
+        # Classify growth stage (needs metrics to be calculated first)
+        metrics['growth_stage'] = self.classify_growth_stage(metrics)
 
         return metrics

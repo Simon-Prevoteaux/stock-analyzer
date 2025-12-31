@@ -201,8 +201,10 @@ class StockFetcher:
             # Get income statement based on period type
             if period_type == 'quarterly':
                 income_stmt = stock.quarterly_income_stmt
+                cash_flow = stock.quarterly_cashflow
             else:
                 income_stmt = stock.income_stmt
+                cash_flow = stock.cashflow
 
             if income_stmt is None or income_stmt.empty:
                 return []
@@ -213,18 +215,64 @@ class StockFetcher:
             # Transform from DataFrame to list of dicts
             financial_data = []
             for date_col in income_stmt.columns:
+                # Get revenue for margin calculations
+                revenue = self._safe_get(income_stmt, 'Total Revenue', date_col)
+                gross_profit = self._safe_get(income_stmt, 'Gross Profit', date_col)
+                operating_income = self._safe_get(income_stmt, 'Operating Income', date_col)
+                net_income = self._safe_get(income_stmt, 'Net Income', date_col)
+
+                # Get cash flow data
+                operating_cash_flow = None
+                capital_expenditures = None
+                free_cash_flow_calculated = None
+
+                if cash_flow is not None and not cash_flow.empty and date_col in cash_flow.columns:
+                    # Try different field name variations
+                    operating_cash_flow = (self._safe_get(cash_flow, 'Operating Cash Flow', date_col) or
+                                          self._safe_get(cash_flow, 'Cash Flow From Continuing Operating Activities', date_col))
+
+                    # Capital Expenditure might be negative, so we check for it
+                    capital_expenditures = (self._safe_get(cash_flow, 'Capital Expenditure', date_col) or
+                                           self._safe_get(cash_flow, 'Purchase Of PPE', date_col))
+
+                    # Calculate FCF if we have both components
+                    if operating_cash_flow is not None and capital_expenditures is not None:
+                        # CapEx is typically negative in yfinance, so we add it
+                        free_cash_flow_calculated = operating_cash_flow + capital_expenditures
+
+                # Calculate margins
+                gross_margin = None
+                operating_margin = None
+                profit_margin_quarterly = None
+
+                if revenue and revenue > 0:
+                    if gross_profit is not None:
+                        gross_margin = gross_profit / revenue
+                    if operating_income is not None:
+                        operating_margin = operating_income / revenue
+                    if net_income is not None:
+                        profit_margin_quarterly = net_income / revenue
+
                 period_data = {
                     'ticker': ticker.upper(),
                     'period_end_date': date_col.strftime('%Y-%m-%d'),
                     'period_type': period_type,
-                    'revenue': self._safe_get(income_stmt, 'Total Revenue', date_col),
-                    'gross_profit': self._safe_get(income_stmt, 'Gross Profit', date_col),
-                    'operating_income': self._safe_get(income_stmt, 'Operating Income', date_col),
+                    'revenue': revenue,
+                    'gross_profit': gross_profit,
+                    'operating_income': operating_income,
                     'ebitda': self._safe_get(income_stmt, 'EBITDA', date_col),
-                    'net_income': self._safe_get(income_stmt, 'Net Income', date_col),
-                    'earnings': self._safe_get(income_stmt, 'Net Income', date_col),
+                    'net_income': net_income,
+                    'earnings': net_income,
                     # EPS will be calculated from Net Income / Shares Outstanding if needed
-                    'eps': None  # Can be calculated later if we have shares outstanding data
+                    'eps': None,  # Can be calculated later if we have shares outstanding data
+                    # New cash flow fields
+                    'operating_cash_flow': operating_cash_flow,
+                    'capital_expenditures': capital_expenditures,
+                    'free_cash_flow_calculated': free_cash_flow_calculated,
+                    # New margin fields
+                    'gross_margin': gross_margin,
+                    'operating_margin': operating_margin,
+                    'profit_margin_quarterly': profit_margin_quarterly
                 }
 
                 financial_data.append(period_data)
