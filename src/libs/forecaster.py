@@ -608,8 +608,15 @@ class StockForecaster:
         if growth_rate is None:
             growth_rate = self.earnings_growth if self.earnings_growth > 0 else 0.15
 
+        # Cap growth rate at 100% to avoid unrealistic P/E multiples
+        # Even high-growth companies rarely sustain >100% earnings growth
+        growth_rate = min(growth_rate, 1.0)
+
         # Fair P/E = Fair PEG × Growth Rate (in percentage)
         fair_pe = fair_peg * (growth_rate * 100)
+
+        # Cap fair P/E at 60 (even for high-growth stocks, P/E > 60 is extreme)
+        fair_pe = min(fair_pe, 60.0)
 
         # Fair Price = Fair P/E × EPS
         fair_price = fair_pe * self.eps

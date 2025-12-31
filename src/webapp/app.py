@@ -901,6 +901,10 @@ def forecast():
             volatility = request.args.get('volatility', 0.30, type=float)
             simulations = request.args.get('simulations', 1000, type=int)
 
+            # PEG valuation parameters
+            peg_growth_rate = request.args.get('peg_growth_rate', type=float)
+            fair_peg = request.args.get('fair_peg', type=float)
+
             # Use run_all_models which includes new classical models and consensus
             forecast_results = forecaster.run_all_models(years=years)
 
@@ -932,13 +936,25 @@ def forecast():
                     years=years,
                     simulations=simulations
                 )
+            if peg_growth_rate or fair_peg:
+                forecast_results["peg_valuation"] = forecaster.peg_based_valuation(
+                    growth_rate=peg_growth_rate,
+                    fair_peg=fair_peg
+                )
 
-            # Recalculate consensus if any models were overridden
-            if earnings_growth or terminal_pe or revenue_growth or terminal_ps or fcf_growth != 0.10:
+            # Recalculate consensus if any forecast parameters were provided
+            # Check if user has modified any parameters (any request args means parameters were changed)
+            forecast_params = ['earnings_growth', 'growth_decay', 'terminal_pe', 'revenue_growth',
+                             'rev_growth_decay', 'terminal_ps', 'fcf_growth', 'discount_rate',
+                             'terminal_growth', 'volatility', 'simulations', 'peg_growth_rate', 'fair_peg']
+            has_custom_params = any(param in request.args for param in forecast_params)
+
+            if has_custom_params:
                 all_models = [
                     forecast_results["earnings_model"],
                     forecast_results["revenue_model"],
                     forecast_results["dcf_model"],
+                    forecast_results["monte_carlo"],
                     forecast_results.get("graham_number"),
                     forecast_results.get("gordon_growth"),
                     forecast_results.get("peg_valuation"),
