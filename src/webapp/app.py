@@ -84,7 +84,10 @@ def fetch_stocks():
                         all_history = db.get_financial_history(ticker)
                         if all_history:
                             analyzer = GrowthAnalyzer(all_history)
-                            metrics = analyzer.calculate_all_metrics()
+                            # Pass current FCF and revenue for new metrics
+                            current_fcf = full_data['current'].get('free_cash_flow')
+                            current_revenue = full_data['current'].get('revenue')
+                            metrics = analyzer.calculate_all_metrics(current_fcf, current_revenue)
 
                             # Calculate PEG ratios
                             pe_ratio = full_data['current'].get('pe_ratio')
@@ -164,7 +167,10 @@ def fetch_with_history():
                 all_history = db.get_financial_history(ticker)
                 if all_history:
                     analyzer = GrowthAnalyzer(all_history)
-                    metrics = analyzer.calculate_all_metrics()
+                    # Pass current FCF and revenue for new metrics
+                    current_fcf = full_data['current'].get('free_cash_flow')
+                    current_revenue = full_data['current'].get('revenue')
+                    metrics = analyzer.calculate_all_metrics(current_fcf, current_revenue)
 
                     # Calculate PEG ratios
                     pe_ratio = full_data['current'].get('pe_ratio')
@@ -209,8 +215,13 @@ def screener():
     min_growth = request.args.get('min_growth', type=float)
     risk_level = request.args.get('risk_level')
     max_peg = request.args.get('max_peg', type=float)
+    top_sector_performers = request.args.get('top_sector_performers', type=str)  # 'true' or None
 
     if not stocks_df.empty:
+        # Add sector rankings BEFORE filtering
+        # This ensures sector medians are calculated from full dataset
+        stocks_df = db.add_sector_rankings(stocks_df)
+
         if min_market_cap:
             stocks_df = stocks_df[stocks_df['market_cap'] >= min_market_cap]
         if max_pe:
@@ -226,6 +237,13 @@ def screener():
         if max_peg:
             stocks_df = stocks_df[stocks_df['peg_average'].notna() & (stocks_df['peg_average'] <= max_peg)]
 
+        # Filter for top 25% sector performers if requested (requires BOTH revenue AND earnings in top 25%)
+        if top_sector_performers == 'true':
+            stocks_df = stocks_df[
+                ((stocks_df['sector_revenue_rank_pct'].notna()) & (stocks_df['sector_revenue_rank_pct'] >= 75)) &
+                ((stocks_df['sector_earnings_rank_pct'].notna()) & (stocks_df['sector_earnings_rank_pct'] >= 75))
+            ]
+
         # Add comparison metrics
         stocks_df = fetcher.compare_stocks(stocks_df)
 
@@ -236,7 +254,8 @@ def screener():
                            stocks=stocks_df.to_dict('records') if not stocks_df.empty else [],
                            sectors=sectors,
                            risk_levels=risk_levels,
-                           available_stocks=available_stocks)
+                           available_stocks=available_stocks,
+                           top_sector_performers=top_sector_performers)
 
 
 @app.route('/stock/<ticker>')
@@ -517,7 +536,10 @@ def api_refresh_stock(ticker):
             all_history = db.get_financial_history(ticker)
             if all_history:
                 analyzer = GrowthAnalyzer(all_history)
-                metrics = analyzer.calculate_all_metrics()
+                # Pass current FCF and revenue for new metrics
+                current_fcf = full_data['current'].get('free_cash_flow')
+                current_revenue = full_data['current'].get('revenue')
+                metrics = analyzer.calculate_all_metrics(current_fcf, current_revenue)
 
                 # Calculate PEG ratios
                 pe_ratio = full_data['current'].get('pe_ratio')
@@ -578,7 +600,10 @@ def refresh_all_stocks():
                 all_history = db.get_financial_history(ticker)
                 if all_history:
                     analyzer = GrowthAnalyzer(all_history)
-                    metrics = analyzer.calculate_all_metrics()
+                    # Pass current FCF and revenue for new metrics
+                    current_fcf = full_data['current'].get('free_cash_flow')
+                    current_revenue = full_data['current'].get('revenue')
+                    metrics = analyzer.calculate_all_metrics(current_fcf, current_revenue)
 
                     # Calculate PEG ratios
                     pe_ratio = full_data['current'].get('pe_ratio')
@@ -669,6 +694,75 @@ def bubble_territory():
     bubble_stocks_df = db.get_high_risk_stocks(min_bubble_score=6)
     return render_template('bubble_territory.html',
                            stocks=bubble_stocks_df.to_dict('records') if not bubble_stocks_df.empty else [])
+
+
+@app.route('/quality-growth')
+def quality_growth():
+    """Quality growth stocks with sustainable, consistent patterns"""
+    # Get filter parameters
+    min_cagr = request.args.get('min_cagr', 20, type=float)
+    min_consistency = request.args.get('min_consistency', 70, type=int)
+    max_peg = request.args.get('max_peg', 2.5, type=float)
+
+    # Get quality growth stocks
+    stocks_df = db.get_quality_growth_stocks(min_cagr, min_consistency, max_peg)
+
+    # Get all stocks for search
+    all_stocks_df = db.get_all_stocks()
+    available_stocks = all_stocks_df['ticker'].tolist() if not all_stocks_df.empty else []
+
+    return render_template('quality_growth.html',
+                         stocks=stocks_df.to_dict('records') if not stocks_df.empty else [],
+                         available_stocks=available_stocks,
+                         min_cagr=min_cagr,
+                         min_consistency=min_consistency,
+                         max_peg=max_peg)
+
+
+@app.route('/growth-inflection')
+def growth_inflection():
+    """Stocks showing growth acceleration (inflection points)"""
+    # Get filter parameters
+    min_consistency = request.args.get('min_consistency', 60, type=int)
+    max_pe = request.args.get('max_pe', 40, type=float)
+
+    # Get growth inflection stocks
+    stocks_df = db.get_growth_inflection_stocks(min_consistency, max_pe)
+
+    # Get all stocks for search
+    all_stocks_df = db.get_all_stocks()
+    available_stocks = all_stocks_df['ticker'].tolist() if not all_stocks_df.empty else []
+
+    return render_template('growth_inflection.html',
+                         stocks=stocks_df.to_dict('records') if not stocks_df.empty else [],
+                         available_stocks=available_stocks,
+                         min_consistency=min_consistency,
+                         max_pe=max_pe)
+
+
+@app.route('/rule-of-40')
+def rule_of_40():
+    """Stocks with efficient growth (Rule of 40 metric for SaaS/cloud companies)"""
+    # Get filter parameters
+    min_rule_of_40 = request.args.get('min_rule_of_40', 40, type=float)
+    sector_filter = request.args.get('sector', type=str)
+
+    # Get Rule of 40 stocks
+    stocks_df = db.get_rule_of_40_stocks(min_rule_of_40, sector_filter)
+
+    # Get sectors for filter dropdown
+    sectors = db.get_sectors()
+
+    # Get all stocks for search
+    all_stocks_df = db.get_all_stocks()
+    available_stocks = all_stocks_df['ticker'].tolist() if not all_stocks_df.empty else []
+
+    return render_template('rule_of_40.html',
+                         stocks=stocks_df.to_dict('records') if not stocks_df.empty else [],
+                         available_stocks=available_stocks,
+                         min_rule_of_40=min_rule_of_40,
+                         sector_filter=sector_filter,
+                         sectors=sectors)
 
 
 @app.route('/forecast')

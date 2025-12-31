@@ -197,6 +197,28 @@ class StockDatabase:
             except sqlite3.OperationalError:
                 pass  # Column already exists
 
+        # Add new financial_history columns for Phase 1 enhancements
+        for col in ['operating_cash_flow', 'capital_expenditures', 'free_cash_flow_calculated',
+                    'gross_margin', 'operating_margin', 'profit_margin_quarterly']:
+            try:
+                cursor.execute(f'ALTER TABLE financial_history ADD COLUMN {col} REAL')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+        # Add new growth_metrics columns for Phase 1 enhancements
+        for col in ['fcf_cagr_3y', 'fcf_margin', 'rule_of_40', 'operating_leverage', 'cash_conversion_ratio']:
+            try:
+                cursor.execute(f'ALTER TABLE growth_metrics ADD COLUMN {col} REAL')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+        # Add text columns for margin_trend and growth_stage
+        for col in ['margin_trend', 'growth_stage']:
+            try:
+                cursor.execute(f'ALTER TABLE growth_metrics ADD COLUMN {col} TEXT')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
         self.conn.commit()
 
     def save_stock(self, stock_data: Dict) -> bool:
@@ -296,10 +318,14 @@ class StockDatabase:
         Retrieve all stocks from database with growth metrics
 
         Returns:
-            DataFrame containing all stock data with PEG ratios
+            DataFrame containing all stock data with growth metrics
         """
         query = '''
-            SELECT s.*, g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance
+            SELECT s.*,
+                   g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance,
+                   g.revenue_cagr_3y, g.earnings_cagr_3y,
+                   g.revenue_consistency_score, g.earnings_consistency_score,
+                   g.growth_stage
             FROM stocks s
             LEFT JOIN growth_metrics g ON s.ticker = g.ticker
             ORDER BY s.market_cap DESC
@@ -540,16 +566,16 @@ class StockDatabase:
         """
         Save historical financial data
 
-        Uses INSERT OR IGNORE to preserve existing historical data.
-        This ensures that old data (no longer available from Yahoo Finance)
-        is never lost when refreshing stock data.
+        Uses INSERT OR REPLACE to update existing records with new fields.
+        This ensures that when we add new columns (like cash flow data),
+        existing records get updated with the new data on refresh.
 
         Args:
             ticker: Stock ticker
             financial_data: List of financial data points
 
         Returns:
-            Number of NEW records saved (existing records are skipped)
+            Number of records saved/updated
         """
         if not financial_data:
             return 0
@@ -560,10 +586,12 @@ class StockDatabase:
         for record in financial_data:
             try:
                 cursor.execute('''
-                    INSERT OR IGNORE INTO financial_history
+                    INSERT OR REPLACE INTO financial_history
                     (ticker, period_end_date, period_type, revenue, earnings,
-                     gross_profit, operating_income, ebitda, net_income, eps, shares_outstanding)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     gross_profit, operating_income, ebitda, net_income, eps, shares_outstanding,
+                     operating_cash_flow, capital_expenditures, free_cash_flow_calculated,
+                     gross_margin, operating_margin, profit_margin_quarterly)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     ticker.upper(),
                     record.get('period_end_date'),
@@ -575,11 +603,16 @@ class StockDatabase:
                     record.get('ebitda'),
                     record.get('net_income'),
                     record.get('eps'),
-                    record.get('shares_outstanding')
+                    record.get('shares_outstanding'),
+                    record.get('operating_cash_flow'),
+                    record.get('capital_expenditures'),
+                    record.get('free_cash_flow_calculated'),
+                    record.get('gross_margin'),
+                    record.get('operating_margin'),
+                    record.get('profit_margin_quarterly')
                 ))
-                # Check if row was actually inserted (rowcount > 0 means new record)
-                if cursor.rowcount > 0:
-                    saved_count += 1
+                # Count all successful operations (inserts or updates)
+                saved_count += 1
             except Exception as e:
                 print(f"Error saving financial record: {str(e)}")
 
@@ -623,8 +656,10 @@ class StockDatabase:
                     revenue_growth_accelerating, earnings_growth_accelerating,
                     consecutive_profitable_quarters, data_points_count,
                     oldest_data_date, newest_data_date, last_calculated,
-                    peg_3y_cagr, peg_quarterly, peg_yfinance, peg_average
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
+                    peg_3y_cagr, peg_quarterly, peg_yfinance, peg_average,
+                    fcf_cagr_3y, fcf_margin, rule_of_40, operating_leverage,
+                    cash_conversion_ratio, margin_trend, growth_stage
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 ticker.upper(),
                 metrics.get('revenue_cagr_3y'),
@@ -644,7 +679,14 @@ class StockDatabase:
                 metrics.get('peg_3y_cagr'),
                 metrics.get('peg_quarterly'),
                 metrics.get('peg_yfinance'),
-                metrics.get('peg_average')
+                metrics.get('peg_average'),
+                metrics.get('fcf_cagr_3y'),
+                metrics.get('fcf_margin'),
+                metrics.get('rule_of_40'),
+                metrics.get('operating_leverage'),
+                metrics.get('cash_conversion_ratio'),
+                metrics.get('margin_trend'),
+                metrics.get('growth_stage')
             ))
             self.conn.commit()
             return True
@@ -689,6 +731,166 @@ class StockDatabase:
         '''
         return pd.read_sql_query(query, self.conn,
                                 params=(max_pe, max_ps, min_consistency, min_consistency, min_growth, min_growth))
+
+    def get_quality_growth_stocks(self, min_cagr: float = 20, min_consistency: int = 70, max_peg: float = 2.5) -> pd.DataFrame:
+        """
+        Find high-growth stocks with consistent, sustainable patterns
+
+        Quality Growth = High CAGR + High Consistency + Reasonable Valuation
+        (Accelerating growth is a bonus but not required)
+
+        Args:
+            min_cagr: Minimum earnings/revenue CAGR (as percentage, e.g., 20 for 20%)
+            min_consistency: Minimum consistency score (0-100)
+            max_peg: Maximum PEG ratio (growth-adjusted valuation)
+
+        Returns:
+            DataFrame of quality growth stocks sorted by consistency and valuation
+        """
+        query = '''
+            SELECT s.*,
+                   g.earnings_cagr_3y, g.revenue_cagr_3y,
+                   g.earnings_consistency_score, g.revenue_consistency_score,
+                   g.peg_average, g.revenue_growth_accelerating,
+                   g.earnings_growth_accelerating,
+                   g.consecutive_profitable_quarters,
+                   g.growth_stage
+            FROM stocks s
+            LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+            WHERE (g.earnings_cagr_3y >= ? OR g.revenue_cagr_3y >= ?)
+              AND g.earnings_consistency_score >= ?
+              AND g.peg_average IS NOT NULL
+              AND g.peg_average <= ?
+            ORDER BY
+              CASE WHEN g.revenue_growth_accelerating = 1 OR g.earnings_growth_accelerating = 1 THEN 0 ELSE 1 END,
+              g.earnings_consistency_score DESC,
+              g.peg_average ASC
+        '''
+        return pd.read_sql_query(query, self.conn, params=(min_cagr/100, min_cagr/100, min_consistency, max_peg))
+
+    def get_growth_inflection_stocks(self, min_consistency: int = 60, max_pe: float = 40) -> pd.DataFrame:
+        """
+        Find stocks with accelerating growth (inflection points)
+
+        Growth Inflection = Recent growth > Historical + Reasonable valuation
+
+        Args:
+            min_consistency: Minimum consistency score (0-100) to filter noise
+            max_pe: Maximum P/E ratio to avoid overvalued stocks
+
+        Returns:
+            DataFrame of stocks showing growth acceleration
+        """
+        query = '''
+            SELECT s.*,
+                   g.revenue_growth_accelerating, g.earnings_growth_accelerating,
+                   g.earnings_cagr_3y, g.revenue_cagr_3y,
+                   g.earnings_consistency_score, g.revenue_consistency_score,
+                   g.avg_quarterly_revenue_growth, g.avg_quarterly_earnings_growth,
+                   g.consecutive_profitable_quarters,
+                   g.peg_average,
+                   g.growth_stage
+            FROM stocks s
+            LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+            WHERE (g.revenue_growth_accelerating = 1 OR g.earnings_growth_accelerating = 1)
+              AND (g.earnings_consistency_score >= ? OR g.revenue_consistency_score >= ?)
+              AND (s.pe_ratio IS NULL OR s.pe_ratio <= ?)
+            ORDER BY
+              CASE WHEN g.revenue_growth_accelerating = 1 AND g.earnings_growth_accelerating = 1 THEN 0 ELSE 1 END,
+              g.revenue_cagr_3y DESC,
+              g.earnings_cagr_3y DESC
+        '''
+        return pd.read_sql_query(query, self.conn, params=(min_consistency, min_consistency, max_pe))
+
+    def add_sector_rankings(self, stocks_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Add sector-relative growth rankings to stock DataFrame
+
+        Calculates:
+        - Sector median CAGR for revenue and earnings
+        - Growth vs sector median (ratio)
+        - Percentile rank within sector (0-100)
+
+        Args:
+            stocks_df: DataFrame with stock data including sector and growth metrics
+
+        Returns:
+            Enhanced DataFrame with sector comparison columns
+        """
+        if stocks_df.empty or 'sector' not in stocks_df.columns:
+            return stocks_df
+
+        # Calculate sector medians for revenue and earnings CAGR
+        sector_medians = stocks_df.groupby('sector').agg({
+            'revenue_cagr_3y': 'median',
+            'earnings_cagr_3y': 'median'
+        }).reset_index()
+
+        # Rename columns to avoid conflicts
+        sector_medians.columns = ['sector', 'revenue_cagr_3y_sector_median', 'earnings_cagr_3y_sector_median']
+
+        # Merge sector medians back to original DataFrame
+        stocks_df = stocks_df.merge(sector_medians, on='sector', how='left')
+
+        # Calculate relative growth vs sector median
+        stocks_df['revenue_vs_sector'] = None
+        stocks_df['earnings_vs_sector'] = None
+
+        # Revenue vs sector
+        mask = (stocks_df['revenue_cagr_3y'].notna()) & (stocks_df['revenue_cagr_3y_sector_median'].notna()) & (stocks_df['revenue_cagr_3y_sector_median'] != 0)
+        stocks_df.loc[mask, 'revenue_vs_sector'] = stocks_df.loc[mask, 'revenue_cagr_3y'] / stocks_df.loc[mask, 'revenue_cagr_3y_sector_median']
+
+        # Earnings vs sector
+        mask = (stocks_df['earnings_cagr_3y'].notna()) & (stocks_df['earnings_cagr_3y_sector_median'].notna()) & (stocks_df['earnings_cagr_3y_sector_median'] != 0)
+        stocks_df.loc[mask, 'earnings_vs_sector'] = stocks_df.loc[mask, 'earnings_cagr_3y'] / stocks_df.loc[mask, 'earnings_cagr_3y_sector_median']
+
+        # Calculate percentile rank within sector (0-1 scale, then convert to 0-100)
+        stocks_df['sector_revenue_rank_pct'] = stocks_df.groupby('sector')['revenue_cagr_3y'].rank(pct=True) * 100
+        stocks_df['sector_earnings_rank_pct'] = stocks_df.groupby('sector')['earnings_cagr_3y'].rank(pct=True) * 100
+
+        return stocks_df
+
+    def get_rule_of_40_stocks(self, min_rule_of_40: float = 40, sector_filter: str = None) -> pd.DataFrame:
+        """
+        Find stocks with efficient growth (Revenue Growth % + FCF Margin % >= threshold)
+
+        Rule of 40 = Revenue Growth Rate (%) + FCF Margin (%)
+        Widely used for SaaS/cloud companies to balance growth with profitability
+
+        Args:
+            min_rule_of_40: Minimum Rule of 40 score (default: 40)
+            sector_filter: Optional sector to filter (e.g., 'Technology', 'Communication Services')
+
+        Returns:
+            DataFrame of stocks meeting Rule of 40 threshold, sorted by score
+        """
+        if sector_filter:
+            query = '''
+                SELECT s.*,
+                       g.revenue_cagr_3y, g.fcf_margin, g.rule_of_40,
+                       g.growth_stage, g.fcf_cagr_3y, g.cash_conversion_ratio,
+                       g.operating_leverage, g.margin_trend
+                FROM stocks s
+                LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+                WHERE g.rule_of_40 IS NOT NULL
+                  AND g.rule_of_40 >= ?
+                  AND s.sector = ?
+                ORDER BY g.rule_of_40 DESC
+            '''
+            return pd.read_sql_query(query, self.conn, params=(min_rule_of_40, sector_filter))
+        else:
+            query = '''
+                SELECT s.*,
+                       g.revenue_cagr_3y, g.fcf_margin, g.rule_of_40,
+                       g.growth_stage, g.fcf_cagr_3y, g.cash_conversion_ratio,
+                       g.operating_leverage, g.margin_trend
+                FROM stocks s
+                LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+                WHERE g.rule_of_40 IS NOT NULL
+                  AND g.rule_of_40 >= ?
+                ORDER BY g.rule_of_40 DESC
+            '''
+            return pd.read_sql_query(query, self.conn, params=(min_rule_of_40,))
 
     def close(self):
         """Close database connection"""

@@ -52,6 +52,14 @@
                 <label for="max_peg">Max PEG Average:</label>
                 <input type="number" id="max_peg" name="max_peg" step="0.1" placeholder="e.g., 2.0">
             </div>
+
+            <div class="form-group">
+                <label for="top_sector_performers" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="top_sector_performers" name="top_sector_performers" value="true" {% if top_sector_performers == 'true' %}checked{% endif %} style="width: auto; margin: 0;">
+                    <span>Top 25% Sector Performers</span>
+                    <button type="button" class="info-btn" onclick="showMetricInfo('topSectorPerformers')">i</button>
+                </label>
+            </div>
         </div>
 
         <div class="filter-actions">
@@ -76,6 +84,14 @@
                     <th data-sortable data-type="number">P/S</th>
                     <th data-sortable data-type="number">PEG Avg</th>
                     <th data-sortable data-type="number">Revenue Growth</th>
+                    <th data-sortable data-type="number">
+                        Sector Rank
+                        <button type="button" class="info-btn" onclick="showMetricInfo('sectorRank')">i</button>
+                    </th>
+                    <th data-sortable data-type="number">
+                        Growth vs Sector
+                        <button type="button" class="info-btn" onclick="showMetricInfo('growthVsSector')">i</button>
+                    </th>
                     <th data-sortable data-type="text">Sector</th>
                     <th data-sortable data-type="text">Risk Level</th>
                     <th data-sortable data-type="text">Classification</th>
@@ -100,6 +116,33 @@
                         {% endif %}
                     </td>
                     <td>{{ stock.revenue_growth|format_percent }}</td>
+                    <td>
+                        {% if stock.sector_revenue_rank_pct or stock.sector_earnings_rank_pct %}
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                {% if stock.sector_revenue_rank_pct %}
+                                    <span style="color: {% if stock.sector_revenue_rank_pct >= 75 %}#90EE90{% elif stock.sector_revenue_rank_pct >= 50 %}#ffd700{% else %}#ff6b6b{% endif %}; font-size: 0.9em;">
+                                        Rev: Top {{ (100 - stock.sector_revenue_rank_pct)|round|int }}%
+                                    </span>
+                                {% endif %}
+                                {% if stock.sector_earnings_rank_pct %}
+                                    <span style="color: {% if stock.sector_earnings_rank_pct >= 75 %}#90EE90{% elif stock.sector_earnings_rank_pct >= 50 %}#ffd700{% else %}#ff6b6b{% endif %}; font-size: 0.9em;">
+                                        Earn: Top {{ (100 - stock.sector_earnings_rank_pct)|round|int }}%
+                                    </span>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.revenue_vs_sector %}
+                            <span style="color: {% if stock.revenue_vs_sector >= 1.5 %}#90EE90{% elif stock.revenue_vs_sector >= 1.0 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                                {{ "%.2fx"|format(stock.revenue_vs_sector) }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
                     <td>{{ stock.sector }}</td>
                     <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
                     <td>{{ stock.classification }}</td>
@@ -118,4 +161,87 @@
     <p class="no-results">No stocks found. Try adjusting your filters or <a href="{{ url_for('fetch_stocks') }}">fetch some data</a>.</p>
     {% endif %}
 </div>
+
+<!-- Metric Info Modal -->
+<div id="metricModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeMetricModal()">&times;</span>
+        <div id="metricInfo"></div>
+    </div>
+</div>
+
+<style>
+/* Info Button - matching stock_detail.html style */
+.info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(0, 255, 136, 0.4);
+    color: #00ff88;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 5px;
+    padding: 0;
+    transition: all 0.2s ease;
+    font-family: serif;
+    font-style: italic;
+}
+
+.info-btn:hover {
+    background: rgba(0, 255, 136, 0.4);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    transform: scale(1.1);
+}
+</style>
+
+<script>
+// Metric definitions for info pop-ups
+const metricDefinitions = {
+    topSectorPerformers: {
+        title: 'Top 25% Sector Performers',
+        description: 'When enabled, this filter shows only stocks that rank in the top 25% of their sector for BOTH revenue AND earnings growth. This helps identify sector leaders - companies outperforming most of their peers across both metrics.'
+    },
+    sectorRank: {
+        title: 'Sector Rank (Percentile)',
+        description: 'Shows where this stock ranks within its sector for both revenue and earnings growth, expressed as percentiles. "Top 10%" means this stock is in the top 10% of its sector for that metric - better than 90% of its peers. Green = Top 25% (sector leaders), Yellow = Top 50% (above average), Red = Below average.'
+    },
+    growthVsSector: {
+        title: 'Growth vs Sector Median',
+        description: 'Shows how much faster (or slower) this stock is growing compared to the median (middle) stock in its sector. For example, "2.3x" means this stock is growing 2.3 times faster than the typical company in its sector. Green = 1.5x or more (significantly faster), Yellow = 1.0-1.5x (faster), Red = Below 1.0x (slower than sector).'
+    }
+};
+
+function showMetricInfo(metric) {
+    const modal = document.getElementById('metricModal');
+    const infoDiv = document.getElementById('metricInfo');
+    const def = metricDefinitions[metric];
+
+    if (def) {
+        infoDiv.innerHTML = `
+            <h4>${def.title}</h4>
+            <p>${def.description}</p>
+        `;
+        modal.style.display = 'block';
+    }
+}
+
+function closeMetricModal() {
+    const modal = document.getElementById('metricModal');
+    modal.style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('metricModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+
 {% endblock %}

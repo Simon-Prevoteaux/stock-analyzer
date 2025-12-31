@@ -208,6 +208,30 @@
                     {% endif %}
                 </td>
             </tr>
+
+            <!-- Rule of 40 (for SaaS/Tech companies) -->
+            <tr>
+                <td>
+                    Rule of 40
+                    <button type="button" class="info-btn" onclick="showInfo('rule-of-40')">i</button>
+                </td>
+                <td>
+                    {% if growth_metrics.rule_of_40 %}
+                        <span style="font-weight: bold; color: {% if growth_metrics.rule_of_40 >= 40 %}#90EE90{% elif growth_metrics.rule_of_40 >= 20 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                            {{ growth_metrics.rule_of_40|round(1) }}
+                            {% if growth_metrics.rule_of_40 >= 40 %}
+                                <small>(Excellent)</small>
+                            {% elif growth_metrics.rule_of_40 >= 20 %}
+                                <small>(Good)</small>
+                            {% else %}
+                                <small>(Low)</small>
+                            {% endif %}
+                        </span>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+            </tr>
             {% endif %}
         </table>
     </div>
@@ -529,6 +553,31 @@ const infoContent = {
             <li><strong>More robust:</strong> Less likely to be skewed by a single anomalous data point</li>
         </ul>
         <p><strong>Best practice:</strong> Use PEG Average for quick screening, but review individual PEG values to understand if there's significant divergence between short-term and long-term growth trends.</p>`
+    },
+    'rule-of-40': {
+        title: 'Rule of 40',
+        content: `<p><strong>What it is:</strong> A key performance metric for SaaS and cloud companies that balances growth with profitability. It states that a company's combined revenue growth rate and profit margin should equal or exceed 40%.</p>
+        <p><strong>How it's calculated:</strong></p>
+        <ul>
+            <li><strong>Formula:</strong> Revenue Growth Rate (%) + Free Cash Flow Margin (%)</li>
+            <li><strong>Revenue Growth:</strong> 3-year CAGR as a percentage</li>
+            <li><strong>FCF Margin:</strong> Free Cash Flow ÷ Revenue as a percentage</li>
+            <li><strong>Example:</strong> 25% revenue growth + 18% FCF margin = 43 (exceeds Rule of 40)</li>
+        </ul>
+        <p><strong>Interpretation:</strong></p>
+        <ul>
+            <li><strong>≥ 40:</strong> <span style="color: #90EE90;">Excellent</span> - Efficient growth, balancing expansion with profitability</li>
+            <li><strong>20-40:</strong> <span style="color: #ffd700;">Good</span> - Acceptable performance, room for improvement</li>
+            <li><strong>&lt; 20:</strong> <span style="color: #ff6b6b;">Low</span> - Inefficient growth or profitability concerns</li>
+        </ul>
+        <p><strong>Why it matters:</strong></p>
+        <ul>
+            <li><strong>Growth/Profit tradeoff:</strong> Companies can achieve the rule through high growth (with lower margins) or high margins (with lower growth)</li>
+            <li><strong>Efficiency indicator:</strong> Shows if a company is growing efficiently without burning excessive cash</li>
+            <li><strong>Industry standard:</strong> Widely used by VCs and public market investors to evaluate SaaS/cloud companies</li>
+            <li><strong>Stage-dependent:</strong> Early-stage companies often prioritize growth over profitability; mature companies prioritize margins</li>
+        </ul>
+        <p><strong>Best for:</strong> Software, SaaS, and cloud-based companies. Less applicable to hardware, retail, or traditional manufacturing businesses.</p>`
     },
     'revenue-cagr': {
         title: 'Revenue CAGR (3Y)',

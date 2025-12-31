@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Rule of 40{% endblock %}
+
+{% block content %}
+<h1>Rule of 40</h1>
+<p class="subtitle">Stocks with efficient growth - balancing revenue growth with profitability (SaaS/Cloud metric)</p>
+
+<!-- Explanation Card -->
+<div class="card" style="margin-bottom: 20px; background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.2);">
+    <h3 style="color: #00ff88; margin-top: 0;">What is the Rule of 40?</h3>
+    <p>The <strong>Rule of 40</strong> states that a company's combined <strong>revenue growth rate</strong> and <strong>profit margin</strong> should equal or exceed 40%. It's a key performance indicator for SaaS and cloud companies that balances growth with profitability.</p>
+
+    <p><strong>Formula:</strong> Revenue Growth Rate (%) + Free Cash Flow Margin (%) ≥ 40</p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+        <div style="padding: 10px; background: rgba(144, 238, 144, 0.1); border-radius: 5px;">
+            <strong style="color: #90EE90;">≥ 40: Excellent</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Efficient growth, balancing expansion with profitability</p>
+        </div>
+        <div style="padding: 10px; background: rgba(255, 215, 0, 0.1); border-radius: 5px;">
+            <strong style="color: #ffd700;">20-40: Good</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Acceptable performance, room for improvement</p>
+        </div>
+        <div style="padding: 10px; background: rgba(255, 107, 107, 0.1); border-radius: 5px;">
+            <strong style="color: #ff6b6b;">&lt; 20: Low</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Inefficient growth or profitability concerns</p>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="screener-filters">
+    <form method="GET" class="filter-form">
+        <div class="filter-grid">
+            <div class="form-group">
+                <label for="min_rule_of_40">Minimum Rule of 40:</label>
+                <input type="number" id="min_rule_of_40" name="min_rule_of_40" value="{{ min_rule_of_40 }}" step="1" placeholder="e.g., 40">
+                <small>Default: 40 (the threshold)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="sector">Sector Filter:</label>
+                <select id="sector" name="sector">
+                    <option value="">All Sectors</option>
+                    {% for s in sectors %}
+                    <option value="{{ s }}" {% if sector_filter == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+                <small>Most relevant for Technology & Communication Services</small>
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+            <a href="{{ url_for('rule_of_40') }}" class="btn btn-secondary">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Results Section -->
+<div class="results-section">
+    <h2>Results ({{ stocks|length }} stocks)</h2>
+
+    {% if stocks %}
+    <div class="table-container">
+        <table class="stock-table sortable-table">
+            <thead>
+                <tr>
+                    <th data-sortable data-type="text">Ticker</th>
+                    <th data-sortable data-type="text">Company</th>
+                    <th data-sortable data-type="number">
+                        Rule of 40
+                        <button type="button" class="info-btn" onclick="showInfo('rule-of-40')">i</button>
+                    </th>
+                    <th data-sortable data-type="number">Revenue Growth (3Y)</th>
+                    <th data-sortable data-type="number">FCF Margin</th>
+                    <th data-sortable data-type="number">Market Cap</th>
+                    <th data-sortable data-type="text">Sector</th>
+                    <th data-sortable data-type="text">Growth Stage</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stock in stocks %}
+                <tr>
+                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
+                    <td>{{ stock.company_name }}</td>
+                    <td>
+                        {% if stock.rule_of_40 %}
+                            <span style="font-weight: bold; color: {% if stock.rule_of_40 >= 40 %}#90EE90{% elif stock.rule_of_40 >= 20 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                                {{ stock.rule_of_40|round(1) }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.revenue_cagr_3y %}
+                            {{ (stock.revenue_cagr_3y * 100)|round(1) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.fcf_margin %}
+                            {{ (stock.fcf_margin * 100)|round(1) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ stock.market_cap|format_number }}</td>
+                    <td>{{ stock.sector }}</td>
+                    <td>
+                        {% if stock.growth_stage %}
+                            <span class="badge badge-{{ stock.growth_stage }}">
+                                {{ stock.growth_stage|replace('_', ' ')|title }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="no-results">No stocks found meeting the Rule of 40 threshold. Try lowering the minimum threshold or <a href="{{ url_for('fetch_stocks') }}">fetch some data</a>.</p>
+    {% endif %}
+</div>
+
+<!-- Info Modal -->
+<div id="infoModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeInfo()">&times;</span>
+        <div id="infoContent"></div>
+    </div>
+</div>
+
+<style>
+/* Badge Styling */
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.badge-early_growth {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 107, 107, 0.4);
+}
+
+.badge-rapid_growth {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+}
+
+.badge-mature_growth {
+    background: rgba(135, 206, 250, 0.2);
+    color: #87CEEB;
+    border: 1px solid rgba(135, 206, 250, 0.4);
+}
+
+.badge-inflection {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.badge-declining {
+    background: rgba(128, 128, 128, 0.2);
+    color: #808080;
+    border: 1px solid rgba(128, 128, 128, 0.4);
+}
+
+.badge-stable {
+    background: rgba(200, 200, 200, 0.2);
+    color: #c8c8c8;
+    border: 1px solid rgba(200, 200, 200, 0.4);
+}
+
+/* Info Button */
+.info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(0, 255, 136, 0.4);
+    color: #00ff88;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 5px;
+    padding: 0;
+    transition: all 0.2s ease;
+    font-family: serif;
+    font-style: italic;
+}
+
+.info-btn:hover {
+    background: rgba(0, 255, 136, 0.4);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    transform: scale(1.1);
+}
+</style>
+
+<script>
+// Info modal content
+const infoContent = {
+    'rule-of-40': {
+        title: 'Rule of 40',
+        content: `
+            <p><strong>What it is:</strong> A key performance metric for SaaS and cloud companies that balances growth with profitability. It states that a company's combined revenue growth rate and profit margin should equal or exceed 40%.</p>
+
+            <p><strong>How it's calculated:</strong></p>
+            <ul>
+                <li><strong>Formula:</strong> Revenue Growth Rate (%) + Free Cash Flow Margin (%)</li>
+                <li><strong>Revenue Growth:</strong> 3-year CAGR as a percentage</li>
+                <li><strong>FCF Margin:</strong> Free Cash Flow ÷ Revenue as a percentage</li>
+                <li><strong>Example:</strong> 25% revenue growth + 18% FCF margin = 43 (exceeds Rule of 40)</li>
+            </ul>
+
+            <p><strong>Interpretation:</strong></p>
+            <ul>
+                <li><strong>≥ 40:</strong> <span style="color: #90EE90;">Excellent</span> - Efficient growth, balancing expansion with profitability</li>
+                <li><strong>20-40:</strong> <span style="color: #ffd700;">Good</span> - Acceptable performance, room for improvement</li>
+                <li><strong>&lt; 20:</strong> <span style="color: #ff6b6b;">Low</span> - Inefficient growth or profitability concerns</li>
+            </ul>
+
+            <p><strong>Why it matters:</strong></p>
+            <ul>
+                <li><strong>Growth/Profit tradeoff:</strong> Companies can achieve the rule through high growth (with lower margins) or high margins (with lower growth)</li>
+                <li><strong>Efficiency indicator:</strong> Shows if a company is growing efficiently without burning excessive cash</li>
+                <li><strong>Industry standard:</strong> Widely used by VCs and public market investors to evaluate SaaS/cloud companies</li>
+                <li><strong>Stage-dependent:</strong> Early-stage companies often prioritize growth over profitability; mature companies prioritize margins</li>
+            </ul>
+
+            <p><strong>Best for:</strong> Software, SaaS, and cloud-based companies. Less applicable to hardware, retail, or traditional manufacturing businesses.</p>
+        `
+    }
+};
+
+function showInfo(metric) {
+    const modal = document.getElementById('infoModal');
+    const content = document.getElementById('infoContent');
+    const info = infoContent[metric];
+
+    if (info) {
+        content.innerHTML = `
+            <h3>${info.title}</h3>
+            ${info.content}
+        `;
+        modal.style.display = 'block';
+    }
+}
+
+function closeInfo() {
+    const modal = document.getElementById('infoModal');
+    modal.style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('infoModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+
+{% endblock %}
