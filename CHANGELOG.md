@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2025-12-31
+
+### Added
+- **Four New Valuation Models**: Classical value investing and fundamental analysis models
+  - **Graham Number**: Benjamin Graham's intrinsic value formula based on EPS and book value
+  - **Gordon Growth Model**: Dividend discount model for dividend-paying stocks
+  - **PEG-Based Valuation**: Fair value using PEG ratio and earnings growth
+  - **P/S Sector Valuation**: Price-to-Sales comparison against sector medians
+
+- **Multi-Model Consensus**: Intelligent aggregation of all forecasting models
+  - Consensus target price from 8 valuation models
+  - Agreement score (0-100) showing model alignment
+  - Smart recommendations (Strong Buy, Buy, Hold, Sell) based on upside and agreement
+  - Price range visualization showing min/max across all models
+
+- **Enhanced Forecast Page**: Unified summary with individual model breakdown table
+  - Merged forecast summary and consensus into single comprehensive view
+  - Model-by-model results table with target prices and upside percentages
+  - Visual status indicators for each model's validity
+
+### Changed
+- **Database Schema**: Added `book_value`, `dividend_rate`, and `dividend_yield` columns
+- **Data Fetching**: Enhanced stock_fetcher to calculate book value per share using multiple fallback methods
+- **P/S Valuation Logic**: Uses realistic sector-specific median P/S ratios instead of current stock P/S
+
 ## [1.2.0] - 2025-12-31
 
 ### Added
