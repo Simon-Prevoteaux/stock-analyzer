@@ -349,9 +349,63 @@ def stock_detail(ticker):
             }]
         } if filtered_earnings_annual else None
 
+    # Check which strategies this stock qualifies for
+    strategy_matches = {
+        'value_play': False,
+        'quality_growth': False,
+        'growth_inflection': False,
+        'rule_of_40': False,
+        'margin_expansion': False,
+        'cash_generative_growth': False
+    }
+
+    if stock and growth_metrics:
+        # Value Play: P/E < 20, P/S < 3, Profitable, Consistency > 60, Growth > 5%
+        if (stock.get('pe_ratio') and stock['pe_ratio'] <= 20 and
+            stock.get('ps_ratio') and stock['ps_ratio'] <= 3 and
+            stock.get('is_profitable') and
+            (growth_metrics.get('revenue_consistency_score', 0) >= 60 or
+             growth_metrics.get('earnings_consistency_score', 0) >= 60) and
+            (growth_metrics.get('avg_quarterly_revenue_growth', 0) >= 0.05 or
+             growth_metrics.get('avg_quarterly_earnings_growth', 0) >= 0.05)):
+            strategy_matches['value_play'] = True
+
+        # Quality Growth: CAGR >= 20%, Consistency >= 70, PEG <= 2.5
+        if (((growth_metrics.get('earnings_cagr_3y') or 0) >= 0.20 or
+             (growth_metrics.get('revenue_cagr_3y') or 0) >= 0.20) and
+            (growth_metrics.get('earnings_consistency_score') or 0) >= 70 and
+            growth_metrics.get('peg_average') and growth_metrics['peg_average'] <= 2.5):
+            strategy_matches['quality_growth'] = True
+
+        # Growth Inflection: Accelerating growth + Consistency >= 60 + P/E <= 40
+        if ((growth_metrics.get('revenue_growth_accelerating') or
+             growth_metrics.get('earnings_growth_accelerating')) and
+            (growth_metrics.get('earnings_consistency_score', 0) >= 60 or
+             growth_metrics.get('revenue_consistency_score', 0) >= 60) and
+            (not stock.get('pe_ratio') or stock['pe_ratio'] <= 40)):
+            strategy_matches['growth_inflection'] = True
+
+        # Rule of 40: Rule of 40 >= 40
+        if growth_metrics.get('rule_of_40') and growth_metrics['rule_of_40'] >= 40:
+            strategy_matches['rule_of_40'] = True
+
+        # Margin Expansion: Revenue CAGR >= 15%, Margin Trend = expanding, Operating Leverage >= 1.0
+        if ((growth_metrics.get('revenue_cagr_3y') or 0) >= 0.15 and
+            growth_metrics.get('margin_trend') == 'expanding' and
+            growth_metrics.get('operating_leverage') and growth_metrics['operating_leverage'] >= 1.0):
+            strategy_matches['margin_expansion'] = True
+
+        # Cash-Generative Growth: Revenue CAGR >= 20%, FCF > 0, FCF Margin >= 10%, Cash Conversion > 0.8
+        if ((growth_metrics.get('revenue_cagr_3y') or 0) >= 0.20 and
+            stock.get('free_cash_flow') and stock['free_cash_flow'] > 0 and
+            growth_metrics.get('fcf_margin') and growth_metrics['fcf_margin'] >= 0.10 and
+            growth_metrics.get('cash_conversion_ratio') and growth_metrics['cash_conversion_ratio'] > 0.8):
+            strategy_matches['cash_generative_growth'] = True
+
     return render_template('stock_detail.html',
                          stock=stock,
                          growth_metrics=growth_metrics,
+                         strategy_matches=strategy_matches,
                          has_historical_data=bool(quarterly_history or annual_history),
                          revenue_chart_data_quarterly=revenue_chart_data_quarterly,
                          earnings_chart_data_quarterly=earnings_chart_data_quarterly,
@@ -763,6 +817,48 @@ def rule_of_40():
                          min_rule_of_40=min_rule_of_40,
                          sector_filter=sector_filter,
                          sectors=sectors)
+
+
+@app.route('/margin-expansion')
+def margin_expansion():
+    """Stocks with expanding margins and improving profitability"""
+    # Get filter parameters
+    min_revenue_growth = request.args.get('min_revenue_growth', 15, type=float)
+    min_operating_leverage = request.args.get('min_operating_leverage', 1.0, type=float)
+
+    # Get margin expansion stocks
+    stocks_df = db.get_margin_expansion_stocks(min_revenue_growth, min_operating_leverage)
+
+    # Get all stocks for search
+    all_stocks_df = db.get_all_stocks()
+    available_stocks = all_stocks_df['ticker'].tolist() if not all_stocks_df.empty else []
+
+    return render_template('margin_expansion.html',
+                         stocks=stocks_df.to_dict('records') if not stocks_df.empty else [],
+                         available_stocks=available_stocks,
+                         min_revenue_growth=min_revenue_growth,
+                         min_operating_leverage=min_operating_leverage)
+
+
+@app.route('/cash-generative-growth')
+def cash_generative_growth():
+    """High-growth stocks that also generate positive free cash flow"""
+    # Get filter parameters
+    min_revenue_growth = request.args.get('min_revenue_growth', 20, type=float)
+    min_fcf_margin = request.args.get('min_fcf_margin', 10, type=float)
+
+    # Get cash-generative growth stocks
+    stocks_df = db.get_cash_generative_growth_stocks(min_revenue_growth, min_fcf_margin)
+
+    # Get all stocks for search
+    all_stocks_df = db.get_all_stocks()
+    available_stocks = all_stocks_df['ticker'].tolist() if not all_stocks_df.empty else []
+
+    return render_template('cash_generative_growth.html',
+                         stocks=stocks_df.to_dict('records') if not stocks_df.empty else [],
+                         available_stocks=available_stocks,
+                         min_revenue_growth=min_revenue_growth,
+                         min_fcf_margin=min_fcf_margin)
 
 
 @app.route('/forecast')

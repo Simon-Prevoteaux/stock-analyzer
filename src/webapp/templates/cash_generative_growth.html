@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}Cash-Generative Growth{% endblock %}
+
+{% block content %}
+<h1>Cash-Generative Growth</h1>
+<p class="subtitle">High-growth stocks that generate positive free cash flow - a rare and valuable combination</p>
+
+<!-- Explanation Card -->
+<div class="card" style="margin-bottom: 20px; background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.2);">
+    <h3 style="color: #00ff88; margin-top: 0;">What is Cash-Generative Growth?</h3>
+    <p><strong>Cash-generative growth</strong> is the rare combination of high revenue growth alongside positive and growing free cash flow. Most high-growth companies burn cash to fuel expansion, making FCF-positive growth stocks particularly valuable.</p>
+
+    <p><strong>Why It's Valuable:</strong></p>
+    <ul style="margin: 10px 0;">
+        <li><strong>Lower Risk:</strong> FCF-positive companies don't rely on external financing to fund operations</li>
+        <li><strong>Sustainable Growth:</strong> Growth funded by internal cash generation is more sustainable</li>
+        <li><strong>Optionality:</strong> Cash gives management flexibility for acquisitions, buybacks, or dividends</li>
+        <li><strong>Rare Combination:</strong> Most growth stocks burn cash; FCF-positive growth is uncommon</li>
+    </ul>
+
+    <p><strong>Key Metrics:</strong></p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
+        <div style="padding: 10px; background: rgba(144, 238, 144, 0.1); border-radius: 5px;">
+            <strong style="color: #90EE90;">FCF Margin ≥ 10%</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Strong cash generation relative to revenue</p>
+        </div>
+        <div style="padding: 10px; background: rgba(0, 255, 136, 0.1); border-radius: 5px;">
+            <strong style="color: #00ff88;">Cash Conversion > 0.8</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Earnings efficiently converted to cash (FCF / Net Income > 80%)</p>
+        </div>
+        <div style="padding: 10px; background: rgba(255, 215, 0, 0.1); border-radius: 5px;">
+            <strong style="color: #ffd700;">Revenue Growth ≥ 20%</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">High-growth while maintaining positive FCF</p>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="screener-filters">
+    <form method="GET" class="filter-form">
+        <div class="filter-grid">
+            <div class="form-group">
+                <label for="min_revenue_growth">Minimum Revenue Growth (%):</label>
+                <input type="number" id="min_revenue_growth" name="min_revenue_growth" value="{{ min_revenue_growth }}" step="1" placeholder="e.g., 20">
+                <small>Default: 20% (high growth)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="min_fcf_margin">Minimum FCF Margin (%):</label>
+                <input type="number" id="min_fcf_margin" name="min_fcf_margin" value="{{ min_fcf_margin }}" step="1" placeholder="e.g., 10">
+                <small>Default: 10% (strong cash generation)</small>
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+            <a href="{{ url_for('cash_generative_growth') }}" class="btn btn-secondary">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Results Section -->
+<div class="results-section">
+    <h2>Results ({{ stocks|length }} stocks)</h2>
+
+    {% if stocks %}
+    <div class="table-container">
+        <table class="stock-table sortable-table">
+            <thead>
+                <tr>
+                    <th data-sortable data-type="text">Ticker</th>
+                    <th data-sortable data-type="text">Company</th>
+                    <th data-sortable data-type="number">Revenue Growth (3Y)</th>
+                    <th data-sortable data-type="number">
+                        FCF Margin
+                        <span class="info-tooltip">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">
+                                <strong>FCF Margin:</strong> (Free Cash Flow ÷ Revenue) × 100. Measures cash generation efficiency.
+                                ≥20% = Excellent, 10-20% = Good, <10% = Moderate.
+                            </span>
+                        </span>
+                    </th>
+                    <th data-sortable data-type="number">
+                        Cash Conversion
+                        <span class="info-tooltip">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">
+                                <strong>Cash Conversion:</strong> FCF ÷ Net Income. Shows earnings quality.
+                                ≥1.0 = Excellent, 0.8-1.0 = Good, <0.8 = Watch for quality issues.
+                            </span>
+                        </span>
+                    </th>
+                    <th data-sortable data-type="number">Free Cash Flow</th>
+                    <th data-sortable data-type="number">FCF Growth (3Y)</th>
+                    <th data-sortable data-type="number">Profit Margin</th>
+                    <th data-sortable data-type="number">Market Cap</th>
+                    <th data-sortable data-type="text">Sector</th>
+                    <th data-sortable data-type="text">Growth Stage</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stock in stocks %}
+                <tr>
+                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
+                    <td>{{ stock.company_name }}</td>
+                    <td>
+                        {% if stock.revenue_cagr_3y %}
+                            <span style="font-weight: bold; color: {% if stock.revenue_cagr_3y >= 0.30 %}#90EE90{% elif stock.revenue_cagr_3y >= 0.20 %}#00ff88{% else %}#ffd700{% endif %};">
+                                {{ (stock.revenue_cagr_3y * 100)|round(1) }}%
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.fcf_margin %}
+                            <span style="color: {% if stock.fcf_margin >= 0.20 %}#90EE90{% elif stock.fcf_margin >= 0.10 %}#00ff88{% else %}#ffd700{% endif %};">
+                                {{ (stock.fcf_margin * 100)|round(1) }}%
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.cash_conversion_ratio %}
+                            <span style="color: {% if stock.cash_conversion_ratio >= 1.0 %}#90EE90{% elif stock.cash_conversion_ratio >= 0.8 %}#00ff88{% else %}#ffd700{% endif %};">
+                                {{ stock.cash_conversion_ratio|round(2) }}x
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ stock.free_cash_flow|format_number }}</td>
+                    <td>
+                        {% if stock.fcf_cagr_3y %}
+                            {{ (stock.fcf_cagr_3y * 100)|round(1) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.profit_margin %}
+                            {{ (stock.profit_margin * 100)|round(1) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ stock.market_cap|format_number }}</td>
+                    <td>{{ stock.sector }}</td>
+                    <td>
+                        {% if stock.growth_stage %}
+                            <span class="badge badge-{{ stock.growth_stage }}">
+                                {{ stock.growth_stage|replace('_', ' ')|title }}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="no-results">No cash-generative growth stocks found. Try lowering the minimum thresholds or <a href="{{ url_for('fetch_stocks') }}">fetch some data</a>.</p>
+    {% endif %}
+</div>
+
+<!-- Info Modal -->
+<div id="infoModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeInfo())">&times;</span>
+        <div id="infoContent"></div>
+    </div>
+</div>
+
+<style>
+/* Badge Styling for Growth Stages */
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.badge-early_growth {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 107, 107, 0.4);
+}
+
+.badge-rapid_growth {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+}
+
+.badge-mature_growth {
+    background: rgba(135, 206, 250, 0.2);
+    color: #87CEEB;
+    border: 1px solid rgba(135, 206, 250, 0.4);
+}
+
+.badge-inflection {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.badge-declining {
+    background: rgba(128, 128, 128, 0.2);
+    color: #808080;
+    border: 1px solid rgba(128, 128, 128, 0.4);
+}
+
+.badge-stable {
+    background: rgba(200, 200, 200, 0.2);
+    color: #c8c8c8;
+    border: 1px solid rgba(200, 200, 200, 0.4);
+}
+
+/* Info Tooltip for Table Headers */
+.info-tooltip {
+    position: relative;
+    display: inline-block;
+    margin-left: 5px;
+}
+
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(0, 255, 136, 0.4);
+    color: #00ff88;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: help;
+    font-family: serif;
+    font-style: italic;
+    transition: all 0.2s ease;
+}
+
+.info-icon:hover {
+    background: rgba(0, 255, 136, 0.4);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    transform: scale(1.1);
+}
+
+.tooltip-text {
+    visibility: hidden;
+    opacity: 0;
+    position: fixed;
+    z-index: 10000;
+    width: 320px;
+    background-color: rgba(20, 20, 30, 0.98);
+    color: #e0e0e0;
+    text-align: left;
+    padding: 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    font-size: 13px;
+    line-height: 1.5;
+    transition: opacity 0.3s, visibility 0.3s;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    white-space: normal;
+}
+
+/* Tooltip arrow for above positioning */
+.tooltip-text.tooltip-above::after {
+    bottom: -7px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-color: rgba(20, 20, 30, 0.98) transparent transparent transparent;
+}
+
+/* Tooltip arrow for below positioning */
+.tooltip-text.tooltip-below::after {
+    top: -7px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-color: transparent transparent rgba(20, 20, 30, 0.98) transparent;
+}
+
+.info-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+</style>
+
+<script>
+// Dynamic tooltip positioning
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltips = document.querySelectorAll('.info-tooltip');
+
+    tooltips.forEach(tooltip => {
+        const icon = tooltip.querySelector('.info-icon');
+        const text = tooltip.querySelector('.tooltip-text');
+
+        icon.addEventListener('mouseenter', function() {
+            const rect = icon.getBoundingClientRect();
+            const tooltipHeight = 120; // Approximate tooltip height
+            const spaceAbove = rect.top;
+            const spaceBelow = window.innerHeight - rect.bottom;
+
+            // Position tooltip based on available space
+            if (spaceAbove > tooltipHeight || spaceAbove > spaceBelow) {
+                // Position above
+                text.style.top = (rect.top - tooltipHeight - 10) + 'px';
+                text.style.left = (rect.left + rect.width / 2 - 160) + 'px';
+                text.classList.add('tooltip-above');
+                text.classList.remove('tooltip-below');
+            } else {
+                // Position below
+                text.style.top = (rect.bottom + 10) + 'px';
+                text.style.left = (rect.left + rect.width / 2 - 160) + 'px';
+                text.classList.add('tooltip-below');
+                text.classList.remove('tooltip-above');
+            }
+        });
+    });
+});
+
+// Info modal content
+const infoContent = {
+    'fcf-margin': {
+        title: 'FCF Margin',
+        content: `
+            <p><strong>What it is:</strong> Free Cash Flow (FCF) Margin measures how much cash a company generates from its revenue after accounting for operating expenses and capital expenditures.</p>
+
+            <p><strong>How it's calculated:</strong></p>
+            <ul>
+                <li><strong>Formula:</strong> (Free Cash Flow ÷ Revenue) × 100</li>
+                <li><strong>Free Cash Flow:</strong> Operating Cash Flow - Capital Expenditures</li>
+                <li><strong>Example:</strong> $500M FCF ÷ $5B Revenue = 10% FCF Margin</li>
+            </ul>
+
+            <p><strong>Interpretation:</strong></p>
+            <ul>
+                <li><strong>≥ 20%:</strong> <span style="color: #90EE90;">Excellent</span> - Very strong cash generation</li>
+                <li><strong>10-20%:</strong> <span style="color: #00ff88;">Good</span> - Healthy cash generation</li>
+                <li><strong>< 10%:</strong> <span style="color: #ffd700;">Acceptable</span> - Moderate cash generation</li>
+                <li><strong>Negative:</strong> <span style="color: #ff6b6b;">Concerning</span> - Company is burning cash</li>
+            </ul>
+
+            <p><strong>Why it matters:</strong> High FCF margin indicates the business can fund growth, make acquisitions, return capital to shareholders, or weather downturns without external financing.</p>
+        `
+    },
+    'cash-conversion': {
+        title: 'Cash Conversion Ratio',
+        content: `
+            <p><strong>What it is:</strong> Cash Conversion Ratio measures how efficiently a company converts its accounting earnings into actual cash flow. It shows the quality of earnings.</p>
+
+            <p><strong>How it's calculated:</strong></p>
+            <ul>
+                <li><strong>Formula:</strong> Free Cash Flow ÷ Net Income</li>
+                <li><strong>Example:</strong> $400M FCF ÷ $500M Net Income = 0.8 (80% conversion)</li>
+            </ul>
+
+            <p><strong>Interpretation:</strong></p>
+            <ul>
+                <li><strong>≥ 1.0:</strong> <span style="color: #90EE90;">Excellent</span> - Generating more cash than reported earnings</li>
+                <li><strong>0.8-1.0:</strong> <span style="color: #00ff88;">Good</span> - Strong cash conversion</li>
+                <li><strong>0.5-0.8:</strong> <span style="color: #ffd700;">Acceptable</span> - Moderate conversion (may have high CapEx or working capital needs)</li>
+                <li><strong>< 0.5:</strong> <span style="color: #ff6b6b;">Concerning</span> - Poor cash conversion (watch out for accounting quality)</li>
+            </ul>
+
+            <p><strong>Why it matters:</strong> High cash conversion indicates high-quality earnings. Companies with low conversion may have aggressive accounting, high CapEx requirements, or working capital issues.</p>
+
+            <p><strong>Example:</strong></p>
+            <ul>
+                <li>Software companies often have > 1.0 conversion (low CapEx)</li>
+                <li>Manufacturing companies may have < 0.8 conversion (high CapEx for machinery)</li>
+            </ul>
+        `
+    }
+};
+
+function showInfo(metric) {
+    const modal = document.getElementById('infoModal');
+    const content = document.getElementById('infoContent');
+    const info = infoContent[metric];
+
+    if (info) {
+        content.innerHTML = `
+            <h3>${info.title}</h3>
+            ${info.content}
+        `;
+        modal.style.display = 'block';
+    }
+}
+
+function closeInfo() {
+    const modal = document.getElementById('infoModal');
+    modal.style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('infoModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+
+{% endblock %}

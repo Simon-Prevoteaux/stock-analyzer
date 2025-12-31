@@ -1,30 +1,34 @@
 {% extends "base.html" %}
 
-{% block title %}Rule of 40{% endblock %}
+{% block title %}Margin Expansion{% endblock %}
 
 {% block content %}
-<h1>Rule of 40</h1>
-<p class="subtitle">Stocks with efficient growth - balancing revenue growth with profitability (SaaS/Cloud metric)</p>
+<h1>Margin Expansion Tracker</h1>
+<p class="subtitle">Growing companies with improving profitability - earnings growing faster than revenue</p>
 
 <!-- Explanation Card -->
 <div class="card" style="margin-bottom: 20px; background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.2);">
-    <h3 style="color: #00ff88; margin-top: 0;">What is the Rule of 40?</h3>
-    <p>The <strong>Rule of 40</strong> states that a company's combined <strong>revenue growth rate</strong> and <strong>profit margin</strong> should equal or exceed 40%. It's a key performance indicator for SaaS and cloud companies that balances growth with profitability.</p>
+    <h3 style="color: #00ff88; margin-top: 0;">What is Margin Expansion?</h3>
+    <p><strong>Margin expansion</strong> occurs when a company's profit margins improve over time while maintaining revenue growth. This indicates the business is becoming more efficient and profitable as it scales.</p>
 
-    <p><strong>Formula:</strong> Revenue Growth Rate (%) + Free Cash Flow Margin (%) ≥ 40</p>
+    <p><strong>Key Metrics:</strong></p>
+    <ul style="margin: 10px 0;">
+        <li><strong>Operating Leverage:</strong> Earnings Growth ÷ Revenue Growth. Values > 1.0 mean earnings are growing faster than revenue (improving profitability).</li>
+        <li><strong>Margin Trend:</strong> Compares recent 4 quarters vs previous 4 quarters. "Expanding" means margins are improving.</li>
+    </ul>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
         <div style="padding: 10px; background: rgba(144, 238, 144, 0.1); border-radius: 5px;">
-            <strong style="color: #90EE90;">≥ 40: Excellent</strong>
-            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Efficient growth, balancing expansion with profitability</p>
+            <strong style="color: #90EE90;">Operating Leverage > 1.5</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Exceptional efficiency gains - earnings growing much faster than revenue</p>
         </div>
         <div style="padding: 10px; background: rgba(255, 215, 0, 0.1); border-radius: 5px;">
-            <strong style="color: #ffd700;">20-40: Good</strong>
-            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Acceptable performance, room for improvement</p>
+            <strong style="color: #ffd700;">Operating Leverage 1.0-1.5</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Good efficiency - margins expanding alongside growth</p>
         </div>
         <div style="padding: 10px; background: rgba(255, 107, 107, 0.1); border-radius: 5px;">
-            <strong style="color: #ff6b6b;">&lt; 20: Low</strong>
-            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Inefficient growth or profitability concerns</p>
+            <strong style="color: #ff6b6b;">Operating Leverage < 1.0</strong>
+            <p style="font-size: 0.9em; margin: 5px 0 0 0;">Margins not improving - revenue growing faster than earnings</p>
         </div>
     </div>
 </div>
@@ -34,26 +38,21 @@
     <form method="GET" class="filter-form">
         <div class="filter-grid">
             <div class="form-group">
-                <label for="min_rule_of_40">Minimum Rule of 40:</label>
-                <input type="number" id="min_rule_of_40" name="min_rule_of_40" value="{{ min_rule_of_40 }}" step="1" placeholder="e.g., 40">
-                <small>Default: 40 (the threshold)</small>
+                <label for="min_revenue_growth">Minimum Revenue Growth (%):</label>
+                <input type="number" id="min_revenue_growth" name="min_revenue_growth" value="{{ min_revenue_growth }}" step="1" placeholder="e.g., 15">
+                <small>Default: 15% (moderate growth)</small>
             </div>
 
             <div class="form-group">
-                <label for="sector">Sector Filter:</label>
-                <select id="sector" name="sector">
-                    <option value="">All Sectors</option>
-                    {% for s in sectors %}
-                    <option value="{{ s }}" {% if sector_filter == s %}selected{% endif %}>{{ s }}</option>
-                    {% endfor %}
-                </select>
-                <small>Most relevant for Technology & Communication Services</small>
+                <label for="min_operating_leverage">Minimum Operating Leverage:</label>
+                <input type="number" id="min_operating_leverage" name="min_operating_leverage" value="{{ min_operating_leverage }}" step="0.1" placeholder="e.g., 1.0">
+                <small>Default: 1.0 (earnings growing as fast as revenue)</small>
             </div>
         </div>
 
         <div class="filter-actions">
             <button type="submit" class="btn btn-primary">Apply Filters</button>
-            <a href="{{ url_for('rule_of_40') }}" class="btn btn-secondary">Reset</a>
+            <a href="{{ url_for('margin_expansion') }}" class="btn btn-secondary">Reset</a>
         </div>
     </form>
 </div>
@@ -70,17 +69,28 @@
                     <th data-sortable data-type="text">Ticker</th>
                     <th data-sortable data-type="text">Company</th>
                     <th data-sortable data-type="number">
-                        Rule of 40
+                        Operating Leverage
                         <span class="info-tooltip">
                             <span class="info-icon">i</span>
                             <span class="tooltip-text">
-                                <strong>Rule of 40:</strong> Revenue Growth % + FCF Margin %.
-                                ≥40 = Excellent, 20-40 = Good, <20 = Low. Key SaaS/cloud metric.
+                                <strong>Operating Leverage:</strong> Earnings Growth ÷ Revenue Growth.
+                                >1.5 = Exceptional, 1.0-1.5 = Good, <1.0 = Margins not improving.
                             </span>
                         </span>
                     </th>
                     <th data-sortable data-type="number">Revenue Growth (3Y)</th>
-                    <th data-sortable data-type="number">FCF Margin</th>
+                    <th data-sortable data-type="number">Earnings Growth (3Y)</th>
+                    <th data-sortable data-type="text">
+                        Margin Trend
+                        <span class="info-tooltip">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">
+                                <strong>Margin Trend:</strong> Compares recent 4Q vs previous 4Q profit margins.
+                                Expanding = margins improving, Stable = consistent, Contracting = declining.
+                            </span>
+                        </span>
+                    </th>
+                    <th data-sortable data-type="number">Current Profit Margin</th>
                     <th data-sortable data-type="number">Market Cap</th>
                     <th data-sortable data-type="text">Sector</th>
                     <th data-sortable data-type="text">Growth Stage</th>
@@ -93,9 +103,9 @@
                     <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
                     <td>{{ stock.company_name }}</td>
                     <td>
-                        {% if stock.rule_of_40 %}
-                            <span style="font-weight: bold; color: {% if stock.rule_of_40 >= 40 %}#90EE90{% elif stock.rule_of_40 >= 20 %}#ffd700{% else %}#ff6b6b{% endif %};">
-                                {{ stock.rule_of_40|round(1) }}
+                        {% if stock.operating_leverage %}
+                            <span style="font-weight: bold; color: {% if stock.operating_leverage >= 1.5 %}#90EE90{% elif stock.operating_leverage >= 1.0 %}#ffd700{% else %}#ff6b6b{% endif %};">
+                                {{ stock.operating_leverage|round(2) }}x
                             </span>
                         {% else %}
                             N/A
@@ -109,8 +119,30 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if stock.fcf_margin %}
-                            {{ (stock.fcf_margin * 100)|round(1) }}%
+                        {% if stock.earnings_cagr_3y %}
+                            {{ (stock.earnings_cagr_3y * 100)|round(1) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.margin_trend %}
+                            <span class="margin-badge margin-{{ stock.margin_trend }}">
+                                {% if stock.margin_trend == 'expanding' %}
+                                    📈 Expanding
+                                {% elif stock.margin_trend == 'contracting' %}
+                                    📉 Contracting
+                                {% else %}
+                                    ➡️ Stable
+                                {% endif %}
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stock.profit_margin %}
+                            {{ (stock.profit_margin * 100)|round(1) }}%
                         {% else %}
                             N/A
                         {% endif %}
@@ -135,7 +167,7 @@
         </table>
     </div>
     {% else %}
-    <p class="no-results">No stocks found meeting the Rule of 40 threshold. Try lowering the minimum threshold or <a href="{{ url_for('fetch_stocks') }}">fetch some data</a>.</p>
+    <p class="no-results">No stocks found with expanding margins. Try lowering the minimum thresholds or <a href="{{ url_for('fetch_stocks') }}">fetch some data</a>.</p>
     {% endif %}
 </div>
 
@@ -148,7 +180,7 @@
 </div>
 
 <style>
-/* Badge Styling */
+/* Badge Styling for Growth Stages */
 .badge {
     display: inline-block;
     padding: 4px 8px;
@@ -191,6 +223,33 @@
     background: rgba(200, 200, 200, 0.2);
     color: #c8c8c8;
     border: 1px solid rgba(200, 200, 200, 0.4);
+}
+
+/* Margin Trend Badges */
+.margin-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.margin-expanding {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+}
+
+.margin-contracting {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 107, 107, 0.4);
+}
+
+.margin-stable {
+    background: rgba(255, 215, 0, 0.2);
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.4);
 }
 
 /* Info Tooltip for Table Headers */
@@ -285,7 +344,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         icon.addEventListener('mouseenter', function() {
             const rect = icon.getBoundingClientRect();
-            const tooltipHeight = 90; // Approximate tooltip height
+            const tooltipHeight = 100; // Approximate tooltip height
             const spaceAbove = rect.top;
             const spaceBelow = window.innerHeight - rect.bottom;
 
@@ -309,35 +368,49 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Info modal content
 const infoContent = {
-    'rule-of-40': {
-        title: 'Rule of 40',
+    'operating-leverage': {
+        title: 'Operating Leverage',
         content: `
-            <p><strong>What it is:</strong> A key performance metric for SaaS and cloud companies that balances growth with profitability. It states that a company's combined revenue growth rate and profit margin should equal or exceed 40%.</p>
+            <p><strong>What it is:</strong> Operating leverage measures how efficiently a company converts revenue growth into earnings growth. It's calculated as: <strong>Earnings Growth Rate ÷ Revenue Growth Rate</strong></p>
+
+            <p><strong>How to interpret:</strong></p>
+            <ul>
+                <li><strong>Operating Leverage > 1.0:</strong> <span style="color: #90EE90;">Good</span> - Earnings growing faster than revenue. The company is improving profitability as it scales.</li>
+                <li><strong>Operating Leverage = 1.0:</strong> <span style="color: #ffd700;">Neutral</span> - Earnings and revenue growing at the same rate. Margins are stable.</li>
+                <li><strong>Operating Leverage < 1.0:</strong> <span style="color: #ff6b6b;">Concerning</span> - Revenue growing faster than earnings. Margins are compressing.</li>
+            </ul>
+
+            <p><strong>Example:</strong></p>
+            <ul>
+                <li>If revenue grows 20% and earnings grow 30%, operating leverage = 30% ÷ 20% = 1.5x</li>
+                <li>This means for every 1% of revenue growth, earnings grow by 1.5%</li>
+                <li>This indicates improving efficiency and margin expansion</li>
+            </ul>
+
+            <p><strong>Why it matters:</strong> Companies with high operating leverage are becoming more profitable as they grow. This is a sign of competitive advantages, economies of scale, or operational improvements.</p>
+        `
+    },
+    'margin-trend': {
+        title: 'Margin Trend',
+        content: `
+            <p><strong>What it is:</strong> Margin trend analyzes whether a company's profit margins are improving, declining, or staying stable over time by comparing recent quarters to historical quarters.</p>
 
             <p><strong>How it's calculated:</strong></p>
             <ul>
-                <li><strong>Formula:</strong> Revenue Growth Rate (%) + Free Cash Flow Margin (%)</li>
-                <li><strong>Revenue Growth:</strong> 3-year CAGR as a percentage</li>
-                <li><strong>FCF Margin:</strong> Free Cash Flow ÷ Revenue as a percentage</li>
-                <li><strong>Example:</strong> 25% revenue growth + 18% FCF margin = 43 (exceeds Rule of 40)</li>
+                <li>Compare average profit margin of <strong>recent 4 quarters</strong> vs <strong>previous 4 quarters</strong></li>
+                <li><strong>Expanding:</strong> Recent margins are 10%+ higher than previous period</li>
+                <li><strong>Contracting:</strong> Recent margins are 10%+ lower than previous period</li>
+                <li><strong>Stable:</strong> Recent margins within ±10% of previous period</li>
             </ul>
 
             <p><strong>Interpretation:</strong></p>
             <ul>
-                <li><strong>≥ 40:</strong> <span style="color: #90EE90;">Excellent</span> - Efficient growth, balancing expansion with profitability</li>
-                <li><strong>20-40:</strong> <span style="color: #ffd700;">Good</span> - Acceptable performance, room for improvement</li>
-                <li><strong>&lt; 20:</strong> <span style="color: #ff6b6b;">Low</span> - Inefficient growth or profitability concerns</li>
+                <li><strong>📈 Expanding:</strong> <span style="color: #90EE90;">Excellent</span> - Company is becoming more profitable. Could indicate pricing power, cost efficiencies, or economies of scale.</li>
+                <li><strong>➡️ Stable:</strong> <span style="color: #ffd700;">Good</span> - Consistent profitability. The business model is sustainable.</li>
+                <li><strong>📉 Contracting:</strong> <span style="color: #ff6b6b;">Concerning</span> - Profitability declining. Could indicate increased competition, rising costs, or pricing pressure.</li>
             </ul>
 
-            <p><strong>Why it matters:</strong></p>
-            <ul>
-                <li><strong>Growth/Profit tradeoff:</strong> Companies can achieve the rule through high growth (with lower margins) or high margins (with lower growth)</li>
-                <li><strong>Efficiency indicator:</strong> Shows if a company is growing efficiently without burning excessive cash</li>
-                <li><strong>Industry standard:</strong> Widely used by VCs and public market investors to evaluate SaaS/cloud companies</li>
-                <li><strong>Stage-dependent:</strong> Early-stage companies often prioritize growth over profitability; mature companies prioritize margins</li>
-            </ul>
-
-            <p><strong>Best for:</strong> Software, SaaS, and cloud-based companies. Less applicable to hardware, retail, or traditional manufacturing businesses.</p>
+            <p><strong>Why it matters:</strong> Margin expansion is a key sign of business quality. Companies that can grow revenue while improving margins often have strong competitive moats and pricing power.</p>
         `
     }
 };

@@ -892,6 +892,72 @@ class StockDatabase:
             '''
             return pd.read_sql_query(query, self.conn, params=(min_rule_of_40,))
 
+    def get_margin_expansion_stocks(self, min_revenue_growth: float = 15, min_operating_leverage: float = 1.0) -> pd.DataFrame:
+        """
+        Find stocks with improving profitability alongside growth
+
+        Identifies companies where margins are expanding (recent 4Q margins > previous 4Q)
+        AND earnings are growing faster than revenue (operating leverage > 1.0)
+
+        Args:
+            min_revenue_growth: Minimum revenue CAGR percentage (default: 15%)
+            min_operating_leverage: Minimum operating leverage ratio (default: 1.0)
+
+        Returns:
+            DataFrame of stocks with margin expansion, sorted by operating leverage
+        """
+        query = '''
+            SELECT s.*,
+                   g.revenue_cagr_3y, g.earnings_cagr_3y,
+                   g.margin_trend, g.operating_leverage,
+                   g.growth_stage, g.earnings_consistency_score,
+                   s.profit_margin, s.operating_margin
+            FROM stocks s
+            LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+            WHERE g.revenue_cagr_3y IS NOT NULL
+              AND g.revenue_cagr_3y >= ?
+              AND g.margin_trend = 'expanding'
+              AND g.operating_leverage IS NOT NULL
+              AND g.operating_leverage >= ?
+            ORDER BY g.operating_leverage DESC
+        '''
+        return pd.read_sql_query(query, self.conn, params=(min_revenue_growth/100, min_operating_leverage))
+
+    def get_cash_generative_growth_stocks(self, min_revenue_growth: float = 20, min_fcf_margin: float = 10) -> pd.DataFrame:
+        """
+        Find high-growth stocks that also generate positive free cash flow
+
+        This is a rare and valuable combination - most high-growth companies burn cash.
+        FCF-positive growth indicates sustainable expansion with lower financial risk.
+
+        Args:
+            min_revenue_growth: Minimum revenue CAGR percentage (default: 20%)
+            min_fcf_margin: Minimum FCF margin percentage (default: 10%)
+
+        Returns:
+            DataFrame of cash-generative growth stocks, sorted by revenue growth
+        """
+        query = '''
+            SELECT s.*,
+                   g.revenue_cagr_3y, g.earnings_cagr_3y,
+                   g.fcf_margin, g.fcf_cagr_3y,
+                   g.cash_conversion_ratio, g.growth_stage,
+                   g.earnings_consistency_score,
+                   s.free_cash_flow, s.profit_margin
+            FROM stocks s
+            LEFT JOIN growth_metrics g ON s.ticker = g.ticker
+            WHERE g.revenue_cagr_3y IS NOT NULL
+              AND g.revenue_cagr_3y >= ?
+              AND s.free_cash_flow IS NOT NULL
+              AND s.free_cash_flow > 0
+              AND g.fcf_margin IS NOT NULL
+              AND g.fcf_margin >= ?
+              AND g.cash_conversion_ratio IS NOT NULL
+              AND g.cash_conversion_ratio > 0.8
+            ORDER BY g.revenue_cagr_3y DESC
+        '''
+        return pd.read_sql_query(query, self.conn, params=(min_revenue_growth/100, min_fcf_margin/100))
+
     def close(self):
         """Close database connection"""
         if self.conn:

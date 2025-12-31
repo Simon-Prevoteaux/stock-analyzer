@@ -364,7 +364,11 @@ class GrowthAnalyzer:
         """
         Analyze if profit margins are expanding, contracting, or stable
 
-        Compares recent 4Q average margin vs previous 4Q average
+        Compares recent quarters vs earlier quarters (adaptive based on data availability)
+        - If 8+ quarters: compare recent 4Q vs previous 4Q
+        - If 6-7 quarters: compare recent 3Q vs previous 3Q
+        - If 4-5 quarters: compare recent 2Q vs previous 2Q
+        - If <4 quarters: insufficient data
 
         Returns:
             'expanding', 'contracting', or 'stable'
@@ -376,21 +380,33 @@ class GrowthAnalyzer:
         quarterly_data = self.df[self.df['period_type'] == 'quarterly'].copy()
         quarterly_data = quarterly_data[quarterly_data['profit_margin_quarterly'].notna()]
 
-        if len(quarterly_data) < 8:
+        total_quarters = len(quarterly_data)
+
+        if total_quarters < 4:
             return None
 
-        # Get recent 8 quarters
-        recent_8q = quarterly_data.tail(8)
+        # Adaptive comparison based on available data
+        if total_quarters >= 8:
+            # Compare recent 4Q vs previous 4Q
+            recent_data = quarterly_data.tail(8)
+            previous_avg = recent_data.head(4)['profit_margin_quarterly'].mean()
+            recent_avg = recent_data.tail(4)['profit_margin_quarterly'].mean()
+        elif total_quarters >= 6:
+            # Compare recent 3Q vs previous 3Q
+            recent_data = quarterly_data.tail(6)
+            previous_avg = recent_data.head(3)['profit_margin_quarterly'].mean()
+            recent_avg = recent_data.tail(3)['profit_margin_quarterly'].mean()
+        else:
+            # Compare recent 2Q vs previous 2Q (for 4-5 quarters)
+            recent_data = quarterly_data.tail(4)
+            previous_avg = recent_data.head(2)['profit_margin_quarterly'].mean()
+            recent_avg = recent_data.tail(2)['profit_margin_quarterly'].mean()
 
-        # Split into two periods
-        previous_4q = recent_8q.head(4)['profit_margin_quarterly'].mean()
-        recent_4q = recent_8q.tail(4)['profit_margin_quarterly'].mean()
-
-        if pd.isna(previous_4q) or pd.isna(recent_4q):
+        if pd.isna(previous_avg) or pd.isna(recent_avg):
             return None
 
         # Determine trend (use 10% threshold for significant change)
-        change_pct = (recent_4q - previous_4q) / abs(previous_4q) if previous_4q != 0 else 0
+        change_pct = (recent_avg - previous_avg) / abs(previous_avg) if previous_avg != 0 else 0
 
         if change_pct > 0.10:
             return 'expanding'

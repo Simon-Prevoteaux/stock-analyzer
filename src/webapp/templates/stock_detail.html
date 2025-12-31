@@ -237,6 +237,110 @@
     </div>
 </div>
 
+<!-- Strategy Match Panel -->
+<div class="strategy-match-section">
+    <h2>📊 Strategy Matches</h2>
+    <p class="subtitle" style="margin-bottom: 20px;">See which investment strategies this stock qualifies for</p>
+
+    <div class="strategy-grid">
+        <!-- Value Play -->
+        <div class="strategy-card {% if strategy_matches.value_play %}match{% else %}no-match{% endif %}">
+            <div class="strategy-header">
+                <h4>Value Play</h4>
+                <span class="strategy-status">
+                    {% if strategy_matches.value_play %}
+                        ✓ Qualifies
+                    {% else %}
+                        ✗ Not qualified
+                    {% endif %}
+                </span>
+            </div>
+            <p class="strategy-desc">Undervalued with consistent growth</p>
+            <a href="{{ url_for('value_plays') }}" class="strategy-link">View Strategy →</a>
+        </div>
+
+        <!-- Quality Growth -->
+        <div class="strategy-card {% if strategy_matches.quality_growth %}match{% else %}no-match{% endif %}">
+            <div class="strategy-header">
+                <h4>Quality Growth</h4>
+                <span class="strategy-status">
+                    {% if strategy_matches.quality_growth %}
+                        ✓ Qualifies
+                    {% else %}
+                        ✗ Not qualified
+                    {% endif %}
+                </span>
+            </div>
+            <p class="strategy-desc">High growth with consistency & reasonable valuation</p>
+            <a href="{{ url_for('quality_growth') }}" class="strategy-link">View Strategy →</a>
+        </div>
+
+        <!-- Growth Inflection -->
+        <div class="strategy-card {% if strategy_matches.growth_inflection %}match{% else %}no-match{% endif %}">
+            <div class="strategy-header">
+                <h4>Growth Inflection</h4>
+                <span class="strategy-status">
+                    {% if strategy_matches.growth_inflection %}
+                        ✓ Qualifies
+                    {% else %}
+                        ✗ Not qualified
+                    {% endif %}
+                </span>
+            </div>
+            <p class="strategy-desc">Accelerating growth momentum</p>
+            <a href="{{ url_for('growth_inflection') }}" class="strategy-link">View Strategy →</a>
+        </div>
+
+        <!-- Rule of 40 -->
+        <div class="strategy-card {% if strategy_matches.rule_of_40 %}match{% else %}no-match{% endif %}">
+            <div class="strategy-header">
+                <h4>Rule of 40</h4>
+                <span class="strategy-status">
+                    {% if strategy_matches.rule_of_40 %}
+                        ✓ Qualifies
+                    {% else %}
+                        ✗ Not qualified
+                    {% endif %}
+                </span>
+            </div>
+            <p class="strategy-desc">Efficient growth (SaaS/Cloud metric)</p>
+            <a href="{{ url_for('rule_of_40') }}" class="strategy-link">View Strategy →</a>
+        </div>
+
+        <!-- Margin Expansion -->
+        <div class="strategy-card {% if strategy_matches.margin_expansion %}match{% else %}no-match{% endif %}">
+            <div class="strategy-header">
+                <h4>Margin Expansion</h4>
+                <span class="strategy-status">
+                    {% if strategy_matches.margin_expansion %}
+                        ✓ Qualifies
+                    {% else %}
+                        ✗ Not qualified
+                    {% endif %}
+                </span>
+            </div>
+            <p class="strategy-desc">Improving profitability alongside growth</p>
+            <a href="{{ url_for('margin_expansion') }}" class="strategy-link">View Strategy →</a>
+        </div>
+
+        <!-- Cash-Generative Growth -->
+        <div class="strategy-card {% if strategy_matches.cash_generative_growth %}match{% else %}no-match{% endif %}">
+            <div class="strategy-header">
+                <h4>Cash-Gen Growth</h4>
+                <span class="strategy-status">
+                    {% if strategy_matches.cash_generative_growth %}
+                        ✓ Qualifies
+                    {% else %}
+                        ✗ Not qualified
+                    {% endif %}
+                </span>
+            </div>
+            <p class="strategy-desc">High growth with positive free cash flow</p>
+            <a href="{{ url_for('cash_generative_growth') }}" class="strategy-link">View Strategy →</a>
+        </div>
+    </div>
+</div>
+
 {% if has_historical_data %}
 <div class="historical-section">
     <h2>Historical Performance</h2>
@@ -884,6 +988,130 @@ document.addEventListener('keydown', function(e) {
 
 .info-modal strong {
     color: #ffd700;
+}
+
+/* Strategy Match Section */
+.strategy-match-section {
+    margin: 40px 0;
+    padding: 30px;
+    background: linear-gradient(135deg, rgba(30, 33, 57, 0.4) 0%, rgba(45, 50, 80, 0.4) 100%);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.strategy-match-section h2 {
+    color: #00ff88;
+    margin-bottom: 10px;
+}
+
+.strategy-match-section .subtitle {
+    color: #a8b2d1;
+    font-size: 0.95rem;
+}
+
+.strategy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.strategy-card {
+    padding: 20px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    border: 2px solid;
+    position: relative;
+    overflow: hidden;
+}
+
+.strategy-card.match {
+    background: rgba(0, 255, 136, 0.05);
+    border-color: rgba(0, 255, 136, 0.4);
+}
+
+.strategy-card.match:hover {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: rgba(0, 255, 136, 0.6);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 255, 136, 0.2);
+}
+
+.strategy-card.no-match {
+    background: rgba(128, 128, 128, 0.05);
+    border-color: rgba(128, 128, 128, 0.3);
+    opacity: 0.7;
+}
+
+.strategy-card.no-match:hover {
+    opacity: 0.85;
+}
+
+.strategy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.strategy-card h4 {
+    margin: 0;
+    color: #e0e6ed;
+    font-size: 1.1rem;
+}
+
+.strategy-status {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.strategy-card.match .strategy-status {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+}
+
+.strategy-card.no-match .strategy-status {
+    background: rgba(128, 128, 128, 0.2);
+    color: #888;
+    border: 1px solid rgba(128, 128, 128, 0.3);
+}
+
+.strategy-desc {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    margin: 0 0 15px 0;
+    line-height: 1.5;
+}
+
+.strategy-link {
+    display: inline-block;
+    color: #00ff88;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.strategy-link:hover {
+    color: #00dd77;
+    text-decoration: underline;
+}
+
+.strategy-card.no-match .strategy-link {
+    color: #888;
+}
+
+.strategy-card.no-match .strategy-link:hover {
+    color: #aaa;
+}
+
+@media (max-width: 768px) {
+    .strategy-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 
