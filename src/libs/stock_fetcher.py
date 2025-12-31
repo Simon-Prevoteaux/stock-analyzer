@@ -54,7 +54,11 @@ class StockFetcher:
                 'current_ratio': info.get('currentRatio', 0),
                 'free_cash_flow': info.get('freeCashflow', 0),
                 'enterprise_value': info.get('enterpriseValue', 0),
-                'target_price': info.get('targetMeanPrice', 0)
+                'target_price': info.get('targetMeanPrice', 0),
+                # Metrics for new forecasting models
+                'book_value': self._calculate_book_value_per_share(info),
+                'dividend_rate': info.get('dividendRate', 0),
+                'dividend_yield': info.get('dividendYield', 0)
             }
 
             # Calculate bubble score (simple heuristic)
@@ -95,6 +99,32 @@ class StockFetcher:
         """Calculate Price-to-Sales ratio"""
         if market_cap and revenue and revenue > 0:
             return market_cap / revenue
+        return 0
+
+    def _calculate_book_value_per_share(self, info: Dict) -> float:
+        """
+        Calculate Book Value Per Share
+        First tries bookValue field directly, then calculates from total equity
+        """
+        # Try direct book value per share (some stocks have this)
+        book_value_per_share = info.get('bookValue', 0)
+        if book_value_per_share and book_value_per_share > 0:
+            return book_value_per_share
+
+        # Try calculating from total stockholder equity and shares outstanding
+        total_equity = info.get('totalStockholderEquity', 0)
+        shares_outstanding = info.get('sharesOutstanding', 0)
+
+        if total_equity and shares_outstanding and shares_outstanding > 0:
+            return total_equity / shares_outstanding
+
+        # Last resort: use price-to-book ratio to back-calculate
+        price_to_book = info.get('priceToBook', 0)
+        current_price = info.get('currentPrice', 0)
+
+        if price_to_book and price_to_book > 0 and current_price and current_price > 0:
+            return current_price / price_to_book
+
         return 0
 
     def _calculate_bubble_score(self, data: Dict) -> int:

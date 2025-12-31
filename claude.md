@@ -186,16 +186,58 @@ bubble_stocks = db.get_high_risk_stocks(min_bubble_score=6)
 
 ## Future Enhancements
 
-Potential features for future development:
+### ✅ COMPLETED - Phase 3: New Forecasting Models
+
+**Status**: Implemented on 2025-12-31
+
+#### Models Implemented:
+
+1. **Graham Number** (Intrinsic Value) ✅
+   - Benjamin Graham's formula: √(22.5 × EPS × Book Value Per Share)
+   - Calculates margin of safety
+   - Shows if stock is undervalued vs intrinsic value
+   - Location: `forecaster.py:475-522`
+
+2. **Gordon Growth Model** (Dividend Discount) ✅
+   - Fair value based on dividends
+   - Formula: D1 / (r - g) where D1 = next year dividend
+   - Suitable for dividend-paying stocks
+   - Location: `forecaster.py:524-580`
+
+3. **PEG-based Valuation** ✅
+   - Fair P/E = Fair PEG × Growth Rate
+   - Fair Price = Fair P/E × EPS
+   - Assumes fair PEG ratio (typically 1.5)
+   - Location: `forecaster.py:582-633`
+
+4. **Price-to-Sales Fair Value** ✅
+   - Uses sector median P/S ratio
+   - Fair Price = Sector P/S × Revenue Per Share
+   - Good for comparing against sector peers
+   - Location: `forecaster.py:635-679`
+
+#### Multi-Model Consensus Feature ✅:
+- Consensus target price (weighted average of all models)
+- Agreement score (how aligned are the models 0-100)
+- Range of outcomes visualization
+- Buy/Hold/Sell recommendation based on consensus upside
+- Location: `forecaster.py:681-764`
+
+#### Implementation Details:
+- **Backend**: `/src/libs/forecaster.py` - All 4 models + consensus calculation
+- **Data Fetching**: `/src/libs/stock_fetcher.py` - Added book_value, dividend_rate, dividend_yield fields
+- **Route**: `/src/webapp/app.py` - Updated forecast route to use `run_all_models()`
+- **Template Guide**: `/FORECAST_TEMPLATE_ADDITIONS.md` - Complete HTML/CSS snippets for UI
+
+**Note**: The forecast.html template updates are documented in FORECAST_TEMPLATE_ADDITIONS.md
+due to the template's size (2212 lines). All backend functionality is complete and working.
+
+### Other Potential Features:
 - Historical price charts
-- Portfolio tracking
 - Email alerts for price changes
 - Export to Excel/CSV
 - Technical indicators
-- Peer comparison within sectors
 - Automated daily data refresh
-- Advanced screening criteria
-- Custom bubble score weights
 
 ## File Organization
 

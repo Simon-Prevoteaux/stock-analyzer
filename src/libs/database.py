@@ -93,6 +93,22 @@ class StockDatabase:
         except sqlite3.OperationalError:
             pass
 
+        # Add columns for new forecasting models
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN book_value REAL')
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN dividend_rate REAL')
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute('ALTER TABLE stocks ADD COLUMN dividend_yield REAL')
+        except sqlite3.OperationalError:
+            pass
+
         # Watchlist table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS watchlist (
@@ -242,8 +258,9 @@ class StockDatabase:
                     current_price, sector, industry, is_profitable,
                     bubble_score, risk_level, last_updated,
                     price_to_book, current_ratio, free_cash_flow,
-                    enterprise_value, target_price
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    enterprise_value, target_price, book_value,
+                    dividend_rate, dividend_yield
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 stock_data.get('ticker'),
                 stock_data.get('company_name'),
@@ -269,7 +286,10 @@ class StockDatabase:
                 stock_data.get('current_ratio'),
                 stock_data.get('free_cash_flow'),
                 stock_data.get('enterprise_value'),
-                stock_data.get('target_price')
+                stock_data.get('target_price'),
+                stock_data.get('book_value'),
+                stock_data.get('dividend_rate'),
+                stock_data.get('dividend_yield')
             ))
 
             self.conn.commit()

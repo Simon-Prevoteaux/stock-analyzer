@@ -196,6 +196,8 @@
     <input type="hidden" name="fcf_growth" id="form-fcf_growth" value="{{ request.args.get('fcf_growth', 0.10) }}">
     <input type="hidden" name="discount_rate" id="form-discount_rate" value="{{ request.args.get('discount_rate', 0.10) }}">
     <input type="hidden" name="volatility" id="form-volatility" value="{{ request.args.get('volatility', 0.30) }}">
+    <input type="hidden" name="peg_growth_rate" id="form-peg_growth_rate" value="{{ request.args.get('peg_growth_rate', results.peg_valuation.growth_rate / 100 if results and results.peg_valuation else 0.15) }}">
+    <input type="hidden" name="fair_peg" id="form-fair_peg" value="{{ request.args.get('fair_peg', results.peg_valuation.fair_peg if results and results.peg_valuation else 1.5) }}">
 </form>
 
 <!-- Valuation Multiples Info -->
@@ -615,50 +617,266 @@
         </div>
         {% endif %}
     </div>
+
+    <!-- Graham Number Model -->
+    <div class="model-card">
+        <h3>Graham Number <button type="button" class="info-btn" onclick="showInfo('graham-number-detail')">i</button></h3>
+        {% if results.graham_number.error %}
+        <p class="model-error">{{ results.graham_number.error }}</p>
+        {% else %}
+        <div class="model-result">
+            <div class="target-price">${{ "%.2f"|format(results.graham_number.intrinsic_value) }}</div>
+            <div class="upside {% if results.graham_number.margin_of_safety >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(results.graham_number.margin_of_safety) }}% margin of safety
+            </div>
+            <div class="model-recommendation rec-{{ results.graham_number.recommendation|lower|replace(' ', '-') }}">
+                {{ results.graham_number.recommendation }}
+            </div>
+        </div>
+
+        <div class="model-details">
+            <table>
+                <tr><td>Current Price</td><td>${{ results.graham_number.current_price }}</td></tr>
+                <tr><td>Intrinsic Value</td><td>${{ results.graham_number.intrinsic_value }}</td></tr>
+                <tr><td>EPS</td><td>${{ results.graham_number.eps }}</td></tr>
+                <tr><td>Book Value/Share</td><td>${{ results.graham_number.book_value_per_share }}</td></tr>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Gordon Growth Model (Dividend Discount) -->
+    <div class="model-card">
+        <h3>Gordon Growth Model <button type="button" class="info-btn" onclick="showInfo('gordon-growth-detail')">i</button></h3>
+        {% if results.gordon_growth.error %}
+        <p class="model-error">{{ results.gordon_growth.error }}</p>
+        {% else %}
+        <div class="model-result">
+            <div class="target-price">${{ "%.2f"|format(results.gordon_growth.intrinsic_value) }}</div>
+            <div class="upside {% if results.gordon_growth.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(results.gordon_growth.upside_percent) }}% upside
+            </div>
+        </div>
+
+        <div class="model-details">
+            <table>
+                <tr><td>Current Dividend</td><td>${{ results.gordon_growth.current_dividend }}</td></tr>
+                <tr><td>Next Year Dividend</td><td>${{ results.gordon_growth.next_year_dividend }}</td></tr>
+                <tr><td>Dividend Growth</td><td>{{ results.gordon_growth.dividend_growth_rate }}%</td></tr>
+                <tr><td>Required Return</td><td>{{ results.gordon_growth.required_return }}%</td></tr>
+                <tr><td>Dividend Yield</td><td>{{ results.gordon_growth.dividend_yield }}%</td></tr>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- PEG-Based Valuation -->
+    <div class="model-card">
+        <h3>PEG Valuation <button type="button" class="info-btn" onclick="showInfo('peg-valuation-detail')">i</button></h3>
+        {% if results.peg_valuation.error %}
+        <p class="model-error">{{ results.peg_valuation.error }}</p>
+        {% else %}
+        <div class="model-result">
+            <div class="target-price">${{ "%.2f"|format(results.peg_valuation.fair_price) }}</div>
+            <div class="upside {% if results.peg_valuation.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(results.peg_valuation.upside_percent) }}% upside
+            </div>
+        </div>
+
+        <div class="model-params">
+            <h4>Adjust Parameters</h4>
+            {% if growth_rate_info and growth_rate_info.earnings_sources|length > 1 %}
+            <div class="param-item">
+                <label for="peg_growth_source_selector">Growth Rate Source:</label>
+                <select id="peg_growth_source_selector" onchange="selectPegGrowthSource(this.value)" class="source-selector">
+                    {% for source in growth_rate_info.earnings_sources %}
+                    <option value="{{ source.value }}" data-key="{{ source.key }}" {% if (source.value - (request.args.get('peg_growth_rate')|float or results.peg_valuation.growth_rate / 100))|abs < 0.001 %}selected{% endif %}>{{ source.label }} ({{ (source.value * 100)|round(1) }}%)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="param-item">
+                <label for="peg_growth_rate">Growth Rate: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('peg-growth-rate')">i</button></label>
+                <input type="range" id="peg_growth_rate" name="peg_growth_rate" min="0" max="1.0" step="0.01" value="{{ request.args.get('peg_growth_rate', results.peg_valuation.growth_rate / 100) }}" oninput="updateParam('peg_growth_rate', this.value, Math.round(this.value * 100) + '%')">
+                <span id="peg_growth_rate-label">{{ "%.0f"|format((request.args.get('peg_growth_rate', results.peg_valuation.growth_rate / 100)|float) * 100) }}%</span>
+            </div>
+            <div class="param-item">
+                <label for="fair_peg">Fair PEG Ratio: <button type="button" class="info-btn info-btn-sm" onclick="showInfo('fair-peg-ratio')">i</button></label>
+                <input type="range" id="fair_peg" name="fair_peg" min="0.5" max="3.0" step="0.1" value="{{ request.args.get('fair_peg', results.peg_valuation.fair_peg) }}" oninput="updateParam('fair_peg', this.value, this.value + 'x')">
+                <span id="fair_peg-label">{{ "%.1f"|format(request.args.get('fair_peg', results.peg_valuation.fair_peg)|float) }}x</span>
+            </div>
+            <button type="button" class="btn-update" onclick="submitForecastForm()">Update</button>
+        </div>
+
+        <div class="model-details">
+            <table>
+                <tr><td>Fair P/E</td><td>{{ results.peg_valuation.fair_pe }}x</td></tr>
+                <tr><td>Current P/E</td><td>{{ results.peg_valuation.current_pe if results.peg_valuation.current_pe else 'N/A' }}x</td></tr>
+                <tr><td>Fair PEG</td><td>{{ results.peg_valuation.fair_peg }}x</td></tr>
+                <tr><td>Current PEG</td><td>{{ results.peg_valuation.current_peg if results.peg_valuation.current_peg else 'N/A' }}x</td></tr>
+                <tr><td>Growth Rate</td><td>{{ results.peg_valuation.growth_rate }}%</td></tr>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- P/S Sector Valuation -->
+    <div class="model-card">
+        <h3>P/S Sector Valuation <button type="button" class="info-btn" onclick="showInfo('ps-sector-detail')">i</button></h3>
+        {% if results.ps_sector.error %}
+        <p class="model-error">{{ results.ps_sector.error }}</p>
+        {% else %}
+        <div class="model-result">
+            <div class="target-price">${{ "%.2f"|format(results.ps_sector.fair_price) }}</div>
+            <div class="upside {% if results.ps_sector.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                {{ "%.1f"|format(results.ps_sector.upside_percent) }}% upside
+            </div>
+        </div>
+
+        <div class="model-details">
+            <table>
+                <tr><td>Sector Median P/S</td><td>{{ results.ps_sector.sector_median_ps }}x</td></tr>
+                <tr><td>Current P/S</td><td>{{ results.ps_sector.current_ps if results.ps_sector.current_ps else 'N/A' }}x</td></tr>
+                <tr><td>Revenue/Share</td><td>${{ results.ps_sector.revenue_per_share }}</td></tr>
+                <tr><td>Total Revenue</td><td>${{ results.ps_sector.total_revenue }}B</td></tr>
+            </table>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
-<!-- Summary -->
+<!-- Forecast Summary & Consensus -->
 <div class="forecast-summary">
-    <h2>Forecast Summary</h2>
-    <p class="subtitle">Average of all models over {{ results.earnings_model.years }} years</p>
+    <h2>Forecast Summary & Consensus</h2>
+    <p class="subtitle">Aggregate view from {{ results.consensus.num_models if results.consensus else 0 }} valuation models</p>
 
-    {% set valid_targets = [] %}
-    {% if results.earnings_model.target_price > 0 %}
-        {% set _ = valid_targets.append(results.earnings_model.target_price) %}
-    {% endif %}
-    {% if results.revenue_model.target_price > 0 %}
-        {% set _ = valid_targets.append(results.revenue_model.target_price) %}
-    {% endif %}
-    {% if results.dcf_model.target_price > 0 %}
-        {% set _ = valid_targets.append(results.dcf_model.target_price) %}
-    {% endif %}
-    {% if results.monte_carlo.median_target %}
-        {% set _ = valid_targets.append(results.monte_carlo.median_target) %}
-    {% endif %}
-
-    {% if valid_targets %}
-    {% set avg_target = (valid_targets|sum) / (valid_targets|length) %}
-    {% set avg_upside = ((avg_target / results.current_price) - 1) * 100 %}
-
+    {% if results and results.consensus %}
     <div class="summary-grid">
         <div class="summary-item">
             <span class="label">Current Price</span>
             <span class="value">${{ "%.2f"|format(results.current_price) }}</span>
         </div>
         <div class="summary-item">
-            <span class="label">Average Target</span>
-            <span class="value">${{ "%.2f"|format(avg_target) }}</span>
+            <span class="label">Consensus Target</span>
+            <span class="value">${{ "%.2f"|format(results.consensus.consensus_target) }}</span>
         </div>
         <div class="summary-item">
-            <span class="label">Average Upside</span>
-            <span class="value {% if avg_upside >= 0 %}positive{% else %}negative{% endif %}">{{ "%.1f"|format(avg_upside) }}%</span>
+            <span class="label">Consensus Upside</span>
+            <span class="value {% if results.consensus.consensus_upside >= 0 %}positive{% else %}negative{% endif %}">{{ "%.1f"|format(results.consensus.consensus_upside) }}%</span>
         </div>
+        <div class="summary-item">
+            <span class="label">Agreement Score</span>
+            <span class="value score-{{ 'high' if results.consensus.agreement_score >= 70 else 'medium' if results.consensus.agreement_score >= 50 else 'low' }}">
+                {{ results.consensus.agreement_score|round(0)|int }}/100
+            </span>
+        </div>
+        <div class="summary-item">
+            <span class="label">Price Range</span>
+            <span class="value">
+                ${{ "%.2f"|format(results.consensus.price_range.min) }} - ${{ "%.2f"|format(results.consensus.price_range.max) }}
+            </span>
+        </div>
+        <div class="summary-item">
+            <span class="label">Recommendation</span>
+            <span class="recommendation rec-{{ results.consensus.recommendation|lower|replace(' ', '-') }}">
+                {{ results.consensus.recommendation }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Individual Model Results Table -->
+    <div style="margin-top: 30px;">
+        <h3 style="margin-bottom: 15px; color: #333;">Individual Model Results</h3>
+        <table class="models-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Target Price</th>
+                    <th>Upside</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Earnings Growth Model</td>
+                    <td>${{ "%.2f"|format(results.earnings_model.target_price) if results.earnings_model.target_price > 0 else "N/A" }}</td>
+                    <td class="{% if results.earnings_model.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.earnings_model.upside_percent) if results.earnings_model.target_price > 0 else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.earnings_model.target_price > 0 else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>Revenue Growth Model</td>
+                    <td>${{ "%.2f"|format(results.revenue_model.target_price) if results.revenue_model.target_price > 0 else "N/A" }}</td>
+                    <td class="{% if results.revenue_model.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.revenue_model.upside_percent) if results.revenue_model.target_price > 0 else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.revenue_model.target_price > 0 else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>DCF Model</td>
+                    <td>${{ "%.2f"|format(results.dcf_model.target_price) if results.dcf_model.target_price > 0 else "N/A" }}</td>
+                    <td class="{% if results.dcf_model.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.dcf_model.upside_percent) if results.dcf_model.target_price > 0 else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.dcf_model.target_price > 0 else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>Monte Carlo Simulation</td>
+                    <td>${{ "%.2f"|format(results.monte_carlo.median_target) if results.monte_carlo.median_target else "N/A" }}</td>
+                    <td class="{% if results.monte_carlo.median_target and ((results.monte_carlo.median_target / results.current_price - 1) * 100) >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format((results.monte_carlo.median_target / results.current_price - 1) * 100) if results.monte_carlo.median_target else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.monte_carlo.median_target else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>Graham Number</td>
+                    <td>${{ "%.2f"|format(results.graham_number.intrinsic_value) if results.graham_number.intrinsic_value > 0 and not results.graham_number.error else "N/A" }}</td>
+                    <td class="{% if results.graham_number.margin_of_safety >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.graham_number.margin_of_safety) if results.graham_number.intrinsic_value > 0 and not results.graham_number.error else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.graham_number.intrinsic_value > 0 and not results.graham_number.error else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>Gordon Growth Model</td>
+                    <td>${{ "%.2f"|format(results.gordon_growth.intrinsic_value) if results.gordon_growth.intrinsic_value > 0 and not results.gordon_growth.error else "N/A" }}</td>
+                    <td class="{% if results.gordon_growth.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.gordon_growth.upside_percent) if results.gordon_growth.intrinsic_value > 0 and not results.gordon_growth.error else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.gordon_growth.intrinsic_value > 0 and not results.gordon_growth.error else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>PEG Valuation</td>
+                    <td>${{ "%.2f"|format(results.peg_valuation.fair_price) if results.peg_valuation.fair_price > 0 and not results.peg_valuation.error else "N/A" }}</td>
+                    <td class="{% if results.peg_valuation.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.peg_valuation.upside_percent) if results.peg_valuation.fair_price > 0 and not results.peg_valuation.error else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.peg_valuation.fair_price > 0 and not results.peg_valuation.error else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>P/S Sector Valuation</td>
+                    <td>${{ "%.2f"|format(results.ps_sector.fair_price) if results.ps_sector.fair_price > 0 and not results.ps_sector.error else "N/A" }}</td>
+                    <td class="{% if results.ps_sector.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.ps_sector.upside_percent) if results.ps_sector.fair_price > 0 and not results.ps_sector.error else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.ps_sector.fair_price > 0 and not results.ps_sector.error else "—" }}</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
     {% endif %}
 </div>
 
 <div class="disclaimer">
     <p><strong>Disclaimer:</strong> These forecasts are for educational purposes only and should not be considered investment advice. Stock prices are inherently unpredictable and actual results may differ significantly from these projections.</p>
+</div>
+
+<!-- Loading Modal -->
+<div class="loading-modal" id="loading-modal">
+    <div class="loading-content">
+        <div class="spinner"></div>
+        <p>Updating forecast...</p>
+    </div>
 </div>
 
 <!-- Info Modal -->
@@ -689,6 +907,9 @@ function formatNumber(value) {
 }
 
 function submitForecastForm() {
+    // Show loading modal
+    showLoadingModal();
+
     // Get all parameters from the form
     const ticker = document.getElementById('form-ticker').value;
     const params = new URLSearchParams({
@@ -700,203 +921,19 @@ function submitForecastForm() {
         terminal_ps: document.getElementById('form-terminal_ps').value,
         fcf_growth: document.getElementById('form-fcf_growth').value,
         discount_rate: document.getElementById('form-discount_rate').value,
-        volatility: document.getElementById('form-volatility').value
+        volatility: document.getElementById('form-volatility').value,
+        peg_growth_rate: document.getElementById('form-peg_growth_rate').value,
+        fair_peg: document.getElementById('form-fair_peg').value
     });
 
-    // Show loading state on all update buttons
-    const updateButtons = document.querySelectorAll('.btn-update');
-    updateButtons.forEach(btn => {
-        btn.textContent = 'UPDATING...';
-        btn.disabled = true;
-        btn.style.opacity = '0.6';
-    });
-
-    // Make AJAX request
-    fetch('/api/forecast?' + params.toString())
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert('Error: ' + data.error);
-                return;
-            }
-
-            // Update all forecast values in the DOM
-            updateForecastUI(data);
-
-            // Reset button states
-            updateButtons.forEach(btn => {
-                btn.textContent = 'UPDATE';
-                btn.disabled = false;
-                btn.style.opacity = '1';
-            });
-        })
-        .catch(error => {
-            console.error('Error updating forecast:', error);
-            alert('Failed to update forecast. Please try again.');
-
-            // Reset button states
-            updateButtons.forEach(btn => {
-                btn.textContent = 'UPDATE';
-                btn.disabled = false;
-                btn.style.opacity = '1';
-            });
-        });
+    // Reload page with new parameters
+    window.location.href = '/forecast?' + params.toString();
 }
 
-function updateForecastUI(data) {
-    // Update Scenarios
-    if (data.scenarios && data.scenarios.scenarios) {
-        const scenarios = data.scenarios.scenarios;
-        ['bear', 'base', 'bull'].forEach(scenario => {
-            if (scenarios[scenario]) {
-                const s = scenarios[scenario];
-                const card = document.querySelector('.scenario-' + scenario);
-                if (card) {
-                    card.querySelector('.target-price').textContent = '$' + s.target_price.toFixed(2);
-                    const upsideEl = card.querySelector('.upside');
-                    upsideEl.textContent = s.upside_percent.toFixed(1) + '%';
-                    upsideEl.className = 'upside ' + (s.upside_percent >= 0 ? 'positive' : 'negative');
-                }
-            }
-        });
-    }
-
-    // Update Earnings Model
-    if (data.earnings_model) {
-        const em = data.earnings_model;
-        updateModelCard('earnings', em);
-
-        // Update details table
-        const earningsTable = document.querySelectorAll('.model-card')[0].querySelector('.model-details table');
-        if (earningsTable && em.details) {
-            earningsTable.innerHTML = `
-                <tr><td>Starting EPS</td><td>$${em.details.starting_eps}</td></tr>
-                <tr><td>Ending EPS</td><td>$${em.details.ending_eps}</td></tr>
-                <tr><td>Growth Rate</td><td>${em.details.initial_growth_rate}%</td></tr>
-                <tr><td>Growth Decay</td><td>${em.details.growth_decay}%/yr</td></tr>
-                <tr><td>Terminal P/E</td><td>${em.details.terminal_pe}x</td></tr>
-            `;
-        }
-    }
-
-    // Update Revenue Model
-    if (data.revenue_model) {
-        const rm = data.revenue_model;
-        updateModelCard('revenue', rm);
-
-        // Update details table
-        const revenueTable = document.querySelectorAll('.model-card')[1].querySelector('.model-details table');
-        if (revenueTable && rm.details) {
-            revenueTable.innerHTML = `
-                <tr><td>Starting Revenue</td><td>${formatNumber(rm.details.starting_revenue)}</td></tr>
-                <tr><td>Ending Revenue</td><td>${formatNumber(rm.details.ending_revenue)}</td></tr>
-                <tr><td>Revenue CAGR</td><td>${rm.details.revenue_cagr}%</td></tr>
-                <tr><td>Terminal P/S</td><td>${rm.details.terminal_ps}x</td></tr>
-                <tr><td>Target Margin</td><td>${rm.details.target_margin}%</td></tr>
-            `;
-        }
-    }
-
-    // Update DCF Model
-    if (data.dcf_model) {
-        const dcf = data.dcf_model;
-        updateModelCard('dcf', dcf);
-
-        // Update details table
-        const dcfTable = document.querySelectorAll('.model-card')[2].querySelector('.model-details table');
-        if (dcfTable && dcf.details) {
-            dcfTable.innerHTML = `
-                <tr><td>Base FCF</td><td>$${dcf.details.base_fcf}B</td></tr>
-                <tr><td>FCF Growth</td><td>${dcf.details.fcf_growth}%</td></tr>
-                <tr><td>Discount Rate</td><td>${dcf.details.discount_rate}%</td></tr>
-                <tr><td>Terminal Growth</td><td>${dcf.details.terminal_growth}%</td></tr>
-                <tr><td>Intrinsic Value</td><td>$${dcf.details.intrinsic_value}B</td></tr>
-            `;
-        }
-    }
-
-    // Update Monte Carlo
-    if (data.monte_carlo) {
-        const mc = data.monte_carlo;
-        const mcCard = document.querySelectorAll('.model-card')[3];
-        if (mcCard && mc.median_target) {
-            mcCard.querySelector('.target-price').textContent = '$' + mc.median_target.toFixed(2);
-            const upsideEl = mcCard.querySelector('.upside');
-            upsideEl.textContent = mc.median_upside.toFixed(1) + '% median upside';
-            upsideEl.className = 'upside ' + (mc.median_upside >= 0 ? 'positive' : 'negative');
-
-            // Update percentiles
-            if (mc.percentiles) {
-                mcCard.querySelector('.p10').textContent = '$' + mc.percentiles.p10;
-                mcCard.querySelector('.p50').textContent = '$' + mc.percentiles.p50;
-                mcCard.querySelector('.p90').textContent = '$' + mc.percentiles.p90;
-            }
-
-            // Update probabilities
-            if (mc.probabilities) {
-                const probItems = mcCard.querySelectorAll('.prob-value');
-                if (probItems.length >= 4) {
-                    probItems[0].textContent = mc.probabilities.profit + '%';
-                    probItems[1].textContent = mc.probabilities.up_50_percent + '%';
-                    probItems[2].textContent = mc.probabilities.double + '%';
-                    probItems[3].textContent = mc.probabilities.down_50_percent + '%';
-                }
-            }
-        }
-    }
-
-    // Update Summary
-    const validTargets = [];
-    if (data.earnings_model && data.earnings_model.target_price > 0) {
-        validTargets.push(data.earnings_model.target_price);
-    }
-    if (data.revenue_model && data.revenue_model.target_price > 0) {
-        validTargets.push(data.revenue_model.target_price);
-    }
-    if (data.dcf_model && data.dcf_model.target_price > 0) {
-        validTargets.push(data.dcf_model.target_price);
-    }
-    if (data.monte_carlo && data.monte_carlo.median_target) {
-        validTargets.push(data.monte_carlo.median_target);
-    }
-
-    if (validTargets.length > 0) {
-        const avgTarget = validTargets.reduce((a, b) => a + b, 0) / validTargets.length;
-        const avgUpside = ((avgTarget / data.current_price) - 1) * 100;
-
-        const summaryItems = document.querySelectorAll('.summary-item .value');
-        if (summaryItems.length >= 3) {
-            summaryItems[0].textContent = '$' + data.current_price.toFixed(2);
-            summaryItems[1].textContent = '$' + avgTarget.toFixed(2);
-            summaryItems[2].textContent = avgUpside.toFixed(1) + '%';
-            summaryItems[2].className = 'value ' + (avgUpside >= 0 ? 'positive' : 'negative');
-        }
-    }
-}
-
-function updateModelCard(modelType, modelData) {
-    // Find the model card by its heading
-    let card;
-    const allCards = document.querySelectorAll('.model-card');
-
-    if (modelType === 'earnings') card = allCards[0];
-    else if (modelType === 'revenue') card = allCards[1];
-    else if (modelType === 'dcf') card = allCards[2];
-
-    if (!card || !modelData.target_price) return;
-
-    // Update target price
-    card.querySelector('.target-price').textContent = '$' + modelData.target_price.toFixed(2);
-
-    // Update upside
-    const upsideEl = card.querySelector('.upside');
-    upsideEl.textContent = modelData.upside_percent.toFixed(1) + '% upside';
-    upsideEl.className = 'upside ' + (modelData.upside_percent >= 0 ? 'positive' : 'negative');
-
-    // Update annual return
-    const returnEl = card.querySelector('.annual-return');
-    if (returnEl) {
-        returnEl.textContent = modelData.annual_return.toFixed(1) + '% annual return';
+function showLoadingModal() {
+    const modal = document.getElementById('loading-modal');
+    if (modal) {
+        modal.style.display = 'flex';
     }
 }
 
@@ -912,6 +949,13 @@ function selectRevenueSource(value) {
     const slider = document.getElementById('revenue_growth');
     slider.value = value;
     updateParam('revenue_growth', value, Math.round(value * 100) + '%');
+}
+
+function selectPegGrowthSource(value) {
+    // Update the PEG growth rate slider when source is changed
+    const slider = document.getElementById('peg_growth_rate');
+    slider.value = value;
+    updateParam('peg_growth_rate', value, Math.round(value * 100) + '%');
 }
 
 const infoContent = {
@@ -1068,6 +1112,56 @@ const infoContent = {
             <li><strong>2x:</strong> Chance of doubling your money</li>
             <li><strong>-50%:</strong> Chance of losing half (risk indicator)</li>
         </ul>`
+    },
+    'graham-number-detail': {
+        title: 'Graham Number (Intrinsic Value)',
+        content: `<p><strong>What it does:</strong> Benjamin Graham's formula for calculating intrinsic value based on EPS and book value.</p>
+        <p><strong>Formula:</strong> Graham Number = √(22.5 × EPS × Book Value Per Share)</p>
+        <p><strong>Best for:</strong> Value investing approach, profitable companies with positive book value.</p>
+        <p><strong>Margin of Safety:</strong> How much cheaper the stock is vs its intrinsic value. >20% is considered a good buy.</p>
+        <p><strong>Note:</strong> The 22.5 constant represents a P/E of 15 and P/B of 1.5, Graham's criteria for value stocks.</p>`
+    },
+    'gordon-growth-detail': {
+        title: 'Gordon Growth Model (Dividend Discount)',
+        content: `<p><strong>What it does:</strong> Values a stock based on the present value of future dividends.</p>
+        <p><strong>Formula:</strong> Fair Value = D1 / (r - g), where D1 = next year dividend, r = required return, g = dividend growth</p>
+        <p><strong>Best for:</strong> Dividend-paying stocks with stable dividend growth.</p>
+        <p><strong>Assumptions:</strong> Requires dividends to grow at a constant rate less than the required return.</p>
+        <p><strong>Note:</strong> Only applicable to stocks that pay dividends. Growth stocks typically don't pay dividends.</p>`
+    },
+    'peg-valuation-detail': {
+        title: 'PEG-Based Valuation',
+        content: `<p><strong>What it does:</strong> Calculates fair value assuming a reasonable PEG ratio (typically 1.5).</p>
+        <p><strong>Formula:</strong> Fair P/E = Fair PEG × Growth Rate (%), Fair Price = Fair P/E × EPS</p>
+        <p><strong>Best for:</strong> Growth stocks where growth rate justifies the P/E multiple.</p>
+        <p><strong>Rule of thumb:</strong> PEG < 1 is undervalued, PEG around 1-1.5 is fair, PEG > 2 is expensive.</p>
+        <p><strong>Interpretation:</strong> A PEG of 1.5 means you're paying 1.5x the growth rate for the stock.</p>`
+    },
+    'peg-growth-rate': {
+        title: 'PEG Model Growth Rate',
+        content: `<p><strong>What it is:</strong> The expected earnings growth rate used to calculate fair P/E.</p>
+        <p><strong>How it works:</strong> Fair P/E = Fair PEG × Growth Rate (%)</p>
+        <p><strong>Example:</strong> 20% growth × 1.5 PEG = Fair P/E of 30x</p>
+        <p><strong>Limits:</strong> Capped at 100% to prevent unrealistic valuations. Even hyper-growth companies rarely sustain >100% growth.</p>`
+    },
+    'fair-peg-ratio': {
+        title: 'Fair PEG Ratio',
+        content: `<p><strong>What it is:</strong> The PEG ratio you consider "fair" for this type of company.</p>
+        <p><strong>Guidelines:</strong></p>
+        <ul>
+            <li><strong>1.0:</strong> Classic "fair value" - paying 1x the growth rate</li>
+            <li><strong>1.5:</strong> Default - reasonable for quality growth stocks</li>
+            <li><strong>2.0+:</strong> Premium valuation for exceptional companies</li>
+        </ul>
+        <p><strong>Context matters:</strong> High-quality, predictable growers may deserve higher PEGs than cyclical or risky businesses.</p>`
+    },
+    'ps-sector-detail': {
+        title: 'P/S Sector Valuation',
+        content: `<p><strong>What it does:</strong> Values stock based on sector median Price-to-Sales ratio.</p>
+        <p><strong>Formula:</strong> Fair Price = Sector Median P/S × Revenue Per Share</p>
+        <p><strong>Best for:</strong> Comparing against sector peers, works for unprofitable companies.</p>
+        <p><strong>Assumption:</strong> Company should trade at sector average multiple.</p>
+        <p><strong>Note:</strong> P/S multiples vary widely by sector. SaaS companies typically have higher P/S than retail.</p>`
     }
 };
 
@@ -2010,6 +2104,50 @@ document.addEventListener('keydown', function(e) {
     font-family: 'Courier New', monospace;
 }
 
+/* Models table */
+.models-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(20, 25, 45, 0.4);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.models-table thead {
+    background: rgba(100, 255, 218, 0.1);
+}
+
+.models-table th {
+    padding: 12px;
+    text-align: left;
+    color: #64ffda;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+.models-table td {
+    padding: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: #a8b2d1;
+}
+
+.models-table tbody tr:hover {
+    background: rgba(100, 255, 218, 0.05);
+}
+
+.models-table td:nth-child(2),
+.models-table td:nth-child(3) {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+}
+
+.models-table td:nth-child(4) {
+    text-align: center;
+    font-size: 1.2rem;
+}
+
 .disclaimer {
     background: rgba(255, 215, 0, 0.1);
     padding: 20px;
@@ -2089,6 +2227,47 @@ document.addEventListener('keydown', function(e) {
     height: 16px;
     font-size: 0.7rem;
     margin-left: 5px;
+}
+
+/* Loading Modal */
+.loading-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(10, 14, 39, 0.95);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-content {
+    text-align: center;
+    color: #64ffda;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 20px;
+    border: 4px solid rgba(100, 255, 218, 0.2);
+    border-top: 4px solid #64ffda;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-content p {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    color: #64ffda;
 }
 
 /* Info Modal */
@@ -2187,6 +2366,80 @@ document.addEventListener('keydown', function(e) {
 
 .info-modal strong {
     color: #ffd700;
+}
+
+/* Score colors for consensus agreement */
+.score-high {
+    color: #4CAF50;
+}
+
+.score-medium {
+    color: #FF9800;
+}
+
+.score-low {
+    color: #f44336;
+}
+
+/* Recommendation badges */
+.recommendation {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.rec-strong-buy {
+    background: #4CAF50;
+    color: white;
+}
+
+.rec-buy {
+    background: #8BC34A;
+    color: white;
+}
+
+.rec-speculative-buy {
+    background: #FFC107;
+    color: #333;
+}
+
+.rec-hold {
+    background: #FF9800;
+    color: white;
+}
+
+.rec-sell {
+    background: #f44336;
+    color: white;
+}
+
+.rec-fair-value {
+    background: #2196F3;
+    color: white;
+}
+
+.rec-overvalued {
+    background: #FF9800;
+    color: white;
+}
+
+.rec-significantly-overvalued {
+    background: #f44336;
+    color: white;
+}
+
+.rec-n-a {
+    background: #9E9E9E;
+    color: white;
+}
+
+.model-recommendation {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 600;
 }
 </style>
 
