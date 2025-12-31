@@ -657,10 +657,24 @@ class StockForecaster:
 
         revenue_per_share = self.revenue / self.shares_outstanding
 
-        # If no sector median provided, use current P/S as baseline
+        # If no sector median provided, use reasonable sector defaults
         if sector_median_ps is None:
-            # Conservative estimate: use current P/S or reasonable default
-            sector_median_ps = self.ps_ratio if self.ps_ratio > 0 else 5.0
+            # Sector median P/S defaults based on typical ranges
+            sector_defaults = {
+                'Technology': 6.0,
+                'Healthcare': 4.5,
+                'Financial Services': 3.0,
+                'Consumer Cyclical': 1.5,
+                'Consumer Defensive': 1.8,
+                'Industrials': 2.0,
+                'Energy': 1.5,
+                'Utilities': 2.5,
+                'Real Estate': 4.0,
+                'Basic Materials': 1.8,
+                'Communication Services': 3.5
+            }
+            sector = self.data.get('sector', 'Unknown')
+            sector_median_ps = sector_defaults.get(sector, 3.0)  # Default to 3.0 if sector unknown
 
         # Fair Price = Sector P/S × Revenue Per Share
         fair_price = sector_median_ps * revenue_per_share

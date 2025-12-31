@@ -718,65 +718,17 @@
     </div>
 </div>
 
-<!-- Summary -->
+<!-- Forecast Summary & Consensus -->
 <div class="forecast-summary">
-    <h2>Forecast Summary</h2>
-    <p class="subtitle">Average of all models over {{ results.earnings_model.years }} years</p>
+    <h2>Forecast Summary & Consensus</h2>
+    <p class="subtitle">Aggregate view from {{ results.consensus.num_models if results.consensus else 0 }} valuation models</p>
 
-    {% set valid_targets = [] %}
-    {% if results.earnings_model.target_price > 0 %}
-        {% set _ = valid_targets.append(results.earnings_model.target_price) %}
-    {% endif %}
-    {% if results.revenue_model.target_price > 0 %}
-        {% set _ = valid_targets.append(results.revenue_model.target_price) %}
-    {% endif %}
-    {% if results.dcf_model.target_price > 0 %}
-        {% set _ = valid_targets.append(results.dcf_model.target_price) %}
-    {% endif %}
-    {% if results.monte_carlo.median_target %}
-        {% set _ = valid_targets.append(results.monte_carlo.median_target) %}
-    {% endif %}
-    {% if results.graham_number.intrinsic_value > 0 and not results.graham_number.error %}
-        {% set _ = valid_targets.append(results.graham_number.intrinsic_value) %}
-    {% endif %}
-    {% if results.gordon_growth.intrinsic_value > 0 and not results.gordon_growth.error %}
-        {% set _ = valid_targets.append(results.gordon_growth.intrinsic_value) %}
-    {% endif %}
-    {% if results.peg_valuation.fair_price > 0 and not results.peg_valuation.error %}
-        {% set _ = valid_targets.append(results.peg_valuation.fair_price) %}
-    {% endif %}
-    {% if results.ps_sector.fair_price > 0 and not results.ps_sector.error %}
-        {% set _ = valid_targets.append(results.ps_sector.fair_price) %}
-    {% endif %}
-
-    {% if valid_targets %}
-    {% set avg_target = (valid_targets|sum) / (valid_targets|length) %}
-    {% set avg_upside = ((avg_target / results.current_price) - 1) * 100 %}
-
+    {% if results and results.consensus %}
     <div class="summary-grid">
         <div class="summary-item">
             <span class="label">Current Price</span>
             <span class="value">${{ "%.2f"|format(results.current_price) }}</span>
         </div>
-        <div class="summary-item">
-            <span class="label">Average Target</span>
-            <span class="value">${{ "%.2f"|format(avg_target) }}</span>
-        </div>
-        <div class="summary-item">
-            <span class="label">Average Upside</span>
-            <span class="value {% if avg_upside >= 0 %}positive{% else %}negative{% endif %}">{{ "%.1f"|format(avg_upside) }}%</span>
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Model Consensus -->
-{% if results and results.consensus %}
-<div class="forecast-summary">
-    <h2>Model Consensus</h2>
-    <p class="subtitle">Aggregate view from {{ results.consensus.num_models }} valuation models</p>
-
-    <div class="summary-grid">
         <div class="summary-item">
             <span class="label">Consensus Target</span>
             <span class="value">${{ "%.2f"|format(results.consensus.consensus_target) }}</span>
@@ -803,21 +755,90 @@
                 {{ results.consensus.recommendation }}
             </span>
         </div>
-        <div class="summary-item">
-            <span class="label">Confidence</span>
-            <span class="value">
-                {% if results.consensus.agreement_score >= 70 %}
-                High agreement
-                {% elif results.consensus.agreement_score >= 50 %}
-                Moderate agreement
-                {% else %}
-                Low agreement
-                {% endif %}
-            </span>
-        </div>
     </div>
+
+    <!-- Individual Model Results Table -->
+    <div style="margin-top: 30px;">
+        <h3 style="margin-bottom: 15px; color: #333;">Individual Model Results</h3>
+        <table class="models-table">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Target Price</th>
+                    <th>Upside</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Earnings Growth Model</td>
+                    <td>${{ "%.2f"|format(results.earnings_model.target_price) if results.earnings_model.target_price > 0 else "N/A" }}</td>
+                    <td class="{% if results.earnings_model.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.earnings_model.upside_percent) if results.earnings_model.target_price > 0 else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.earnings_model.target_price > 0 else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>Revenue Growth Model</td>
+                    <td>${{ "%.2f"|format(results.revenue_model.target_price) if results.revenue_model.target_price > 0 else "N/A" }}</td>
+                    <td class="{% if results.revenue_model.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.revenue_model.upside_percent) if results.revenue_model.target_price > 0 else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.revenue_model.target_price > 0 else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>DCF Model</td>
+                    <td>${{ "%.2f"|format(results.dcf_model.target_price) if results.dcf_model.target_price > 0 else "N/A" }}</td>
+                    <td class="{% if results.dcf_model.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.dcf_model.upside_percent) if results.dcf_model.target_price > 0 else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.dcf_model.target_price > 0 else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>Monte Carlo Simulation</td>
+                    <td>${{ "%.2f"|format(results.monte_carlo.median_target) if results.monte_carlo.median_target else "N/A" }}</td>
+                    <td class="{% if results.monte_carlo.median_target and ((results.monte_carlo.median_target / results.current_price - 1) * 100) >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format((results.monte_carlo.median_target / results.current_price - 1) * 100) if results.monte_carlo.median_target else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.monte_carlo.median_target else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>Graham Number</td>
+                    <td>${{ "%.2f"|format(results.graham_number.intrinsic_value) if results.graham_number.intrinsic_value > 0 and not results.graham_number.error else "N/A" }}</td>
+                    <td class="{% if results.graham_number.margin_of_safety >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.graham_number.margin_of_safety) if results.graham_number.intrinsic_value > 0 and not results.graham_number.error else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.graham_number.intrinsic_value > 0 and not results.graham_number.error else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>Gordon Growth Model</td>
+                    <td>${{ "%.2f"|format(results.gordon_growth.intrinsic_value) if results.gordon_growth.intrinsic_value > 0 and not results.gordon_growth.error else "N/A" }}</td>
+                    <td class="{% if results.gordon_growth.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.gordon_growth.upside_percent) if results.gordon_growth.intrinsic_value > 0 and not results.gordon_growth.error else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.gordon_growth.intrinsic_value > 0 and not results.gordon_growth.error else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>PEG Valuation</td>
+                    <td>${{ "%.2f"|format(results.peg_valuation.fair_price) if results.peg_valuation.fair_price > 0 and not results.peg_valuation.error else "N/A" }}</td>
+                    <td class="{% if results.peg_valuation.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.peg_valuation.upside_percent) if results.peg_valuation.fair_price > 0 and not results.peg_valuation.error else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.peg_valuation.fair_price > 0 and not results.peg_valuation.error else "—" }}</td>
+                </tr>
+                <tr>
+                    <td>P/S Sector Valuation</td>
+                    <td>${{ "%.2f"|format(results.ps_sector.fair_price) if results.ps_sector.fair_price > 0 and not results.ps_sector.error else "N/A" }}</td>
+                    <td class="{% if results.ps_sector.upside_percent >= 0 %}positive{% else %}negative{% endif %}">
+                        {{ "%.1f"|format(results.ps_sector.upside_percent) if results.ps_sector.fair_price > 0 and not results.ps_sector.error else "N/A" }}%
+                    </td>
+                    <td>{{ "✓" if results.ps_sector.fair_price > 0 and not results.ps_sector.error else "—" }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
 
 <div class="disclaimer">
     <p><strong>Disclaimer:</strong> These forecasts are for educational purposes only and should not be considered investment advice. Stock prices are inherently unpredictable and actual results may differ significantly from these projections.</p>
@@ -2202,6 +2223,50 @@ document.addEventListener('keydown', function(e) {
     font-size: 2rem;
     font-weight: 700;
     font-family: 'Courier New', monospace;
+}
+
+/* Models table */
+.models-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(20, 25, 45, 0.4);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.models-table thead {
+    background: rgba(100, 255, 218, 0.1);
+}
+
+.models-table th {
+    padding: 12px;
+    text-align: left;
+    color: #64ffda;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+.models-table td {
+    padding: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: #a8b2d1;
+}
+
+.models-table tbody tr:hover {
+    background: rgba(100, 255, 218, 0.05);
+}
+
+.models-table td:nth-child(2),
+.models-table td:nth-child(3) {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+}
+
+.models-table td:nth-child(4) {
+    text-align: center;
+    font-size: 1.2rem;
 }
 
 .disclaimer {
