@@ -196,8 +196,8 @@
     <input type="hidden" name="fcf_growth" id="form-fcf_growth" value="{{ request.args.get('fcf_growth', 0.10) }}">
     <input type="hidden" name="discount_rate" id="form-discount_rate" value="{{ request.args.get('discount_rate', 0.10) }}">
     <input type="hidden" name="volatility" id="form-volatility" value="{{ request.args.get('volatility', 0.30) }}">
-    <input type="hidden" name="peg_growth_rate" id="form-peg_growth_rate" value="{{ request.args.get('peg_growth_rate', results.peg_valuation.growth_rate / 100 if results and results.peg_valuation else 0.15) }}">
-    <input type="hidden" name="fair_peg" id="form-fair_peg" value="{{ request.args.get('fair_peg', results.peg_valuation.fair_peg if results and results.peg_valuation else 1.5) }}">
+    <input type="hidden" name="peg_growth_rate" id="form-peg_growth_rate" value="{{ request.args.get('peg_growth_rate', results.peg_valuation.get('growth_rate', 15) / 100 if results and results.peg_valuation and not results.peg_valuation.get('error') else 0.15) }}">
+    <input type="hidden" name="fair_peg" id="form-fair_peg" value="{{ request.args.get('fair_peg', results.peg_valuation.get('fair_peg', 1.5) if results and results.peg_valuation and not results.peg_valuation.get('error') else 1.5) }}">
 </form>
 
 <!-- Valuation Multiples Info -->
