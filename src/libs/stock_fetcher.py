@@ -323,6 +323,45 @@ class StockFetcher:
         except:
             return None
 
+    def fetch_price_history(self, ticker: str, period: str = '2y', interval: str = '1d') -> List[Dict]:
+        """
+        Fetch historical OHLC price data from Yahoo Finance
+
+        Args:
+            ticker: Stock ticker symbol
+            period: Time period ('1y', '2y', '5y', 'max')
+            interval: Data interval ('1d', '1wk', '1mo')
+
+        Returns:
+            List of dictionaries with OHLC data
+        """
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period=period, interval=interval)
+
+            if hist.empty:
+                print(f"  No price history found for {ticker}")
+                return []
+
+            price_data = []
+            for date, row in hist.iterrows():
+                price_data.append({
+                    'ticker': ticker.upper(),
+                    'date': date.strftime('%Y-%m-%d'),
+                    'open': float(row['Open']),
+                    'high': float(row['High']),
+                    'low': float(row['Low']),
+                    'close': float(row['Close']),
+                    'volume': int(row['Volume'])
+                })
+
+            print(f"  Fetched {len(price_data)} price data points for {ticker}")
+            return price_data
+
+        except Exception as e:
+            print(f"Error fetching price history for {ticker}: {str(e)}")
+            return []
+
     def fetch_stock_with_history(self, ticker: str) -> Dict:
         """
         Fetch both current data and historical financials

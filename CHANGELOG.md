@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-01-03
+
+### Added
+- **Technical Analysis Feature**: Basic technical analysis with support/resistance levels and trend forecasting
+  - New standalone page at `/technical-analysis/basic` with stock selector
+  - 2-year OHLC price history fetching from Yahoo Finance API
+  - Support & resistance level calculations using local maxima/minima clustering
+  - Classical pivot points (R1/R2/R3, Pivot, S1/S2/S3)
+  - Trend analysis using linear regression with 30-day and 90-day price targets
+  - Interactive price chart with 20-day and 50-day moving averages
+  - Beginner-friendly info modals explaining technical concepts
+
+- **Technical Analysis Integration**: Quick summary panel on stock detail pages
+  - Shows cached support/resistance levels and trend targets
+  - Displays trend strength (R²) with color-coded indicators
+  - Direct link to full technical analysis page
+
+- **New Database Tables**:
+  - `price_history`: Stores OHLC data with automatic accumulation over time
+  - `technical_indicators`: Caches calculated support/resistance levels and trend metrics
+
+- **New Navigation Menu**: "Technical Analysis" dropdown with "Basic" submenu item
+
+### Changed
+- Reorganized main navigation: "Technical Analysis" menu now appears before "Stock Analysis"
+- Moved "Fetch Data" into "Tools" dropdown menu (first position)
+- Added `scipy>=1.10.0` dependency for statistical calculations
+
 ## [1.2.1] - 2025-12-31
 
 ### Added

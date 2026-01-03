@@ -15,14 +15,20 @@
             <h1 class="logo">Stock Analyzer</h1>
             <ul class="nav-links">
                 <li><a href="{{ url_for('index') }}">Home</a></li>
-                <li><a href="{{ url_for('fetch_stocks') }}">Fetch Data</a></li>
                 <li class="dropdown">
                     <a href="#" class="dropbtn">Tools ▾</a>
                     <div class="dropdown-content">
+                        <a href="{{ url_for('fetch_stocks') }}">Fetch Data</a>
                         <a href="{{ url_for('screener') }}">Screener</a>
                         <a href="{{ url_for('comparison') }}">Compare</a>
                         <a href="{{ url_for('forecast') }}">Forecast</a>
                         <a href="{{ url_for('upside_calculator') }}">Upside</a>
+                    </div>
+                </li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn">Technical Analysis ▾</a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('technical_analysis_basic') }}">Basic</a>
                     </div>
                 </li>
                 <li class="dropdown">
