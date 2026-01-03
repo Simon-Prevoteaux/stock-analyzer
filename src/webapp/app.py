@@ -349,6 +349,9 @@ def stock_detail(ticker):
             }]
         } if filtered_earnings_annual else None
 
+    # Get technical indicators from cache
+    technical_data = db.get_technical_indicators(ticker.upper())
+
     # Check which strategies this stock qualifies for
     strategy_matches = {
         'value_play': False,
@@ -406,6 +409,7 @@ def stock_detail(ticker):
                          stock=stock,
                          growth_metrics=growth_metrics,
                          strategy_matches=strategy_matches,
+                         technical_data=technical_data,
                          has_historical_data=bool(quarterly_history or annual_history),
                          revenue_chart_data_quarterly=revenue_chart_data_quarterly,
                          earnings_chart_data_quarterly=earnings_chart_data_quarterly,
@@ -1294,8 +1298,16 @@ def technical_analysis_basic():
     # Get chart data
     chart_data = analyzer.get_chart_data(include_indicators=True)
 
-    # Save calculated indicators to cache
-    db.save_technical_indicators(ticker, technical_data)
+    # Save calculated indicators to cache (flatten trend data)
+    cache_data = {
+        'support_levels': technical_data.get('support_levels', []),
+        'resistance_levels': technical_data.get('resistance_levels', []),
+        'trend_slope': technical_data.get('trend', {}).get('slope'),
+        'trend_r_squared': technical_data.get('trend', {}).get('r_squared'),
+        'trend_target_30d': technical_data.get('trend', {}).get('target_30d'),
+        'trend_target_90d': technical_data.get('trend', {}).get('target_90d')
+    }
+    db.save_technical_indicators(ticker, cache_data)
 
     return render_template('technical_analysis_basic.html',
                          available_stocks=available_stocks,
