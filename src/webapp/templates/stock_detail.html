@@ -22,6 +22,7 @@
     <div class="action-group">
         <h4>Analysis</h4>
         <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-primary">See Forecast</a>
+        <a href="{{ url_for('technical_analysis_basic') }}?ticker={{ stock.ticker }}" class="btn btn-primary">See Basic Technical</a>
     </div>
 
     <div class="action-group">

@@ -1221,6 +1221,112 @@ def calculate_required_growth():
     })
 
 
+@app.route('/technical-analysis/basic')
+def technical_analysis_basic():
+    """Basic technical analysis page with support/resistance and trends"""
+    from libs.technical_analyzer import TechnicalAnalyzer
+
+    # Get selected ticker
+    ticker = request.args.get('ticker', type=str)
+
+    # Get all stocks for selector
+    all_stocks_df = db.get_all_stocks()
+    available_stocks = all_stocks_df['ticker'].tolist() if not all_stocks_df.empty else []
+
+    if not ticker:
+        # No ticker selected, show empty page with selector
+        return render_template('technical_analysis_basic.html',
+                             available_stocks=available_stocks,
+                             ticker=None,
+                             stock_info=None,
+                             technical_data=None,
+                             chart_data=None,
+                             error=None)
+
+    ticker = ticker.upper()
+
+    # Get stock info
+    stock_info = db.get_stock(ticker)
+    if not stock_info:
+        return render_template('technical_analysis_basic.html',
+                             available_stocks=available_stocks,
+                             ticker=ticker,
+                             stock_info=None,
+                             technical_data=None,
+                             chart_data=None,
+                             error=f"Stock {ticker} not found in database. Please fetch it first.")
+
+    # Get price history
+    price_df = db.get_price_history(ticker)
+
+    # If no price history, try to fetch it
+    if price_df.empty:
+        print(f"No price history found for {ticker}, fetching from Yahoo Finance...")
+        price_data = fetcher.fetch_price_history(ticker)
+
+        if price_data:
+            db.save_price_history(ticker, price_data)
+            price_df = db.get_price_history(ticker)
+        else:
+            return render_template('technical_analysis_basic.html',
+                                 available_stocks=available_stocks,
+                                 ticker=ticker,
+                                 stock_info=stock_info,
+                                 technical_data=None,
+                                 chart_data=None,
+                                 error=f"Unable to fetch price history for {ticker}")
+
+    # Check if we have enough data
+    if len(price_df) < 30:
+        return render_template('technical_analysis_basic.html',
+                             available_stocks=available_stocks,
+                             ticker=ticker,
+                             stock_info=stock_info,
+                             technical_data=None,
+                             chart_data=None,
+                             error=f"Insufficient price history for {ticker} (need at least 30 days)")
+
+    # Calculate technical indicators
+    analyzer = TechnicalAnalyzer(price_df)
+    current_price = stock_info.get('current_price', price_df.iloc[-1]['close'])
+    technical_data = analyzer.calculate_all_indicators(current_price)
+
+    # Get chart data
+    chart_data = analyzer.get_chart_data(include_indicators=True)
+
+    # Save calculated indicators to cache
+    db.save_technical_indicators(ticker, technical_data)
+
+    return render_template('technical_analysis_basic.html',
+                         available_stocks=available_stocks,
+                         ticker=ticker,
+                         stock_info=stock_info,
+                         technical_data=technical_data,
+                         chart_data=chart_data,
+                         error=None)
+
+
+@app.route('/api/refresh-price-history/<ticker>', methods=['POST'])
+def api_refresh_price_history(ticker: str):
+    """API endpoint to refresh price history for a stock"""
+    try:
+        ticker = ticker.upper()
+
+        # Fetch new price history
+        price_data = fetcher.fetch_price_history(ticker)
+
+        if not price_data:
+            return jsonify({'success': False, 'error': 'Failed to fetch price history'}), 400
+
+        # Save to database
+        db.save_price_history(ticker, price_data)
+
+        return jsonify({'success': True, 'data_points': len(price_data)})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.template_filter('format_number')
 def format_number(value):
     """Format large numbers"""
