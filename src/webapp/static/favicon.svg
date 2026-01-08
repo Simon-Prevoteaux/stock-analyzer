@@ -1,0 +1,16 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="64" height="64" rx="12" fill="#0B1220"/>
+
+  <!-- Bars -->
+  <rect x="16" y="34" width="6" height="14" rx="2" fill="#22FF88"/>
+  <rect x="28" y="28" width="6" height="20" rx="2" fill="#22FF88"/>
+  <rect x="40" y="20" width="6" height="28" rx="2" fill="#22FF88"/>
+
+  <!-- Arrow -->
+  <path d="M42 18 L50 10 M50 10 L48 16 M50 10 L44 12"
+        stroke="#22FF88"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>
