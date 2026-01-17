@@ -519,6 +519,30 @@ def remove_from_watchlist(ticker):
     return redirect(url_for('watchlist'))
 
 
+@app.route('/watchlist/update-notes/<ticker>', methods=['POST'])
+def update_watchlist_notes(ticker):
+    """Update notes for a stock in watchlist"""
+    try:
+        data = request.get_json()
+        notes = data.get('notes', '')
+        success = db.update_watchlist_notes(ticker, notes)
+        return jsonify({'success': success})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/watchlist/update-ranking/<ticker>', methods=['POST'])
+def update_watchlist_ranking(ticker):
+    """Update ranking for a stock in watchlist"""
+    try:
+        data = request.get_json()
+        ranking = int(data.get('ranking', 0))
+        success = db.update_watchlist_ranking(ticker, ranking)
+        return jsonify({'success': success})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/portfolio')
 def portfolio():
     """User's portfolio"""

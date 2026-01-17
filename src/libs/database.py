@@ -116,9 +116,16 @@ class StockDatabase:
                 ticker TEXT NOT NULL,
                 added_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT,
+                ranking INTEGER DEFAULT 0,
                 UNIQUE(ticker)
             )
         ''')
+
+        # Add ranking column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute('ALTER TABLE watchlist ADD COLUMN ranking INTEGER DEFAULT 0')
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
         # Portfolio table
         cursor.execute('''
@@ -502,11 +509,11 @@ class StockDatabase:
     def get_watchlist(self) -> pd.DataFrame:
         """Get all stocks in watchlist with growth metrics"""
         query = '''
-            SELECT w.ticker, w.added_date, w.notes, s.*, g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance
+            SELECT w.ticker, w.added_date, w.notes, w.ranking, s.*, g.peg_average, g.peg_3y_cagr, g.peg_quarterly, g.peg_yfinance
             FROM watchlist w
             LEFT JOIN stocks s ON w.ticker = s.ticker
             LEFT JOIN growth_metrics g ON w.ticker = g.ticker
-            ORDER BY w.added_date DESC
+            ORDER BY w.ranking DESC, w.added_date DESC
         '''
         return pd.read_sql_query(query, self.conn)
 
@@ -519,6 +526,54 @@ class StockDatabase:
             return True
         except Exception as e:
             print(f"Error removing from watchlist: {str(e)}")
+            return False
+
+    def update_watchlist_notes(self, ticker: str, notes: str) -> bool:
+        """
+        Update notes for a stock in watchlist
+
+        Args:
+            ticker: Stock ticker symbol
+            notes: New notes text
+
+        Returns:
+            True if successful
+        """
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                UPDATE watchlist
+                SET notes = ?
+                WHERE ticker = ?
+            ''', (notes, ticker.upper()))
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error updating watchlist notes: {str(e)}")
+            return False
+
+    def update_watchlist_ranking(self, ticker: str, ranking: int) -> bool:
+        """
+        Update ranking for a stock in watchlist
+
+        Args:
+            ticker: Stock ticker symbol
+            ranking: New ranking (0-5 scale)
+
+        Returns:
+            True if successful
+        """
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                UPDATE watchlist
+                SET ranking = ?
+                WHERE ticker = ?
+            ''', (ranking, ticker.upper()))
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error updating watchlist ranking: {str(e)}")
             return False
 
     def add_to_portfolio(self, ticker: str, notes: str = '') -> bool:
