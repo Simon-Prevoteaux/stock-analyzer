@@ -246,8 +246,11 @@ stock-analyzer/
 ├── src/
 │   ├── libs/
 │   │   ├── __init__.py
-│   │   ├── stock_fetcher.py    # Data fetching logic
-│   │   └── database.py         # Database management
+│   │   ├── stock_fetcher.py    # Stock data fetching logic
+│   │   ├── macro_fetcher.py    # Macro data fetching (FRED API, Yahoo Finance) with caching
+│   │   ├── macro_analyzer.py   # Macro data interpretation and analysis
+│   │   ├── forecaster.py       # Stock valuation models
+│   │   └── database.py         # Database management (stocks + macro data)
 │   └── webapp/
 │       ├── __init__.py
 │       ├── app.py              # Flask application
@@ -260,18 +263,24 @@ stock-analyzer/
 │       │   ├── comparison.html
 │       │   ├── watchlist.html
 │       │   ├── value_plays.html
-│       │   └── bubble_territory.html
+│       │   ├── bubble_territory.html
+│       │   ├── macro_signals.html    # Macro signals dashboard
+│       │   └── forecast.html
 │       └── static/
-│           └── css/
-│               └── style.css   # Styling
+│           ├── css/
+│           │   └── style.css         # Styling
+│           └── js/
+│               └── macro_signals.js  # Yield curve & spread charts
 ├── data/
-│   └── stocks.db              # SQLite database
+│   └── stocks.db              # SQLite database (stocks + macro cache)
 ├── tests/                     # Test files (future)
 ├── venv/                      # Virtual environment
 ├── requirements.txt           # Python dependencies
+├── .env                       # Environment variables (FRED_API_KEY)
+├── .env.example              # Environment template
 ├── .gitignore
 ├── README.md
-└── claude.md                  # This file
+└── CLAUDE.md                  # This file
 ```
 
 ## Running the Application
@@ -320,6 +329,35 @@ This is a personal project. For modifications:
 4. Document changes in this file
 
 ## Version History
+
+- **v1.2.0** (2026-01-17): Macro Signals Feature with Performance Optimization
+  - **NEW: Macro Signals Dashboard** - Comprehensive macroeconomic analysis inspired by Ray Dalio's methodology
+    - Currency performance tracking (USD, EUR, JPY, CNY, CHF) across 7 timeframes (1d to 5y)
+    - Gold vs currencies analysis with dual calculation methods (inverted returns & geometric purchasing power)
+    - S&P 500 performance tracking and gold-adjusted returns
+    - US Treasury yield curve visualization with color-coded inversion detection
+    - Yield spread analysis (10Y-2Y, 10Y-3M, 30Y-5Y) with historical trends and EXPANDING/CONTRACTING/STABLE indicators
+    - Historical spread chart showing 1-year trend evolution
+    - Corporate credit spread monitoring (Investment Grade, High Yield, BBB)
+    - Interactive tooltips explaining all metrics and interpretations
+    - Integration with FRED API for official economic data
+  - **Performance Optimization: Database Caching**
+    - 24-hour cache for all macro data (FRED API, Yahoo Finance)
+    - First load fetches from APIs, subsequent loads use database cache
+    - Significantly faster page loads (seconds vs minutes)
+    - Automatic cache expiration and refresh mechanism
+    - Cache applies to: currencies, gold, S&P 500, Treasury yields, credit spreads
+  - **UI Enhancements**
+    - Added logo icon to navigation bar
+    - Compressed navigation spacing for better dropdown display
+    - Dark theme styling consistent across all macro sections
+    - Responsive tables with color-coded positive/negative values
+  - **Backend Improvements**
+    - New `MacroDataFetcher` class with caching support ([macro_fetcher.py](src/libs/macro_fetcher.py))
+    - New `MacroAnalyzer` class for data interpretation ([macro_analyzer.py](src/libs/macro_analyzer.py))
+    - Enhanced database schema with `macro_data` table
+    - FRED API integration for official economic data
+    - Yahoo Finance integration for gold and S&P 500 data
 
 - **v1.0.0** (2025-12-04): Initial release
   - Stock data fetching

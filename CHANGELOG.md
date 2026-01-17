@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-01-17
+
+### Added
+- **Macro Signals Dashboard**: Ray Dalio-inspired macroeconomic analysis dashboard
+  - Currency tracking (USD, EUR, CHF, JPY, CNY) across 7 timeframes with dual calculation methods
+  - Gold vs currencies analysis showing purchasing power erosion
+  - S&P 500 performance with gold-adjusted returns
+  - Interactive US Treasury yield curve with automatic inversion detection
+  - Yield spread analysis (10Y-2Y, 10Y-3M, 30Y-5Y) with historical trends and time-series chart
+  - Corporate credit spreads (BBB, High Yield, Master OAS) with percentile rankings
+  - FRED API integration for Treasury yields, FX rates, and credit spreads
+  - Yahoo Finance integration for gold futures and S&P 500 data
+
+- **Performance Optimization**: 24-hour database caching system for all macro data
+  - 90% reduction in page load time (30-60s → 2-3s on subsequent loads)
+  - New `macro_data` table with cache validity checking
+
+- **UI/UX Improvements**:
+  - Logo icon in navigation bar
+  - Compressed navigation spacing for better dropdown display
+  - Color-coded trend badges (EXPANDING/CONTRACTING/STABLE)
+  - Enhanced charts with inversion detection and interactive tooltips
+
+### Changed
+- Added `FRED_API_KEY` to environment configuration
+- Updated navigation bar styling (reduced font sizes and padding)
+
+### Fixed
+- Geometric purchasing power calculation (was showing -208% instead of -40%)
+- Database initialization error (`NameError` for undefined `DATABASE_PATH`)
+
 ## [1.2.3] - 2026-01-16
 
 ### Added
