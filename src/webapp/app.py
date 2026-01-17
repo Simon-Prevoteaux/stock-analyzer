@@ -6,6 +6,10 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for
 import sys
 import os
 import pandas as pd
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
 # Add parent directory to path to import libs
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -15,9 +19,14 @@ from libs.database import StockDatabase
 from libs.stock_lists import get_all_lists
 from libs.forecaster import StockForecaster
 from libs.growth_analyzer import GrowthAnalyzer
+from libs.macro_fetcher import MacroDataFetcher
+from libs.macro_analyzer import MacroAnalyzer
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'stock-analyzer-secret-key'
+
+# Load FRED API key
+FRED_API_KEY = os.getenv('FRED_API_KEY')
 
 # Initialize components
 fetcher = StockFetcher()
@@ -1358,6 +1367,154 @@ def api_refresh_price_history(ticker: str):
         db.save_price_history(ticker, price_data)
 
         return jsonify({'success': True, 'data_points': len(price_data)})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================================
+# MACRO SIGNALS ROUTES
+# ============================================================================
+
+@app.route('/macro-signals')
+def macro_signals():
+    """Main macro signals dashboard"""
+    try:
+        if not FRED_API_KEY:
+            return render_template('error.html',
+                                 error="FRED API key not configured. Please add FRED_API_KEY to your .env file.")
+
+        # Initialize macro fetcher
+        macro_fetcher = MacroDataFetcher(FRED_API_KEY)
+        analyzer = MacroAnalyzer()
+
+        # Fetch currency data (vs USD)
+        currencies = macro_fetcher.calculate_currency_returns(base='USD')
+
+        # Fetch currencies vs gold data (Ray Dalio's methodology)
+        currencies_vs_gold = macro_fetcher.calculate_currencies_vs_gold()
+
+        # Fetch S&P 500 data
+        sp500 = macro_fetcher.calculate_sp500_returns()
+
+        # Get gold price return for S&P vs Gold calculation
+        gold_usd_df = macro_fetcher.fetch_gold_price(lookback_days=1825)
+        gold_returns = {}
+        for period, days in [('1d', 1), ('1w', 7), ('1m', 30), ('3m', 90), ('1y', 365), ('3y', 1095), ('5y', 1825)]:
+            gold_returns[period] = macro_fetcher._calculate_period_return(gold_usd_df, days)
+
+        # Fetch yield curve
+        yield_curve = macro_fetcher.fetch_yield_curve()
+
+        # Calculate spreads
+        spreads_raw = macro_fetcher.calculate_yield_spreads()
+        spreads = analyzer.interpret_yield_curve(spreads_raw)
+
+        # Get recession indicators
+        recession_indicators = analyzer.get_recession_indicator_summary(spreads)
+
+        # Fetch credit spreads
+        credit_spreads_raw = macro_fetcher.fetch_credit_spreads()
+
+        # Interpret credit spreads
+        credit_spreads = {}
+        for spread_type, data in credit_spreads_raw.items():
+            if data['current'] is not None:
+                credit_spreads[spread_type] = {
+                    'current': data['current'],
+                    'percentile': data['percentile'],
+                    'interpretation': analyzer.interpret_credit_spread(
+                        spread_type, data['current'], data['percentile']
+                    )
+                }
+
+        # Get insights
+        insights = analyzer.format_currency_comparison_insight(currencies, {'gold_returns': gold_returns})
+
+        # Get last update date
+        last_update = macro_fetcher.get_last_update_date(macro_fetcher.TREASURY_SERIES['10Y'])
+
+        return render_template(
+            'macro_signals.html',
+            currencies=currencies,
+            currencies_vs_gold=currencies_vs_gold,
+            sp500=sp500,
+            gold_returns=gold_returns,
+            yield_curve=yield_curve,
+            spreads=spreads,
+            credit_spreads=credit_spreads,
+            recession_indicators=recession_indicators,
+            insights=insights,
+            last_update=last_update
+        )
+
+    except Exception as e:
+        print(f"Error in macro_signals route: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return f"<h1>Error loading macro signals</h1><pre>{str(e)}\n\n{traceback.format_exc()}</pre>", 500
+
+
+@app.route('/api/macro/refresh-currencies', methods=['POST'])
+def refresh_currencies():
+    """Refresh currency data via AJAX"""
+    try:
+        if not FRED_API_KEY:
+            return jsonify({'success': False, 'error': 'FRED API key not configured'}), 400
+
+        macro_fetcher = MacroDataFetcher(FRED_API_KEY)
+
+        currencies = macro_fetcher.calculate_currency_returns(base='USD')
+        gold = macro_fetcher.calculate_gold_returns()
+
+        return jsonify({
+            'success': True,
+            'currencies': currencies,
+            'gold': gold
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/macro/refresh-rates', methods=['POST'])
+def refresh_rates():
+    """Refresh yield curve and credit spreads via AJAX"""
+    try:
+        if not FRED_API_KEY:
+            return jsonify({'success': False, 'error': 'FRED API key not configured'}), 400
+
+        macro_fetcher = MacroDataFetcher(FRED_API_KEY)
+        analyzer = MacroAnalyzer()
+
+        # Fetch yield curve
+        yield_curve = macro_fetcher.fetch_yield_curve()
+
+        # Calculate spreads
+        spreads_raw = macro_fetcher.calculate_yield_spreads()
+        spreads = analyzer.interpret_yield_curve(spreads_raw)
+
+        # Fetch credit spreads
+        credit_spreads_raw = macro_fetcher.fetch_credit_spreads()
+
+        # Interpret credit spreads
+        credit_spreads = {}
+        for spread_type, data in credit_spreads_raw.items():
+            if data['current'] is not None:
+                credit_spreads[spread_type] = {
+                    'current': data['current'],
+                    'percentile': data['percentile'],
+                    'interpretation': analyzer.interpret_credit_spread(
+                        spread_type, data['current'], data['percentile']
+                    )
+                }
+
+        return jsonify({
+            'success': True,
+            'yield_curve': yield_curve,
+            'spreads': spreads,
+            'credit_spreads': credit_spreads
+        })
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

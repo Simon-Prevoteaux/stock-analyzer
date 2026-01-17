@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+
+{% block title %}Macro Signals - Stock Analyzer{% endblock %}
+
+{% block content %}
+<div class="macro-dashboard">
+    <div class="page-header">
+        <h1>Macro Signals Dashboard</h1>
+        <p class="subtitle">Monitor currency movements, yield curves, and credit spreads - Ray Dalio style</p>
+        {% if last_update %}
+        <p class="last-update">Last updated: {{ last_update }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Key Insights -->
+    {% if insights and insights.insights %}
+    <div class="insights-section">
+        <h3>Key Insights</h3>
+        {% for insight in insights.insights %}
+        <div class="insight-card {{ insight.severity }}">
+            {{ insight.message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Recession Indicators -->
+    {% if recession_indicators %}
+    <div class="recession-indicators">
+        <h3>
+            Recession Indicators
+            <span class="tooltip">ⓘ
+                <span class="tooltiptext">
+                    Yield curve inversions historically precede recessions by 12-18 months.
+                    Multiple inverted spreads increase recession probability.
+                </span>
+            </span>
+        </h3>
+        <div class="indicator-summary {{ recession_indicators.risk_class }}">
+            <div class="risk-level">Risk Level: <strong>{{ recession_indicators.risk_level }}</strong></div>
+            <div class="risk-summary">{{ recession_indicators.summary }}</div>
+            {% if recession_indicators.signals %}
+            <ul class="risk-signals">
+                {% for signal in recession_indicators.signals %}
+                <li>{{ signal }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Section 1: Currency Performance -->
+    <div class="macro-section" id="currencies">
+        <h2>
+            Currency Performance vs USD
+            <span class="tooltip">ⓘ
+                <span class="tooltiptext">
+                    <strong>How to read this table:</strong><br>
+                    • Negative % = Currency weakened vs USD (USD strengthened)<br>
+                    • Positive % = Currency strengthened vs USD (USD weakened)<br><br>
+                    <strong>Ray Dalio's perspective:</strong><br>
+                    When currencies fall against USD, it affects wealth, buying power, and inflation.
+                    Compare to gold to see real purchasing power changes beyond fiat currencies.
+                </span>
+            </span>
+        </h2>
+        <p style="color: #a8b2d1; font-size: 0.95rem; margin: -0.5rem 0 1.5rem 0; font-style: italic;">
+            📊 Positive % = strengthened vs USD | Negative % = weakened vs USD
+        </p>
+
+        <table class="macro-table">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for currency in currencies %}
+                <tr>
+                    <td><strong>{{ currency.name }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if currency[period] and currency[period] > 0 else 'negative' if currency[period] else '' }}">
+                        {% if currency[period] is not none %}
+                            {% if currency[period] >= 0 %}+{% endif %}{{ "%.2f"|format(currency[period]) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="explanation-box">
+            <p><strong>Example interpretation:</strong> If EUR shows -12% over 1 year, the Euro has weakened 12% against the Dollar. This means $100 now buys 12% more Euros than a year ago, but also means European investors' dollar-denominated assets are worth 12% less in Euro terms.</p>
+        </div>
+    </div>
+
+    <!-- Section 2: Currencies vs Gold Performance -->
+    <div class="macro-section">
+        <h2>
+            Currency Performance vs Gold
+            <span class="tooltip">ⓘ
+                <span class="tooltiptext">
+                    <strong>Ray Dalio's methodology: Measure currency purchasing power vs gold</strong><br><br>
+                    Shows how each currency has performed vs gold. Negative values mean the currency lost purchasing power (gold price increased in that currency).<br><br>
+                    Gold is a non-fiat currency and traditional inflation hedge.<br><br>
+                    <strong>How to read:</strong><br>
+                    • Positive % = Currency gained vs gold (gold price fell in that currency)<br>
+                    • Negative % = Currency lost vs gold (gold price rose in that currency)<br><br>
+                    <strong>Ray Dalio's 2025 observation:</strong><br>
+                    Gold returned 65% in dollar terms, meaning USD lost 65% of purchasing power vs gold.
+                    The S&P fell 28% in gold terms - a crucial reality check on "returns."
+                </span>
+            </span>
+        </h2>
+
+        <!-- Calculation Method Toggle -->
+        <div style="margin: 1rem 0;">
+            <div class="calc-method-tabs">
+                <button class="calc-tab active" data-method="inverted" onclick="switchGoldCalcMethod('inverted')">
+                    Method 1: Inverted Gold Return
+                    <span class="tooltip" style="margin-left: 0.5rem;">ⓘ
+                        <span class="tooltiptext" style="width: 350px;">
+                            <strong>Standard Asset Return (Inverted)</strong><br><br>
+                            Formula: -(Gold Price Return)<br>
+                            Example: If gold rises 65%, show -65%<br><br>
+                            <strong>Pros:</strong><br>
+                            • Standard in finance<br>
+                            • Directly comparable to stock returns<br>
+                            • Easy to verify vs market data<br>
+                            • Used by Ray Dalio in his LinkedIn posts
+                        </span>
+                    </span>
+                </button>
+                <button class="calc-tab" data-method="geometric" onclick="switchGoldCalcMethod('geometric')">
+                    Method 2: Geometric Purchasing Power
+                    <span class="tooltip" style="margin-left: 0.5rem;">ⓘ
+                        <span class="tooltiptext" style="width: 350px;">
+                            <strong>True Purchasing Power Loss</strong><br><br>
+                            Formula: -X / (1 + X) × 100<br>
+                            Example: If gold rises 65%, show -39.4%<br><br>
+                            <strong>Pros:</strong><br>
+                            • Shows actual % of purchasing power lost<br>
+                            • Answers: "How much did $100 lose in gold terms?"<br>
+                            • More intuitive for wealth preservation analysis
+                        </span>
+                    </span>
+                </button>
+            </div>
+        </div>
+        <p style="color: #a8b2d1; font-size: 0.95rem; margin: -0.5rem 0 1.5rem 0; font-style: italic;">
+            <span id="gold-calc-description">
+                📊 Method 1: Showing inverted gold price returns | Positive % = Currency gained vs Gold | Negative % = Currency lost vs Gold
+            </span>
+        </p>
+
+        <table class="macro-table gold-table" id="gold-table-inverted">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for currency in currencies_vs_gold %}
+                <tr>
+                    <td><strong>{{ currency.name }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if currency[period] and currency[period] > 0 else 'negative' if currency[period] else '' }}">
+                        {% if currency[period] is not none %}
+                            {% if currency[period] >= 0 %}+{% endif %}{{ "%.2f"|format(currency[period]) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Geometric Method Table (Hidden by Default) -->
+        <table class="macro-table gold-table" id="gold-table-geometric" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for currency in currencies_vs_gold %}
+                <tr>
+                    <td><strong>{{ currency.name }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if currency[period] and currency[period] > 0 else 'negative' if currency[period] else '' }}">
+                        {% if currency[period] is not none %}
+                            {% set geometric = currency[period] / (1 + (currency[period] / 100)) %}
+                            {% if geometric >= 0 %}+{% endif %}{{ "%.2f"|format(geometric) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- S&P 500 Performance -->
+        <h3 style="margin-top: 2rem;">S&P 500 Performance</h3>
+        <table class="macro-table gold-table">
+            <thead>
+                <tr>
+                    <th>Asset</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>{{ sp500.name }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if sp500[period] and sp500[period] > 0 else 'negative' if sp500[period] else '' }}">
+                        {% if sp500[period] is not none %}
+                            {% if sp500[period] >= 0 %}+{% endif %}{{ "%.2f"|format(sp500[period]) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="explanation-box">
+            <p><strong>Ray Dalio's perspective - Real returns matter:</strong> When gold price rises in a currency, that currency lost purchasing power. If gold rises 30% in USD while S&P 500 rises 15%, the S&P has actually fallen 15% in gold terms (real purchasing power). This is why Dalio emphasizes measuring returns vs gold, not just vs fiat currencies.</p>
+        </div>
+
+        <!-- S&P 500 vs Gold Comparison -->
+        <h3 style="margin-top: 2rem;">S&P 500 vs Gold</h3>
+        <table class="macro-table">
+            <thead>
+                <tr>
+                    <th>Comparison</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>S&P 500 in Gold Terms</strong>
+                        <span class="tooltip">ⓘ
+                            <span class="tooltiptext">
+                                Shows S&P 500 returns adjusted for gold purchasing power.
+                                Calculated as: S&P return - Gold price return
+                                Negative values mean stocks lost purchasing power vs gold.
+                                Example: If S&P +15% and Gold +30%, real return is -15% in gold terms (15% - 30%).
+                            </span>
+                        </span>
+                    </td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if (sp500[period] is not none and gold_returns[period] is not none and (sp500[period] - gold_returns[period]) > 0) else 'negative' if (sp500[period] is not none and gold_returns[period] is not none) else '' }}">
+                        {% if sp500[period] is not none and gold_returns[period] is not none %}
+                            {% set vs_gold = sp500[period] - gold_returns[period] %}
+                            {% if vs_gold >= 0 %}+{% endif %}{{ "%.2f"|format(vs_gold) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 3: Yield Curve -->
+    <div class="macro-section" id="rates">
+        <h2>
+            US Treasury Yield Curve
+            <span class="tooltip">ⓘ
+                <span class="tooltiptext">
+                    <strong>Understanding the yield curve:</strong><br><br>
+                    <strong>Normal Curve:</strong> Long-term rates > short-term rates<br>
+                    → Healthy economy expected, investors want premium for longer commitment<br><br>
+                    <strong>Flat Curve:</strong> Similar rates across maturities<br>
+                    → Uncertain economic outlook, transition phase<br><br>
+                    <strong>Inverted Curve:</strong> Short-term rates > long-term rates<br>
+                    → RECESSION WARNING. Investors expect Fed to cut rates due to weakness<br><br>
+                    <strong>Key indicator:</strong> The 10Y-2Y spread has preceded every recession
+                    since 1970 when it turns negative.
+                </span>
+            </span>
+        </h2>
+
+        <!-- Yield Curve Chart -->
+        <div class="chart-container">
+            <canvas id="yieldCurveChart"></canvas>
+        </div>
+
+        <!-- Key Spreads Table -->
+        <h3>Key Yield Spreads</h3>
+        <table class="spreads-table">
+            <thead>
+                <tr>
+                    <th>Spread</th>
+                    <th>Current</th>
+                    <th>1Y Ago</th>
+                    <th>Change</th>
+                    <th>Status</th>
+                    <th>Interpretation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if spreads.get('10y2y') %}
+                <tr class="spread-row-{{ spreads['10y2y'].status_class }}">
+                    <td><strong>10Y - 2Y</strong>
+                        <span class="tooltip">ⓘ
+                            <span class="tooltiptext">
+                                The most watched recession indicator. When negative, it has preceded
+                                every US recession since 1970, typically by 12-24 months.
+                            </span>
+                        </span>
+                    </td>
+                    <td>{{ spreads['10y2y'].current }}%</td>
+                    <td>{{ spreads['10y2y'].year_ago if spreads['10y2y'].year_ago else 'N/A' }}%</td>
+                    <td>
+                        {% if spreads['10y2y'].year_ago %}
+                            {% set change = spreads['10y2y'].current - spreads['10y2y'].year_ago %}
+                            <span class="{{ 'positive' if change > 0 else 'negative' }}">
+                                {% if change >= 0 %}+{% endif %}{{ "%.2f"|format(change) }}%
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td class="status-badge {{ spreads['10y2y'].status_class }}">
+                        {{ spreads['10y2y'].status }}
+                    </td>
+                    <td>{{ spreads['10y2y'].interpretation }}</td>
+                </tr>
+                {% endif %}
+
+                {% if spreads.get('10y3m') %}
+                <tr class="spread-row-{{ spreads['10y3m'].status_class }}">
+                    <td><strong>10Y - 3M</strong>
+                        <span class="tooltip">ⓘ
+                            <span class="tooltiptext">
+                                Alternative recession indicator. Measures difference between long-term
+                                bonds and very short-term rates (close to Fed funds rate).
+                            </span>
+                        </span>
+                    </td>
+                    <td>{{ spreads['10y3m'].current }}%</td>
+                    <td>{{ spreads['10y3m'].year_ago if spreads['10y3m'].year_ago else 'N/A' }}%</td>
+                    <td>
+                        {% if spreads['10y3m'].year_ago %}
+                            {% set change = spreads['10y3m'].current - spreads['10y3m'].year_ago %}
+                            <span class="{{ 'positive' if change > 0 else 'negative' }}">
+                                {% if change >= 0 %}+{% endif %}{{ "%.2f"|format(change) }}%
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td class="status-badge {{ spreads['10y3m'].status_class }}">
+                        {{ spreads['10y3m'].status }}
+                    </td>
+                    <td>{{ spreads['10y3m'].interpretation }}</td>
+                </tr>
+                {% endif %}
+
+                {% if spreads.get('30y5y') %}
+                <tr class="spread-row-{{ spreads['30y5y'].status_class }}">
+                    <td><strong>30Y - 5Y</strong>
+                        <span class="tooltip">ⓘ
+                            <span class="tooltiptext">
+                                Measures the long-end of the curve. A wide spread suggests higher
+                                term premium or inflation expectations for the distant future.
+                            </span>
+                        </span>
+                    </td>
+                    <td>{{ spreads['30y5y'].current }}%</td>
+                    <td>{{ spreads['30y5y'].year_ago if spreads['30y5y'].year_ago else 'N/A' }}%</td>
+                    <td>
+                        {% if spreads['30y5y'].year_ago %}
+                            {% set change = spreads['30y5y'].current - spreads['30y5y'].year_ago %}
+                            <span class="{{ 'positive' if change > 0 else 'negative' }}">
+                                {% if change >= 0 %}+{% endif %}{{ "%.2f"|format(change) }}%
+                            </span>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td class="status-badge {{ spreads['30y5y'].status_class }}">
+                        {{ spreads['30y5y'].status }}
+                    </td>
+                    <td>{{ spreads['30y5y'].interpretation }}</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <div class="explanation-box">
+            <p><strong>Ray Dalio's debt concern:</strong> With nearly $10 trillion in debt to roll over and potential Fed easing, the yield curve may steepen. This is especially concerning if it steepens from current levels due to supply/demand imbalances rather than improved growth expectations.</p>
+        </div>
+    </div>
+
+    <!-- Section 4: Credit Spreads -->
+    <div class="macro-section">
+        <h2>
+            Corporate Credit Spreads
+            <span class="tooltip">ⓘ
+                <span class="tooltiptext">
+                    <strong>What are credit spreads?</strong><br><br>
+                    Credit spreads measure the extra yield (in basis points) investors demand
+                    for corporate bonds vs risk-free Treasuries.<br><br>
+                    <strong>Low/Tight spreads:</strong><br>
+                    • Investors comfortable with risk<br>
+                    • High risk appetite, complacency<br>
+                    • Limited downside protection<br>
+                    • Little room to tighten further<br><br>
+                    <strong>High/Wide spreads:</strong><br>
+                    • Rising credit concerns<br>
+                    • Economic stress or recession fears<br>
+                    • Better entry points for credit<br><br>
+                    <strong>Ray Dalio's warning:</strong> "Credit spreads contracted to very low
+                    levels in 2025... leaves these spreads less likely to decline and more likely
+                    to rise, which is a negative for these assets."
+                </span>
+            </span>
+        </h2>
+
+        <table class="spreads-table">
+            <thead>
+                <tr>
+                    <th>Credit Type</th>
+                    <th>Current (bps)</th>
+                    <th>Historical Percentile</th>
+                    <th>Interpretation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if credit_spreads.get('bbb') %}
+                <tr>
+                    <td>
+                        <strong>Investment Grade (BBB)</strong>
+                        <span class="tooltip">ⓘ
+                            <span class="tooltiptext">
+                                BBB-rated corporate bonds - the lowest investment grade rating.
+                                "Fallen angels" drop below this to high yield. Watch for widening
+                                as a sign of credit quality deterioration.
+                            </span>
+                        </span>
+                    </td>
+                    <td>{{ credit_spreads['bbb'].current }} bps</td>
+                    <td>
+                        <div class="percentile-bar">
+                            <div class="percentile-fill" style="width: {{ credit_spreads['bbb'].percentile }}%"></div>
+                            <span class="percentile-text">{{ credit_spreads['bbb'].percentile }}th percentile</span>
+                        </div>
+                    </td>
+                    <td>{{ credit_spreads['bbb'].interpretation }}</td>
+                </tr>
+                {% endif %}
+
+                {% if credit_spreads.get('high_yield') %}
+                <tr>
+                    <td>
+                        <strong>High Yield</strong>
+                        <span class="tooltip">ⓘ
+                            <span class="tooltiptext">
+                                "Junk bonds" below investment grade (BB+ and lower).
+                                More sensitive to economic cycles and default risk.
+                                Wide spreads can signal economic stress or opportunity.
+                            </span>
+                        </span>
+                    </td>
+                    <td>{{ credit_spreads['high_yield'].current }} bps</td>
+                    <td>
+                        <div class="percentile-bar">
+                            <div class="percentile-fill" style="width: {{ credit_spreads['high_yield'].percentile }}%"></div>
+                            <span class="percentile-text">{{ credit_spreads['high_yield'].percentile }}th percentile</span>
+                        </div>
+                    </td>
+                    <td>{{ credit_spreads['high_yield'].interpretation }}</td>
+                </tr>
+                {% endif %}
+
+                {% if credit_spreads.get('corporate_master') %}
+                <tr>
+                    <td>
+                        <strong>Corporate Master</strong>
+                        <span class="tooltip">ⓘ
+                            <span class="tooltiptext">
+                                Broad index of all US corporate bonds (investment grade).
+                                Represents average credit spread for corporate debt market.
+                            </span>
+                        </span>
+                    </td>
+                    <td>{{ credit_spreads['corporate_master'].current }} bps</td>
+                    <td>
+                        <div class="percentile-bar">
+                            <div class="percentile-fill" style="width: {{ credit_spreads['corporate_master'].percentile }}%"></div>
+                            <span class="percentile-text">{{ credit_spreads['corporate_master'].percentile }}th percentile</span>
+                        </div>
+                    </td>
+                    <td>{{ credit_spreads['corporate_master'].interpretation }}</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <div class="explanation-box">
+            <p><strong>Understanding percentiles:</strong> A 15th percentile means the current spread is lower (tighter) than 85% of historical readings - very compressed. An 85th percentile means spreads are wider than usual - elevated risk or opportunity depending on fundamentals.</p>
+        </div>
+    </div>
+
+    <!-- Refresh Button -->
+    <div class="actions">
+        <button id="refresh-data" class="btn btn-primary">Refresh All Data</button>
+        <span id="refresh-status" class="refresh-status"></span>
+    </div>
+</div>
+
+<!-- Include Chart.js script -->
+<script src="{{ url_for('static', filename='js/macro_signals.js') }}"></script>
+<script>
+// Pass yield curve data to JavaScript
+const yieldCurveData = {
+    maturities: ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '20Y', '30Y'],
+    yields: [
+        {{ yield_curve.get('1M') if yield_curve.get('1M') else 'null' }},
+        {{ yield_curve.get('3M') if yield_curve.get('3M') else 'null' }},
+        {{ yield_curve.get('6M') if yield_curve.get('6M') else 'null' }},
+        {{ yield_curve.get('1Y') if yield_curve.get('1Y') else 'null' }},
+        {{ yield_curve.get('2Y') if yield_curve.get('2Y') else 'null' }},
+        {{ yield_curve.get('3Y') if yield_curve.get('3Y') else 'null' }},
+        {{ yield_curve.get('5Y') if yield_curve.get('5Y') else 'null' }},
+        {{ yield_curve.get('7Y') if yield_curve.get('7Y') else 'null' }},
+        {{ yield_curve.get('10Y') if yield_curve.get('10Y') else 'null' }},
+        {{ yield_curve.get('20Y') if yield_curve.get('20Y') else 'null' }},
+        {{ yield_curve.get('30Y') if yield_curve.get('30Y') else 'null' }}
+    ]
+};
+
+// Render chart when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    renderYieldCurve(yieldCurveData);
+});
+</script>
+
+{% endblock %}
