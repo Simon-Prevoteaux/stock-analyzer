@@ -253,24 +253,33 @@ stock-analyzer/
 │   │   └── database.py         # Database management (stocks + macro data)
 │   └── webapp/
 │       ├── __init__.py
-│       ├── app.py              # Flask application
+│       ├── app.py              # Flask application entry point
+│       ├── extensions.py       # Shared instances (db, fetcher)
+│       ├── filters.py          # Template filters (format_number, etc.)
+│       ├── utils.py            # Shared utility functions
+│       ├── routes/             # Modular route blueprints
+│       │   ├── __init__.py     # Blueprint registration
+│       │   ├── core.py         # Home, fetch, screener, stock detail
+│       │   ├── watchlist_routes.py  # Watchlist management
+│       │   ├── portfolio_routes.py  # Portfolio management
+│       │   ├── strategies.py   # Value plays, quality growth, etc.
+│       │   ├── forecast_routes.py   # Forecasting & upside calculator
+│       │   ├── technical.py    # Technical analysis
+│       │   ├── macro.py        # Macro signals dashboard
+│       │   └── api_routes.py   # JSON API endpoints
 │       ├── templates/          # HTML templates
 │       │   ├── base.html
-│       │   ├── index.html
-│       │   ├── fetch.html
-│       │   ├── screener.html
-│       │   ├── stock_detail.html
-│       │   ├── comparison.html
-│       │   ├── watchlist.html
-│       │   ├── value_plays.html
-│       │   ├── bubble_territory.html
-│       │   ├── macro_signals.html    # Macro signals dashboard
-│       │   └── forecast.html
+│       │   ├── components/     # Reusable template components
+│       │   │   ├── macros.html # Jinja2 macros for styling
+│       │   │   └── financial_chart.html
+│       │   └── ... (19 templates)
 │       └── static/
 │           ├── css/
-│           │   └── style.css         # Styling
+│           │   ├── style.css   # Main styles + utility classes
+│           │   ├── modal.css   # Modal dialog styles
+│           │   └── search.css  # Search component styles
 │           └── js/
-│               └── macro_signals.js  # Yield curve & spread charts
+│               └── ... (6 JS files)
 ├── data/
 │   └── stocks.db              # SQLite database (stocks + macro cache)
 ├── tests/                     # Test files (future)
@@ -329,6 +338,27 @@ This is a personal project. For modifications:
 4. Document changes in this file
 
 ## Version History
+
+- **v1.3.0** (2026-01-17): Codebase Modularization & Refactoring
+  - **Flask Blueprint Architecture**
+    - Split monolithic app.py (1,578 lines) into 8 modular blueprints
+    - Blueprints: core, watchlist, portfolio, strategies, forecast, technical, macro, api
+    - Each blueprint handles related routes with clear separation of concerns
+    - New modules: extensions.py (shared instances), filters.py (template filters), utils.py (shared functions)
+  - **CSS Utility Classes**
+    - Added 40+ utility classes to style.css for consistent styling
+    - Classes for: display, flex, text, colors, spacing, backgrounds
+    - Semantic color classes: text-positive, text-warning, text-negative
+    - Replaced inline styles with CSS classes across templates
+  - **Template Components**
+    - Created reusable Jinja2 macros in components/macros.html
+    - Macros for: peg_color, threshold_color, percentage_color, info_card
+    - Updated all templates to use blueprint-prefixed url_for calls
+  - **Code Organization Benefits**
+    - Easier navigation and modification of code
+    - Clear module boundaries for future development
+    - Reduced file sizes for better maintainability
+    - Consistent styling patterns across templates
 
 - **v1.2.0** (2026-01-17): Macro Signals Feature with Performance Optimization
   - **NEW: Macro Signals Dashboard** - Comprehensive macroeconomic analysis inspired by Ray Dalio's methodology

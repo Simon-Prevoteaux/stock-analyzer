@@ -64,7 +64,7 @@
 
         <div class="filter-actions">
             <button type="submit" class="btn btn-primary">Apply Filters</button>
-            <a href="{{ url_for('screener') }}" class="btn btn-secondary">Reset</a>
+            <a href="{{ url_for('core.screener') }}" class="btn btn-secondary">Reset</a>
         </div>
     </form>
 </div>
@@ -101,7 +101,7 @@
             <tbody>
                 {% for stock in stocks %}
                 <tr>
-                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
+                    <td><a href="{{ url_for('core.stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
                     <td>{{ stock.company_name }}</td>
                     <td>{{ stock.market_cap|format_number }}</td>
                     <td>{{ stock.pe_ratio|format_ratio }}</td>
@@ -147,8 +147,8 @@
                     <td><span class="risk-badge risk-{{ stock.risk_level|lower|replace(' ', '-') }}">{{ stock.risk_level }}</span></td>
                     <td>{{ stock.classification }}</td>
                     <td>
-                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
-                        <form method="POST" action="{{ url_for('delete_stock', ticker=stock.ticker) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to remove {{ stock.ticker }} from the database?');">
+                        <a href="{{ url_for('core.stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                        <form method="POST" action="{{ url_for('core.delete_stock', ticker=stock.ticker) }}" class="form-inline" onsubmit="return confirm('Are you sure you want to remove {{ stock.ticker }} from the database?');">
                             <button type="submit" class="btn btn-sm btn-danger">Remove</button>
                         </form>
                     </td>
@@ -158,7 +158,7 @@
         </table>
     </div>
     {% else %}
-    <p class="no-results">No stocks found. Try adjusting your filters or <a href="{{ url_for('fetch_stocks') }}">fetch some data</a>.</p>
+    <p class="no-results">No stocks found. Try adjusting your filters or <a href="{{ url_for('core.fetch_stocks') }}">fetch some data</a>.</p>
     {% endif %}
 </div>
 

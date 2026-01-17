@@ -26,7 +26,7 @@
 <!-- Filters Section -->
 <div class="filter-section">
     <h3>Filter Growth Inflection Stocks</h3>
-    <form method="GET" action="{{ url_for('growth_inflection') }}" class="filter-form">
+    <form method="GET" action="{{ url_for('strategies.growth_inflection') }}" class="filter-form">
         <div class="filter-grid">
             <div class="filter-item">
                 <label for="min_consistency">
@@ -89,7 +89,7 @@
             <tbody>
                 {% for stock in stocks %}
                 <tr>
-                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}"><strong>{{ stock.ticker }}</strong></a></td>
+                    <td><a href="{{ url_for('core.stock_detail', ticker=stock.ticker) }}"><strong>{{ stock.ticker }}</strong></a></td>
                     <td class="company-name">{{ stock.company_name }}</td>
                     <td>
                         {% if stock.revenue_growth_accelerating == 1 and stock.earnings_growth_accelerating == 1 %}
@@ -140,8 +140,8 @@
                     </td>
                     <td>{{ stock.sector }}</td>
                     <td>
-                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
-                        <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-sm">Forecast</a>
+                        <a href="{{ url_for('core.stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                        <a href="{{ url_for('forecast.forecast') }}?ticker={{ stock.ticker }}" class="btn btn-sm">Forecast</a>
                     </td>
                 </tr>
                 {% endfor %}

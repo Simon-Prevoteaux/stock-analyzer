@@ -388,7 +388,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="refresh-container">
     <h2>Refresh Existing Data</h2>
     <p class="subtitle">Update all stocks in your database with the latest data</p>
-    <form method="POST" action="{{ url_for('refresh_all_stocks') }}" onsubmit="return confirm('This will refresh all stocks in your database. Continue?');">
+    <form method="POST" action="{{ url_for('core.refresh_all_stocks') }}" onsubmit="return confirm('This will refresh all stocks in your database. Continue?');">
         <button type="submit" class="btn btn-secondary">Refresh All Stocks</button>
     </form>
 </div>

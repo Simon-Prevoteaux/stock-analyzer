@@ -11,26 +11,26 @@
 <div class="stock-actions">
     <div class="action-group">
         <h4>Add to Lists</h4>
-        <form method="POST" action="{{ url_for('add_to_watchlist', ticker=stock.ticker) }}" style="display: inline;">
+        <form method="POST" action="{{ url_for('watchlist.add_to_watchlist', ticker=stock.ticker) }}" class="form-inline">
             <button type="submit" class="btn btn-primary">Add to Watchlist</button>
         </form>
-        <form method="POST" action="{{ url_for('add_to_portfolio', ticker=stock.ticker) }}" style="display: inline;">
+        <form method="POST" action="{{ url_for('portfolio.add_to_portfolio', ticker=stock.ticker) }}" class="form-inline">
             <button type="submit" class="btn btn-primary">Add to Portfolio</button>
         </form>
     </div>
 
     <div class="action-group">
         <h4>Analysis</h4>
-        <a href="{{ url_for('forecast') }}?ticker={{ stock.ticker }}" class="btn btn-primary">See Forecast</a>
-        <a href="{{ url_for('technical_analysis_basic') }}?ticker={{ stock.ticker }}" class="btn btn-primary">See Basic Technical</a>
+        <a href="{{ url_for('forecast.forecast') }}?ticker={{ stock.ticker }}" class="btn btn-primary">See Forecast</a>
+        <a href="{{ url_for('technical.technical_analysis_basic') }}?ticker={{ stock.ticker }}" class="btn btn-primary">See Basic Technical</a>
     </div>
 
     <div class="action-group">
         <h4>Data Management</h4>
-        <form method="POST" action="{{ url_for('api_refresh_stock', ticker=stock.ticker) }}" style="display: inline;">
+        <form method="POST" action="{{ url_for('api.api_refresh_stock', ticker=stock.ticker) }}" class="form-inline">
             <button type="submit" class="btn btn-secondary">Refresh Data</button>
         </form>
-        <a href="{{ url_for('screener') }}" class="btn btn-secondary">Back to Screener</a>
+        <a href="{{ url_for('core.screener') }}" class="btn btn-secondary">Back to Screener</a>
     </div>
 </div>
 
@@ -257,7 +257,7 @@
                 </span>
             </div>
             <p class="strategy-desc">Undervalued with consistent growth</p>
-            <a href="{{ url_for('value_plays') }}" class="strategy-link">View Strategy →</a>
+            <a href="{{ url_for('strategies.value_plays') }}" class="strategy-link">View Strategy →</a>
         </div>
 
         <!-- Quality Growth -->
@@ -273,7 +273,7 @@
                 </span>
             </div>
             <p class="strategy-desc">High growth with consistency & reasonable valuation</p>
-            <a href="{{ url_for('quality_growth') }}" class="strategy-link">View Strategy →</a>
+            <a href="{{ url_for('strategies.quality_growth') }}" class="strategy-link">View Strategy →</a>
         </div>
 
         <!-- Growth Inflection -->
@@ -289,7 +289,7 @@
                 </span>
             </div>
             <p class="strategy-desc">Accelerating growth momentum</p>
-            <a href="{{ url_for('growth_inflection') }}" class="strategy-link">View Strategy →</a>
+            <a href="{{ url_for('strategies.growth_inflection') }}" class="strategy-link">View Strategy →</a>
         </div>
 
         <!-- Rule of 40 -->
@@ -305,7 +305,7 @@
                 </span>
             </div>
             <p class="strategy-desc">Efficient growth (SaaS/Cloud metric)</p>
-            <a href="{{ url_for('rule_of_40') }}" class="strategy-link">View Strategy →</a>
+            <a href="{{ url_for('strategies.rule_of_40') }}" class="strategy-link">View Strategy →</a>
         </div>
 
         <!-- Margin Expansion -->
@@ -321,7 +321,7 @@
                 </span>
             </div>
             <p class="strategy-desc">Improving profitability alongside growth</p>
-            <a href="{{ url_for('margin_expansion') }}" class="strategy-link">View Strategy →</a>
+            <a href="{{ url_for('strategies.margin_expansion') }}" class="strategy-link">View Strategy →</a>
         </div>
 
         <!-- Cash-Generative Growth -->
@@ -337,7 +337,7 @@
                 </span>
             </div>
             <p class="strategy-desc">High growth with positive free cash flow</p>
-            <a href="{{ url_for('cash_generative_growth') }}" class="strategy-link">View Strategy →</a>
+            <a href="{{ url_for('strategies.cash_generative_growth') }}" class="strategy-link">View Strategy →</a>
         </div>
     </div>
 </div>
@@ -578,7 +578,7 @@
     </div>
 
     <div style="text-align: center; margin-top: 20px;">
-        <a href="{{ url_for('technical_analysis_basic') }}?ticker={{ stock.ticker }}" class="btn btn-primary">
+        <a href="{{ url_for('technical.technical_analysis_basic') }}?ticker={{ stock.ticker }}" class="btn btn-primary">
             View Full Technical Analysis →
         </a>
     </div>

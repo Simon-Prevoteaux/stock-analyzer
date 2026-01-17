@@ -55,7 +55,7 @@
 
         <div class="filter-actions">
             <button type="submit" class="btn btn-primary">Apply Filters</button>
-            <a href="{{ url_for('cash_generative_growth') }}" class="btn btn-secondary">Reset</a>
+            <a href="{{ url_for('strategies.cash_generative_growth') }}" class="btn btn-secondary">Reset</a>
         </div>
     </form>
 </div>
@@ -104,7 +104,7 @@
             <tbody>
                 {% for stock in stocks %}
                 <tr>
-                    <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
+                    <td><a href="{{ url_for('core.stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
                     <td>{{ stock.company_name }}</td>
                     <td>
                         {% if stock.revenue_cagr_3y %}
@@ -160,7 +160,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
+                        <a href="{{ url_for('core.stock_detail', ticker=stock.ticker) }}" class="btn btn-sm">View</a>
                     </td>
                 </tr>
                 {% endfor %}
@@ -168,7 +168,7 @@
         </table>
     </div>
     {% else %}
-    <p class="no-results">No cash-generative growth stocks found. Try lowering the minimum thresholds or <a href="{{ url_for('fetch_stocks') }}">fetch some data</a>.</p>
+    <p class="no-results">No cash-generative growth stocks found. Try lowering the minimum thresholds or <a href="{{ url_for('core.fetch_stocks') }}">fetch some data</a>.</p>
     {% endif %}
 </div>
 
