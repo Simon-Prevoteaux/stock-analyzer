@@ -18,7 +18,10 @@
 <body>
     <nav class="navbar">
         <div class="container">
-            <h1 class="logo">Stock Analyzer</h1>
+            <h1 class="logo">
+                <img src="{{ url_for('static', filename='favicon.svg') }}" alt="Logo" class="logo-icon">
+                Stock Analyzer
+            </h1>
             <ul class="nav-links">
                 <li><a href="{{ url_for('index') }}">Home</a></li>
                 <li class="dropdown">
@@ -35,6 +38,14 @@
                     <a href="#" class="dropbtn">Technical Analysis ▾</a>
                     <div class="dropdown-content">
                         <a href="{{ url_for('technical_analysis_basic') }}">Basic</a>
+                    </div>
+                </li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn">Macro Signals ▾</a>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('macro_signals') }}">Dashboard</a>
+                        <a href="{{ url_for('macro_signals') }}#currencies">Currencies & Gold</a>
+                        <a href="{{ url_for('macro_signals') }}#rates">Rates & Spreads</a>
                     </div>
                 </li>
                 <li class="dropdown">
