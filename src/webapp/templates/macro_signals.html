@@ -216,7 +216,8 @@
                     {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
                     <td class="{{ 'positive' if currency[period] and currency[period] > 0 else 'negative' if currency[period] else '' }}">
                         {% if currency[period] is not none %}
-                            {% set geometric = currency[period] / (1 + (currency[period] / 100)) %}
+                            {% set gold_return = -currency[period] %}
+                            {% set geometric = -gold_return / (1 + gold_return/100) %}
                             {% if geometric >= 0 %}+{% endif %}{{ "%.2f"|format(geometric) }}%
                         {% else %}
                             N/A
@@ -336,8 +337,19 @@
                 <tr>
                     <th>Spread</th>
                     <th>Current</th>
+                    <th>1M Ago</th>
+                    <th>3M Ago</th>
+                    <th>6M Ago</th>
                     <th>1Y Ago</th>
-                    <th>Change</th>
+                    <th>Trend
+                        <span class="tooltip">ⓘ
+                            <span class="tooltiptext">
+                                <strong>EXPANDING</strong>: Spread widening (getting steeper/less inverted)<br>
+                                <strong>CONTRACTING</strong>: Spread narrowing (getting flatter/more inverted)<br>
+                                <strong>STABLE</strong>: Little change over past 3 months
+                            </span>
+                        </span>
+                    </th>
                     <th>Status</th>
                     <th>Interpretation</th>
                 </tr>
@@ -353,13 +365,43 @@
                             </span>
                         </span>
                     </td>
-                    <td>{{ spreads['10y2y'].current }}%</td>
-                    <td>{{ spreads['10y2y'].year_ago if spreads['10y2y'].year_ago else 'N/A' }}%</td>
+                    <td><strong>{{ spreads['10y2y'].current }}%</strong></td>
                     <td>
-                        {% if spreads['10y2y'].year_ago %}
-                            {% set change = spreads['10y2y'].current - spreads['10y2y'].year_ago %}
-                            <span class="{{ 'positive' if change > 0 else 'negative' }}">
-                                {% if change >= 0 %}+{% endif %}{{ "%.2f"|format(change) }}%
+                        {{ spreads['10y2y']['1m_ago'] if spreads['10y2y'].get('1m_ago') else 'N/A' }}
+                        {% if spreads['10y2y'].get('change_1m') %}
+                            <br><span class="{{ 'positive' if spreads['10y2y'].change_1m > 0 else 'negative' if spreads['10y2y'].change_1m < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['10y2y'].change_1m >= 0 %}+{% endif %}{{ spreads['10y2y'].change_1m }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ spreads['10y2y']['3m_ago'] if spreads['10y2y'].get('3m_ago') else 'N/A' }}
+                        {% if spreads['10y2y'].get('change_3m') %}
+                            <br><span class="{{ 'positive' if spreads['10y2y'].change_3m > 0 else 'negative' if spreads['10y2y'].change_3m < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['10y2y'].change_3m >= 0 %}+{% endif %}{{ spreads['10y2y'].change_3m }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ spreads['10y2y']['6m_ago'] if spreads['10y2y'].get('6m_ago') else 'N/A' }}
+                        {% if spreads['10y2y'].get('change_6m') %}
+                            <br><span class="{{ 'positive' if spreads['10y2y'].change_6m > 0 else 'negative' if spreads['10y2y'].change_6m < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['10y2y'].change_6m >= 0 %}+{% endif %}{{ spreads['10y2y'].change_6m }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ spreads['10y2y']['1y_ago'] if spreads['10y2y'].get('1y_ago') else 'N/A' }}
+                        {% if spreads['10y2y'].get('change_1y') %}
+                            <br><span class="{{ 'positive' if spreads['10y2y'].change_1y > 0 else 'negative' if spreads['10y2y'].change_1y < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['10y2y'].change_1y >= 0 %}+{% endif %}{{ spreads['10y2y'].change_1y }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if spreads['10y2y'].get('trend') %}
+                            <span class="trend-badge trend-{{ spreads['10y2y'].trend.lower() }}">
+                                {{ spreads['10y2y'].trend }}
                             </span>
                         {% else %}
                             N/A
@@ -382,13 +424,43 @@
                             </span>
                         </span>
                     </td>
-                    <td>{{ spreads['10y3m'].current }}%</td>
-                    <td>{{ spreads['10y3m'].year_ago if spreads['10y3m'].year_ago else 'N/A' }}%</td>
+                    <td><strong>{{ spreads['10y3m'].current }}%</strong></td>
                     <td>
-                        {% if spreads['10y3m'].year_ago %}
-                            {% set change = spreads['10y3m'].current - spreads['10y3m'].year_ago %}
-                            <span class="{{ 'positive' if change > 0 else 'negative' }}">
-                                {% if change >= 0 %}+{% endif %}{{ "%.2f"|format(change) }}%
+                        {{ spreads['10y3m']['1m_ago'] if spreads['10y3m'].get('1m_ago') else 'N/A' }}
+                        {% if spreads['10y3m'].get('change_1m') %}
+                            <br><span class="{{ 'positive' if spreads['10y3m'].change_1m > 0 else 'negative' if spreads['10y3m'].change_1m < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['10y3m'].change_1m >= 0 %}+{% endif %}{{ spreads['10y3m'].change_1m }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ spreads['10y3m']['3m_ago'] if spreads['10y3m'].get('3m_ago') else 'N/A' }}
+                        {% if spreads['10y3m'].get('change_3m') %}
+                            <br><span class="{{ 'positive' if spreads['10y3m'].change_3m > 0 else 'negative' if spreads['10y3m'].change_3m < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['10y3m'].change_3m >= 0 %}+{% endif %}{{ spreads['10y3m'].change_3m }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ spreads['10y3m']['6m_ago'] if spreads['10y3m'].get('6m_ago') else 'N/A' }}
+                        {% if spreads['10y3m'].get('change_6m') %}
+                            <br><span class="{{ 'positive' if spreads['10y3m'].change_6m > 0 else 'negative' if spreads['10y3m'].change_6m < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['10y3m'].change_6m >= 0 %}+{% endif %}{{ spreads['10y3m'].change_6m }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ spreads['10y3m']['1y_ago'] if spreads['10y3m'].get('1y_ago') else 'N/A' }}
+                        {% if spreads['10y3m'].get('change_1y') %}
+                            <br><span class="{{ 'positive' if spreads['10y3m'].change_1y > 0 else 'negative' if spreads['10y3m'].change_1y < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['10y3m'].change_1y >= 0 %}+{% endif %}{{ spreads['10y3m'].change_1y }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if spreads['10y3m'].get('trend') %}
+                            <span class="trend-badge trend-{{ spreads['10y3m'].trend.lower() }}">
+                                {{ spreads['10y3m'].trend }}
                             </span>
                         {% else %}
                             N/A
@@ -411,13 +483,43 @@
                             </span>
                         </span>
                     </td>
-                    <td>{{ spreads['30y5y'].current }}%</td>
-                    <td>{{ spreads['30y5y'].year_ago if spreads['30y5y'].year_ago else 'N/A' }}%</td>
+                    <td><strong>{{ spreads['30y5y'].current }}%</strong></td>
                     <td>
-                        {% if spreads['30y5y'].year_ago %}
-                            {% set change = spreads['30y5y'].current - spreads['30y5y'].year_ago %}
-                            <span class="{{ 'positive' if change > 0 else 'negative' }}">
-                                {% if change >= 0 %}+{% endif %}{{ "%.2f"|format(change) }}%
+                        {{ spreads['30y5y']['1m_ago'] if spreads['30y5y'].get('1m_ago') else 'N/A' }}
+                        {% if spreads['30y5y'].get('change_1m') %}
+                            <br><span class="{{ 'positive' if spreads['30y5y'].change_1m > 0 else 'negative' if spreads['30y5y'].change_1m < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['30y5y'].change_1m >= 0 %}+{% endif %}{{ spreads['30y5y'].change_1m }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ spreads['30y5y']['3m_ago'] if spreads['30y5y'].get('3m_ago') else 'N/A' }}
+                        {% if spreads['30y5y'].get('change_3m') %}
+                            <br><span class="{{ 'positive' if spreads['30y5y'].change_3m > 0 else 'negative' if spreads['30y5y'].change_3m < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['30y5y'].change_3m >= 0 %}+{% endif %}{{ spreads['30y5y'].change_3m }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ spreads['30y5y']['6m_ago'] if spreads['30y5y'].get('6m_ago') else 'N/A' }}
+                        {% if spreads['30y5y'].get('change_6m') %}
+                            <br><span class="{{ 'positive' if spreads['30y5y'].change_6m > 0 else 'negative' if spreads['30y5y'].change_6m < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['30y5y'].change_6m >= 0 %}+{% endif %}{{ spreads['30y5y'].change_6m }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ spreads['30y5y']['1y_ago'] if spreads['30y5y'].get('1y_ago') else 'N/A' }}
+                        {% if spreads['30y5y'].get('change_1y') %}
+                            <br><span class="{{ 'positive' if spreads['30y5y'].change_1y > 0 else 'negative' if spreads['30y5y'].change_1y < 0 else '' }}" style="font-size: 0.85em;">
+                                ({% if spreads['30y5y'].change_1y >= 0 %}+{% endif %}{{ spreads['30y5y'].change_1y }}%)
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if spreads['30y5y'].get('trend') %}
+                            <span class="trend-badge trend-{{ spreads['30y5y'].trend.lower() }}">
+                                {{ spreads['30y5y'].trend }}
                             </span>
                         {% else %}
                             N/A
@@ -431,6 +533,15 @@
                 {% endif %}
             </tbody>
         </table>
+
+        <!-- Historical Spread Chart -->
+        <h3 style="margin-top: 2.5rem;">Historical Spread Trends (Past Year)</h3>
+        <p style="color: #a8b2d1; font-size: 0.9rem; margin: 0.5rem 0 1.5rem 0;">
+            Track how spreads have evolved over time. Negative values indicate inversion. The zero line marks the transition between normal and inverted curves.
+        </p>
+        <div class="chart-container">
+            <canvas id="spreadHistoryChart"></canvas>
+        </div>
 
         <div class="explanation-box">
             <p><strong>Ray Dalio's debt concern:</strong> With nearly $10 trillion in debt to roll over and potential Fed easing, the yield curve may steepen. This is especially concerning if it steepens from current levels due to supply/demand imbalances rather than improved growth expectations.</p>
@@ -578,7 +689,215 @@ const yieldCurveData = {
 // Render chart when page loads
 document.addEventListener('DOMContentLoaded', function() {
     renderYieldCurve(yieldCurveData);
+
+    // Render spread history chart
+    const spreadHistoryData = {
+        dates: {{ spread_history.dates | tojson }},
+        spreads: {
+            '10y2y': {{ spread_history['10y2y'] | tojson }},
+            '10y3m': {{ spread_history['10y3m'] | tojson }},
+            '30y5y': {{ spread_history['30y5y'] | tojson }}
+        }
+    };
+    renderSpreadHistory(spreadHistoryData);
 });
+</script>
+
+<script>
+/**
+ * Render historical spread trends chart
+ */
+function renderSpreadHistory(data) {
+    const ctx = document.getElementById('spreadHistoryChart');
+
+    if (!ctx) {
+        console.error('Spread history canvas element not found');
+        return;
+    }
+
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js library not loaded');
+        return;
+    }
+
+    console.log('Spread history data received:', data);
+
+    // Destroy existing chart if it exists
+    if (window.spreadHistoryChart && typeof window.spreadHistoryChart.destroy === 'function') {
+        window.spreadHistoryChart.destroy();
+    }
+
+    // Prepare datasets
+    const datasets = [];
+
+    // 10Y-2Y spread (most important recession indicator)
+    if (data.spreads['10y2y'] && data.spreads['10y2y'].length > 0) {
+        datasets.push({
+            label: '10Y-2Y Spread',
+            data: data.spreads['10y2y'],
+            borderColor: '#00ff88',
+            backgroundColor: 'rgba(0, 255, 136, 0.1)',
+            fill: false,
+            tension: 0.3,
+            borderWidth: 3,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+        });
+    }
+
+    // 10Y-3M spread
+    if (data.spreads['10y3m'] && data.spreads['10y3m'].length > 0) {
+        datasets.push({
+            label: '10Y-3M Spread',
+            data: data.spreads['10y3m'],
+            borderColor: '#64b5f6',
+            backgroundColor: 'rgba(100, 181, 246, 0.1)',
+            fill: false,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+        });
+    }
+
+    // 30Y-5Y spread
+    if (data.spreads['30y5y'] && data.spreads['30y5y'].length > 0) {
+        datasets.push({
+            label: '30Y-5Y Spread',
+            data: data.spreads['30y5y'],
+            borderColor: '#a8b2d1',
+            backgroundColor: 'rgba(168, 178, 209, 0.1)',
+            fill: false,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 5,
+        });
+    }
+
+    window.spreadHistoryChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Spread (%)',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        },
+                        color: '#e0e6ed'
+                    },
+                    ticks: {
+                        color: '#e0e6ed',
+                        callback: function(value) {
+                            return value.toFixed(2) + '%';
+                        }
+                    },
+                    grid: {
+                        color: function(context) {
+                            // Highlight the zero line
+                            if (context.tick.value === 0) {
+                                return 'rgba(255, 68, 68, 0.5)';
+                            }
+                            return 'rgba(168, 178, 209, 0.1)';
+                        },
+                        lineWidth: function(context) {
+                            if (context.tick.value === 0) {
+                                return 2;
+                            }
+                            return 1;
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        },
+                        color: '#e0e6ed'
+                    },
+                    ticks: {
+                        color: '#e0e6ed',
+                        maxTicksLimit: 12,
+                        maxRotation: 45,
+                        minRotation: 45
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Yield Spread History - Past Year',
+                    font: {
+                        size: 18,
+                        weight: 'bold'
+                    },
+                    color: '#00ff88',
+                    padding: {
+                        top: 10,
+                        bottom: 20
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: '#e0e6ed',
+                        font: {
+                            size: 13
+                        },
+                        padding: 15,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                        },
+                        afterLabel: function(context) {
+                            if (context.parsed.y < 0) {
+                                return '⚠️ Inverted';
+                            }
+                            return '';
+                        }
+                    },
+                    backgroundColor: 'rgba(30, 33, 57, 0.95)',
+                    borderColor: 'rgba(0, 255, 136, 0.3)',
+                    borderWidth: 1,
+                    titleColor: '#00ff88',
+                    bodyColor: '#e0e6ed',
+                    padding: 12,
+                    titleFont: {
+                        size: 14
+                    },
+                    bodyFont: {
+                        size: 13
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+}
 </script>
 
 {% endblock %}

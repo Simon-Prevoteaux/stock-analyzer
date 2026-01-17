@@ -1384,8 +1384,8 @@ def macro_signals():
             return render_template('error.html',
                                  error="FRED API key not configured. Please add FRED_API_KEY to your .env file.")
 
-        # Initialize macro fetcher
-        macro_fetcher = MacroDataFetcher(FRED_API_KEY)
+        # Initialize macro fetcher with caching (use existing global db instance)
+        macro_fetcher = MacroDataFetcher(FRED_API_KEY, db=db, cache_hours=24)
         analyzer = MacroAnalyzer()
 
         # Fetch currency data (vs USD)
@@ -1409,6 +1409,9 @@ def macro_signals():
         # Calculate spreads
         spreads_raw = macro_fetcher.calculate_yield_spreads()
         spreads = analyzer.interpret_yield_curve(spreads_raw)
+
+        # Get spread history for charting
+        spread_history = macro_fetcher.get_spread_history(lookback_days=365)
 
         # Get recession indicators
         recession_indicators = analyzer.get_recession_indicator_summary(spreads)
@@ -1442,6 +1445,7 @@ def macro_signals():
             gold_returns=gold_returns,
             yield_curve=yield_curve,
             spreads=spreads,
+            spread_history=spread_history,
             credit_spreads=credit_spreads,
             recession_indicators=recession_indicators,
             insights=insights,

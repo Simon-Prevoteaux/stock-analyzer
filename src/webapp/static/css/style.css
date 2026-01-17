@@ -26,7 +26,7 @@ body {
 .navbar {
     background: linear-gradient(90deg, #0a0e27 0%, #1e2139 100%);
     color: white;
-    padding: 1rem 0;
+    padding: 0.75rem 0;
     box-shadow: 0 4px 20px rgba(0, 255, 136, 0.1);
     border-bottom: 2px solid rgba(0, 255, 136, 0.2);
 }
@@ -86,30 +86,40 @@ body {
 }
 
 .logo {
-    font-size: 1.8rem;
+    font-size: 1.4rem;
     font-weight: 700;
     background: linear-gradient(90deg, #00ff88 0%, #ffd700 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    letter-spacing: 2px;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.logo-icon {
+    width: 32px;
+    height: 32px;
+    filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.5));
 }
 
 .nav-links {
     display: flex;
     list-style: none;
-    gap: 5px;
+    gap: 2px;
 }
 
 .nav-links a {
     color: #a8b2d1;
     text-decoration: none;
     transition: all 0.3s;
-    padding: 8px 16px;
+    padding: 8px 12px;
     border-radius: 4px;
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -1831,6 +1841,37 @@ footer {
     border-color: #00ff88;
     color: #00ff88;
     box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+}
+
+/* Trend Badges */
+.trend-badge {
+    display: inline-block;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: center;
+    min-width: 100px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.trend-expanding {
+    background: rgba(0, 255, 136, 0.15);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+}
+
+.trend-contracting {
+    background: rgba(255, 68, 68, 0.15);
+    color: #ff4444;
+    border: 1px solid rgba(255, 68, 68, 0.4);
+}
+
+.trend-stable {
+    background: rgba(168, 178, 209, 0.15);
+    color: #a8b2d1;
+    border: 1px solid rgba(168, 178, 209, 0.3);
 }
 
 /* Tooltip Styles */

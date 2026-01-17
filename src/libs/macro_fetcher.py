@@ -48,23 +48,114 @@ class MacroDataFetcher:
         'bbb': 'BAMLC0A4CBBB',                 # ICE BofA BBB US Corporate Index OAS
     }
 
-    def __init__(self, fred_api_key: str):
-        """Initialize with FRED API key"""
+    def __init__(self, fred_api_key: str, db=None, cache_hours: int = 24):
+        """
+        Initialize with FRED API key and optional database for caching
+
+        Args:
+            fred_api_key: FRED API key
+            db: Database connection for caching (optional)
+            cache_hours: Hours before cache expires (default 24)
+        """
         self.api_key = fred_api_key
+        self.db = db
+        self.cache_hours = cache_hours
+
+    def _get_cached_series(self, series_id: str, start_date: Optional[str] = None) -> Optional[pd.DataFrame]:
+        """
+        Try to get series data from database cache
+
+        Returns:
+            DataFrame if cache is fresh, None if cache miss or stale
+        """
+        if not self.db:
+            return None
+
+        try:
+            # Determine data type based on series_id
+            if series_id in self.CURRENCY_SERIES.values():
+                data_type = 'fx_rate'
+            elif series_id in self.TREASURY_SERIES.values():
+                data_type = 'yield'
+            elif series_id in self.CREDIT_SPREAD_SERIES.values():
+                data_type = 'credit_spread'
+            elif series_id == 'GC=F':
+                data_type = 'gold'
+            else:
+                return None
+
+            # Check if we have recent data
+            df = self.db.get_macro_data(data_type, series_id, start_date=start_date)
+
+            if df.empty:
+                return None
+
+            # Check if cache is fresh (has data from last cache_hours)
+            latest_date = pd.to_datetime(df['date'].max())
+            cache_age = datetime.now() - latest_date.replace(tzinfo=None)
+
+            if cache_age.total_seconds() / 3600 <= self.cache_hours:
+                logger.info(f"Using cached data for {series_id} (age: {cache_age.total_seconds()/3600:.1f}h)")
+                return df
+            else:
+                logger.info(f"Cache stale for {series_id} (age: {cache_age.total_seconds()/3600:.1f}h)")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error reading cache for {series_id}: {e}")
+            return None
+
+    def _save_to_cache(self, series_id: str, df: pd.DataFrame):
+        """Save series data to database cache"""
+        if not self.db or df.empty:
+            return
+
+        try:
+            # Determine data type
+            if series_id in self.CURRENCY_SERIES.values():
+                data_type = 'fx_rate'
+            elif series_id in self.TREASURY_SERIES.values():
+                data_type = 'yield'
+            elif series_id in self.CREDIT_SPREAD_SERIES.values():
+                data_type = 'credit_spread'
+            elif series_id == 'GC=F':
+                data_type = 'gold'
+            else:
+                return
+
+            # Convert DataFrame to list of dicts for database
+            observations = [
+                {'date': row['date'].strftime('%Y-%m-%d'), 'value': row['value']}
+                for _, row in df.iterrows()
+            ]
+
+            self.db.save_macro_data(data_type, series_id, observations)
+            logger.info(f"Saved {len(observations)} observations for {series_id} to cache")
+
+        except Exception as e:
+            logger.error(f"Error saving cache for {series_id}: {e}")
 
     def _fetch_series(self, series_id: str, start_date: Optional[str] = None,
-                      end_date: Optional[str] = None) -> pd.DataFrame:
+                      end_date: Optional[str] = None, use_cache: bool = True) -> pd.DataFrame:
         """
-        Fetch a FRED data series
+        Fetch a FRED data series with caching support
 
         Args:
             series_id: FRED series identifier
             start_date: Start date in YYYY-MM-DD format
             end_date: End date in YYYY-MM-DD format
+            use_cache: Whether to use database cache (default True)
 
         Returns:
             DataFrame with columns: date, value
         """
+        # Try cache first
+        if use_cache:
+            cached_df = self._get_cached_series(series_id, start_date)
+            if cached_df is not None:
+                return cached_df
+
+        # Cache miss or disabled - fetch from API
         params = {
             'series_id': series_id,
             'api_key': self.api_key,
@@ -99,6 +190,10 @@ class MacroDataFetcher:
             if not df.empty:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
+
+                # Save to cache
+                if use_cache:
+                    self._save_to_cache(series_id, df)
 
             return df
 
@@ -161,23 +256,33 @@ class MacroDataFetcher:
 
         return self._fetch_series(series_id, start_date=start_date)
 
-    def fetch_gold_price(self, lookback_days: int = 1825) -> pd.DataFrame:
+    def fetch_gold_price(self, lookback_days: int = 1825, use_cache: bool = True) -> pd.DataFrame:
         """
-        Fetch gold price data from Yahoo Finance (FRED series discontinued)
+        Fetch gold price data from Yahoo Finance with caching
 
         Args:
             lookback_days: Days of history to fetch (default 5 years)
+            use_cache: Whether to use database cache (default True)
 
         Returns:
             DataFrame with date and value columns
         """
-        try:
-            # Use Yahoo Finance for gold futures (GC=F) as FRED gold series are discontinued
-            gold = yf.Ticker("GC=F")
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=lookback_days)
+        series_id = 'GC=F'  # Gold futures ticker
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
 
-            hist = gold.history(start=start_date, end=end_date)
+        # Try cache first
+        if use_cache:
+            cached_df = self._get_cached_series(series_id, start_date)
+            if cached_df is not None:
+                return cached_df
+
+        # Cache miss - fetch from Yahoo Finance
+        try:
+            gold = yf.Ticker(series_id)
+            end_date = datetime.now()
+            start_date_dt = end_date - timedelta(days=lookback_days)
+
+            hist = gold.history(start=start_date_dt, end=end_date)
 
             if hist.empty:
                 logger.warning("No gold price data available from Yahoo Finance")
@@ -192,6 +297,11 @@ class MacroDataFetcher:
             df = df.sort_values('date').reset_index(drop=True)
 
             logger.info(f"Fetched {len(df)} gold price observations from Yahoo Finance")
+
+            # Save to cache
+            if use_cache:
+                self._save_to_cache(series_id, df)
+
             return df
 
         except Exception as e:
@@ -367,9 +477,12 @@ class MacroDataFetcher:
 
         return results
 
-    def calculate_sp500_returns(self) -> Dict:
+    def calculate_sp500_returns(self, use_cache: bool = True) -> Dict:
         """
-        Calculate S&P 500 returns across multiple timeframes using Yahoo Finance
+        Calculate S&P 500 returns across multiple timeframes with caching
+
+        Args:
+            use_cache: Whether to use database cache (default True)
 
         Returns:
             Dict with S&P 500 returns for each timeframe
@@ -384,40 +497,76 @@ class MacroDataFetcher:
             '5y': 1825,
         }
 
-        try:
-            sp500 = yf.Ticker("^GSPC")
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=1825)
+        series_id = '^GSPC'
+        start_date_str = (datetime.now() - timedelta(days=1825)).strftime('%Y-%m-%d')
 
-            hist = sp500.history(start=start_date, end=end_date)
+        # Try cache first
+        df = None
+        if use_cache:
+            # For S&P 500, we'll use 'sp500' as data_type in cache check
+            # Update _get_cached_series to handle this
+            try:
+                if self.db:
+                    cached_df = self.db.get_macro_data('sp500', series_id, start_date=start_date_str)
+                    if not cached_df.empty:
+                        latest_date = pd.to_datetime(cached_df['date'].max())
+                        cache_age = datetime.now() - latest_date.replace(tzinfo=None)
+                        if cache_age.total_seconds() / 3600 <= self.cache_hours:
+                            logger.info(f"Using cached S&P 500 data (age: {cache_age.total_seconds()/3600:.1f}h)")
+                            df = cached_df
+            except Exception as e:
+                logger.error(f"Error reading S&P 500 cache: {e}")
 
-            if hist.empty:
-                logger.warning("No S&P 500 data available from Yahoo Finance")
+        # Cache miss - fetch from Yahoo Finance
+        if df is None:
+            try:
+                sp500 = yf.Ticker(series_id)
+                end_date = datetime.now()
+                start_date = end_date - timedelta(days=1825)
+
+                hist = sp500.history(start=start_date, end=end_date)
+
+                if hist.empty:
+                    logger.warning("No S&P 500 data available from Yahoo Finance")
+                    return {'name': 'S&P 500', 'code': 'SPX', **{p: None for p in timeframes.keys()}}
+
+                # Convert to FRED-like format
+                df = pd.DataFrame({
+                    'date': hist.index,
+                    'value': hist['Close']
+                })
+                df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
+                df = df.sort_values('date').reset_index(drop=True)
+
+                logger.info(f"Fetched {len(df)} S&P 500 observations from Yahoo Finance")
+
+                # Save to cache
+                if use_cache and self.db:
+                    try:
+                        observations = [
+                            {'date': row['date'].strftime('%Y-%m-%d'), 'value': row['value']}
+                            for _, row in df.iterrows()
+                        ]
+                        self.db.save_macro_data('sp500', series_id, observations)
+                        logger.info(f"Saved S&P 500 data to cache")
+                    except Exception as e:
+                        logger.error(f"Error saving S&P 500 cache: {e}")
+
+            except Exception as e:
+                logger.error(f"Error fetching S&P 500 from Yahoo Finance: {e}")
                 return {'name': 'S&P 500', 'code': 'SPX', **{p: None for p in timeframes.keys()}}
 
-            # Convert to FRED-like format
-            df = pd.DataFrame({
-                'date': hist.index,
-                'value': hist['Close']
-            })
-            df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)  # Remove timezone for consistency
-            df = df.sort_values('date').reset_index(drop=True)
+        # Calculate returns
+        sp500_data = {
+            'name': 'S&P 500',
+            'code': 'SPX',
+        }
 
-            sp500_data = {
-                'name': 'S&P 500',
-                'code': 'SPX',
-            }
+        for period, days in timeframes.items():
+            return_pct = self._calculate_period_return(df, days)
+            sp500_data[period] = return_pct
 
-            for period, days in timeframes.items():
-                return_pct = self._calculate_period_return(df, days)
-                sp500_data[period] = return_pct
-
-            logger.info(f"Fetched {len(df)} S&P 500 observations from Yahoo Finance")
-            return sp500_data
-
-        except Exception as e:
-            logger.error(f"Error fetching S&P 500 from Yahoo Finance: {e}")
-            return {'name': 'S&P 500', 'code': 'SPX', **{p: None for p in timeframes.keys()}}
+        return sp500_data
 
     def fetch_yield_curve(self) -> Dict:
         """
@@ -443,10 +592,10 @@ class MacroDataFetcher:
 
     def calculate_yield_spreads(self) -> Dict:
         """
-        Calculate key yield spreads with historical context
+        Calculate key yield spreads with historical context and trend analysis
 
         Returns:
-            Dict with spread calculations and interpretations
+            Dict with spread calculations, historical values, and trend indicators
         """
         # Fetch data for key maturities
         lookback_days = 1095  # 3 years for context
@@ -464,68 +613,206 @@ class MacroDataFetcher:
 
         spreads = {}
 
+        # Helper function to calculate spread at a specific lookback period
+        def get_historical_spread(df1, df2, days_back):
+            """Get spread value from days_back ago"""
+            if df1.empty or df2.empty:
+                return None
+
+            target_date = df1.iloc[-1]['date'] - timedelta(days=days_back)
+            hist_df1 = df1[df1['date'] <= target_date]
+            hist_df2 = df2[df2['date'] <= target_date]
+
+            if not hist_df1.empty and not hist_df2.empty:
+                return hist_df1.iloc[-1]['value'] - hist_df2.iloc[-1]['value']
+            return None
+
         # 10Y-2Y spread
         if not yields_10y.empty and not yields_2y.empty:
             current_10y = yields_10y.iloc[-1]['value']
             current_2y = yields_2y.iloc[-1]['value']
-            spread_10y2y = current_10y - current_2y
+            spread_current = current_10y - current_2y
 
-            # Get year ago value
-            year_ago_date = yields_10y.iloc[-1]['date'] - timedelta(days=365)
-            year_ago_10y = yields_10y[yields_10y['date'] <= year_ago_date]
-            year_ago_2y = yields_2y[yields_2y['date'] <= year_ago_date]
+            # Historical spreads
+            spread_1m = get_historical_spread(yields_10y, yields_2y, 30)
+            spread_3m = get_historical_spread(yields_10y, yields_2y, 90)
+            spread_6m = get_historical_spread(yields_10y, yields_2y, 180)
+            spread_1y = get_historical_spread(yields_10y, yields_2y, 365)
 
-            if not year_ago_10y.empty and not year_ago_2y.empty:
-                year_ago_spread = year_ago_10y.iloc[-1]['value'] - year_ago_2y.iloc[-1]['value']
-            else:
-                year_ago_spread = None
+            # Calculate changes
+            change_1m = (spread_current - spread_1m) if spread_1m is not None else None
+            change_3m = (spread_current - spread_3m) if spread_3m is not None else None
+            change_6m = (spread_current - spread_6m) if spread_6m is not None else None
+            change_1y = (spread_current - spread_1y) if spread_1y is not None else None
+
+            # Determine trend (expanding = widening, contracting = narrowing)
+            trend = None
+            if change_3m is not None:
+                if change_3m > 0.1:
+                    trend = 'EXPANDING'
+                elif change_3m < -0.1:
+                    trend = 'CONTRACTING'
+                else:
+                    trend = 'STABLE'
 
             spreads['10y2y'] = {
-                'current': round(spread_10y2y, 2),
-                'year_ago': round(year_ago_spread, 2) if year_ago_spread is not None else None,
+                'current': round(spread_current, 2),
+                '1m_ago': round(spread_1m, 2) if spread_1m is not None else None,
+                '3m_ago': round(spread_3m, 2) if spread_3m is not None else None,
+                '6m_ago': round(spread_6m, 2) if spread_6m is not None else None,
+                '1y_ago': round(spread_1y, 2) if spread_1y is not None else None,
+                'change_1m': round(change_1m, 2) if change_1m is not None else None,
+                'change_3m': round(change_3m, 2) if change_3m is not None else None,
+                'change_6m': round(change_6m, 2) if change_6m is not None else None,
+                'change_1y': round(change_1y, 2) if change_1y is not None else None,
+                'trend': trend,
             }
 
         # 10Y-3M spread
         if not yields_10y.empty and not yields_3m.empty:
             current_10y = yields_10y.iloc[-1]['value']
             current_3m = yields_3m.iloc[-1]['value']
-            spread_10y3m = current_10y - current_3m
+            spread_current = current_10y - current_3m
 
-            year_ago_date = yields_10y.iloc[-1]['date'] - timedelta(days=365)
-            year_ago_10y = yields_10y[yields_10y['date'] <= year_ago_date]
-            year_ago_3m = yields_3m[yields_3m['date'] <= year_ago_date]
+            spread_1m = get_historical_spread(yields_10y, yields_3m, 30)
+            spread_3m = get_historical_spread(yields_10y, yields_3m, 90)
+            spread_6m = get_historical_spread(yields_10y, yields_3m, 180)
+            spread_1y = get_historical_spread(yields_10y, yields_3m, 365)
 
-            if not year_ago_10y.empty and not year_ago_3m.empty:
-                year_ago_spread = year_ago_10y.iloc[-1]['value'] - year_ago_3m.iloc[-1]['value']
-            else:
-                year_ago_spread = None
+            change_1m = (spread_current - spread_1m) if spread_1m is not None else None
+            change_3m = (spread_current - spread_3m) if spread_3m is not None else None
+            change_6m = (spread_current - spread_6m) if spread_6m is not None else None
+            change_1y = (spread_current - spread_1y) if spread_1y is not None else None
+
+            trend = None
+            if change_3m is not None:
+                if change_3m > 0.1:
+                    trend = 'EXPANDING'
+                elif change_3m < -0.1:
+                    trend = 'CONTRACTING'
+                else:
+                    trend = 'STABLE'
 
             spreads['10y3m'] = {
-                'current': round(spread_10y3m, 2),
-                'year_ago': round(year_ago_spread, 2) if year_ago_spread is not None else None,
+                'current': round(spread_current, 2),
+                '1m_ago': round(spread_1m, 2) if spread_1m is not None else None,
+                '3m_ago': round(spread_3m, 2) if spread_3m is not None else None,
+                '6m_ago': round(spread_6m, 2) if spread_6m is not None else None,
+                '1y_ago': round(spread_1y, 2) if spread_1y is not None else None,
+                'change_1m': round(change_1m, 2) if change_1m is not None else None,
+                'change_3m': round(change_3m, 2) if change_3m is not None else None,
+                'change_6m': round(change_6m, 2) if change_6m is not None else None,
+                'change_1y': round(change_1y, 2) if change_1y is not None else None,
+                'trend': trend,
             }
 
         # 30Y-5Y spread
         if not yields_30y.empty and not yields_5y.empty:
             current_30y = yields_30y.iloc[-1]['value']
             current_5y = yields_5y.iloc[-1]['value']
-            spread_30y5y = current_30y - current_5y
+            spread_current = current_30y - current_5y
 
-            year_ago_date = yields_30y.iloc[-1]['date'] - timedelta(days=365)
-            year_ago_30y = yields_30y[yields_30y['date'] <= year_ago_date]
-            year_ago_5y = yields_5y[yields_5y['date'] <= year_ago_date]
+            spread_1m = get_historical_spread(yields_30y, yields_5y, 30)
+            spread_3m = get_historical_spread(yields_30y, yields_5y, 90)
+            spread_6m = get_historical_spread(yields_30y, yields_5y, 180)
+            spread_1y = get_historical_spread(yields_30y, yields_5y, 365)
 
-            if not year_ago_30y.empty and not year_ago_5y.empty:
-                year_ago_spread = year_ago_30y.iloc[-1]['value'] - year_ago_5y.iloc[-1]['value']
-            else:
-                year_ago_spread = None
+            change_1m = (spread_current - spread_1m) if spread_1m is not None else None
+            change_3m = (spread_current - spread_3m) if spread_3m is not None else None
+            change_6m = (spread_current - spread_6m) if spread_6m is not None else None
+            change_1y = (spread_current - spread_1y) if spread_1y is not None else None
+
+            trend = None
+            if change_3m is not None:
+                if change_3m > 0.05:
+                    trend = 'EXPANDING'
+                elif change_3m < -0.05:
+                    trend = 'CONTRACTING'
+                else:
+                    trend = 'STABLE'
 
             spreads['30y5y'] = {
-                'current': round(spread_30y5y, 2),
-                'year_ago': round(year_ago_spread, 2) if year_ago_spread is not None else None,
+                'current': round(spread_current, 2),
+                '1m_ago': round(spread_1m, 2) if spread_1m is not None else None,
+                '3m_ago': round(spread_3m, 2) if spread_3m is not None else None,
+                '6m_ago': round(spread_6m, 2) if spread_6m is not None else None,
+                '1y_ago': round(spread_1y, 2) if spread_1y is not None else None,
+                'change_1m': round(change_1m, 2) if change_1m is not None else None,
+                'change_3m': round(change_3m, 2) if change_3m is not None else None,
+                'change_6m': round(change_6m, 2) if change_6m is not None else None,
+                'change_1y': round(change_1y, 2) if change_1y is not None else None,
+                'trend': trend,
             }
 
         return spreads
+
+    def get_spread_history(self, lookback_days: int = 365) -> Dict:
+        """
+        Get historical spread data for charting
+
+        Args:
+            lookback_days: Days of history to fetch (default 1 year)
+
+        Returns:
+            Dict with dates and spread values for each spread type
+        """
+        yields_10y = self._fetch_series(self.TREASURY_SERIES['10Y'],
+                                        start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
+        yields_2y = self._fetch_series(self.TREASURY_SERIES['2Y'],
+                                       start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
+        yields_3m = self._fetch_series(self.TREASURY_SERIES['3M'],
+                                       start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
+        yields_30y = self._fetch_series(self.TREASURY_SERIES['30Y'],
+                                        start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
+        yields_5y = self._fetch_series(self.TREASURY_SERIES['5Y'],
+                                       start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
+
+        history = {
+            'dates': [],
+            '10y2y': [],
+            '10y3m': [],
+            '30y5y': []
+        }
+
+        # Merge all dataframes on date to ensure consistent timeline
+        if not yields_10y.empty and not yields_2y.empty:
+            merged = pd.merge(yields_10y, yields_2y, on='date', suffixes=('_10y', '_2y'))
+
+            for _, row in merged.iterrows():
+                date_str = row['date'].strftime('%Y-%m-%d')
+                if date_str not in history['dates']:
+                    history['dates'].append(date_str)
+
+                spread_10y2y = row['value_10y'] - row['value_2y']
+                history['10y2y'].append(round(spread_10y2y, 2))
+
+        # 10Y-3M spread
+        if not yields_10y.empty and not yields_3m.empty:
+            merged = pd.merge(yields_10y, yields_3m, on='date', suffixes=('_10y', '_3m'))
+
+            # Reset if we're starting fresh
+            if not history['dates']:
+                for _, row in merged.iterrows():
+                    history['dates'].append(row['date'].strftime('%Y-%m-%d'))
+
+            for _, row in merged.iterrows():
+                spread_10y3m = row['value_10y'] - row['value_3m']
+                history['10y3m'].append(round(spread_10y3m, 2))
+
+        # 30Y-5Y spread
+        if not yields_30y.empty and not yields_5y.empty:
+            merged = pd.merge(yields_30y, yields_5y, on='date', suffixes=('_30y', '_5y'))
+
+            # Reset if we're starting fresh
+            if not history['dates']:
+                for _, row in merged.iterrows():
+                    history['dates'].append(row['date'].strftime('%Y-%m-%d'))
+
+            for _, row in merged.iterrows():
+                spread_30y5y = row['value_30y'] - row['value_5y']
+                history['30y5y'].append(round(spread_30y5y, 2))
+
+        return history
 
     def fetch_credit_spreads(self) -> Dict:
         """

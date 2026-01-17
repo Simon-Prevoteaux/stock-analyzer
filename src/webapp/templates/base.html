@@ -18,7 +18,10 @@
 <body>
     <nav class="navbar">
         <div class="container">
-            <h1 class="logo">Stock Analyzer</h1>
+            <h1 class="logo">
+                <img src="{{ url_for('static', filename='favicon.svg') }}" alt="Logo" class="logo-icon">
+                Stock Analyzer
+            </h1>
             <ul class="nav-links">
                 <li><a href="{{ url_for('index') }}">Home</a></li>
                 <li class="dropdown">
