@@ -30,10 +30,10 @@
 <div class="quick-actions">
     <h2>Quick Actions</h2>
     <div class="action-buttons">
-        <a href="{{ url_for('fetch_stocks') }}" class="btn btn-primary">Fetch New Data</a>
-        <a href="{{ url_for('screener') }}" class="btn btn-secondary">Open Screener</a>
-        <a href="{{ url_for('value_plays') }}" class="btn btn-success">Find Value Plays</a>
-        <a href="{{ url_for('bubble_territory') }}" class="btn btn-danger">Check Bubble Territory</a>
+        <a href="{{ url_for('core.fetch_stocks') }}" class="btn btn-primary">Fetch New Data</a>
+        <a href="{{ url_for('core.screener') }}" class="btn btn-secondary">Open Screener</a>
+        <a href="{{ url_for('strategies.value_plays') }}" class="btn btn-success">Find Value Plays</a>
+        <a href="{{ url_for('strategies.bubble_territory') }}" class="btn btn-danger">Check Bubble Territory</a>
     </div>
 </div>
 

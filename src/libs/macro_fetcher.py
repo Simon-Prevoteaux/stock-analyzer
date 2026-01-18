@@ -1,6 +1,11 @@
 """
 Macro Data Fetcher - FRED API Integration
 Fetches macroeconomic data from Federal Reserve Economic Data (FRED) API
+
+This module provides the MacroDataFetcher class for fetching and caching
+macroeconomic data from FRED API and Yahoo Finance.
+
+For spread calculations, see also: libs/spread_calculator.py (SpreadCalculator)
 """
 
 import requests

@@ -2007,7 +2007,118 @@ footer {
     color: #e74c3c;
 }
 
-/* Responsive Design */
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Display utilities */
+.d-inline { display: inline; }
+.d-inline-block { display: inline-block; }
+.d-flex { display: flex; }
+.d-grid { display: grid; }
+.d-none { display: none; }
+
+/* Flex utilities */
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-xs { gap: 2px; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 15px; }
+.gap-lg { gap: 20px; }
+
+/* Text utilities */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.font-bold { font-weight: bold; }
+.text-sm { font-size: 0.9em; }
+.text-xs { font-size: 0.85em; }
+
+/* Color utilities - semantic */
+.text-positive { color: #90EE90; }
+.text-warning { color: #ffd700; }
+.text-negative { color: #ff6b6b; }
+.text-neutral { color: #888; }
+.text-muted { color: #a8b2d1; }
+.text-accent { color: #00ff88; }
+.text-gold { color: #ffd700; }
+
+/* Background utilities */
+.bg-positive-subtle { background: rgba(144, 238, 144, 0.1); }
+.bg-warning-subtle { background: rgba(255, 215, 0, 0.1); }
+.bg-accent-subtle { background: rgba(0, 255, 136, 0.1); }
+.bg-card-highlight { background: rgba(0, 255, 136, 0.05); border: 1px solid rgba(0, 255, 136, 0.2); }
+
+/* Spacing utilities */
+.m-0 { margin: 0; }
+.mt-0 { margin-top: 0; }
+.mb-0 { margin-bottom: 0; }
+.mt-sm { margin-top: 10px; }
+.mt-md { margin-top: 15px; }
+.mt-lg { margin-top: 20px; }
+.mt-xl { margin-top: 30px; }
+.mt-2xl { margin-top: 40px; }
+.mb-sm { margin-bottom: 10px; }
+.mb-md { margin-bottom: 15px; }
+.mb-lg { margin-bottom: 20px; }
+.p-sm { padding: 10px; }
+.p-md { padding: 15px; }
+.pt-md { padding-top: 15px; }
+.pb-sm { padding-bottom: 5px; }
+
+/* Border utilities */
+.border-section { border-top: 2px solid #444; }
+.rounded { border-radius: 5px; }
+
+/* Width utilities */
+.w-auto { width: auto; }
+
+/* Grid utilities */
+.grid-auto-fit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+/* Form utilities */
+.form-inline { display: inline; }
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.checkbox-inline input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+/* Info/Explanation cards */
+.info-card {
+    margin-bottom: 20px;
+    background: rgba(0, 255, 136, 0.05);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    padding: 15px;
+    border-radius: 8px;
+}
+.info-card h3 {
+    color: #00ff88;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+.info-card ul {
+    margin: 10px 0;
+}
+.info-card p {
+    margin: 5px 0;
+}
+.info-card .feature-box {
+    padding: 10px;
+    border-radius: 5px;
+}
+
+/* Responsive Design - Macro Section */
 @media (max-width: 768px) {
     .macro-dashboard {
         padding: 1rem;

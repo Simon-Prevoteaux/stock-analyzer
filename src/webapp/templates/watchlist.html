@@ -38,7 +38,7 @@
                         <option value="5" {% if stock.ranking == 5 %}selected{% endif %}>⭐⭐⭐⭐⭐</option>
                     </select>
                 </td>
-                <td><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
+                <td><a href="{{ url_for('core.stock_detail', ticker=stock.ticker) }}">{{ stock.ticker }}</a></td>
                 <td>{{ stock.company_name }}</td>
                 <td>${{ stock.current_price }}</td>
                 <td>{{ stock.market_cap|format_number }}</td>
@@ -70,7 +70,7 @@
                     </div>
                 </td>
                 <td>
-                    <form method="POST" action="{{ url_for('remove_from_watchlist', ticker=stock.ticker) }}" style="display: inline;">
+                    <form method="POST" action="{{ url_for('watchlist.remove_from_watchlist', ticker=stock.ticker) }}" class="form-inline">
                         <button type="submit" class="btn btn-sm btn-danger">Remove</button>
                     </form>
                 </td>
@@ -80,7 +80,7 @@
     </table>
 </div>
 {% else %}
-<p class="no-results">Your watchlist is empty. Add stocks from the <a href="{{ url_for('screener') }}">screener</a>.</p>
+<p class="no-results">Your watchlist is empty. Add stocks from the <a href="{{ url_for('core.screener') }}">screener</a>.</p>
 {% endif %}
 
 <style>

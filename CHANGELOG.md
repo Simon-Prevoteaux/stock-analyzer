@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-01-18
+
+### Added
+- **Codebase Modularization**: Major refactoring for better maintainability
+  - Split `app.py` into 8 Flask blueprints (core, watchlist, portfolio, strategies, forecast, technical, macro, api)
+  - Split `database.py` into `libs/db/` package with repository pattern (stock, watchlist, portfolio, screening, financial, technical, macro)
+  - New `spread_calculator.py` for yield spread calculations
+  - 40+ CSS utility classes and reusable Jinja2 macros
+  - All changes are backwards compatible 
+
 ## [1.2.4] - 2026-01-17
 
 ### Added

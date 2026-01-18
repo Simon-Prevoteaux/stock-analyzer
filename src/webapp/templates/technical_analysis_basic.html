@@ -11,7 +11,7 @@
 <!-- Stock Selector -->
 <div class="card">
     <h3>Select Stock</h3>
-    <form method="GET" action="{{ url_for('technical_analysis_basic') }}" id="stock-search-form">
+    <form method="GET" action="{{ url_for('technical.technical_analysis_basic') }}" id="stock-search-form">
         <div class="form-group">
             <label for="ticker-search">Search for a stock:</label>
             <div class="search-container">
@@ -81,7 +81,7 @@
     <h3>Error</h3>
     <p class="error-message">{{ error }}</p>
     {% if ticker and not stock_info %}
-    <a href="{{ url_for('fetch_stocks') }}" class="btn btn-primary">Fetch Stock Data</a>
+    <a href="{{ url_for('core.fetch_stocks') }}" class="btn btn-primary">Fetch Stock Data</a>
     {% endif %}
 </div>
 {% endif %}
@@ -95,8 +95,8 @@
         <span class="value">${{ "%.2f"|format(stock_info.current_price) }}</span>
     </div>
     <div class="header-actions">
-        <a href="{{ url_for('stock_detail', ticker=ticker) }}" class="btn btn-secondary">View Details</a>
-        <form method="POST" action="{{ url_for('api_refresh_price_history', ticker=ticker) }}" style="display: inline;">
+        <a href="{{ url_for('core.stock_detail', ticker=ticker) }}" class="btn btn-secondary">View Details</a>
+        <form method="POST" action="{{ url_for('technical.api_refresh_price_history', ticker=ticker) }}" class="form-inline">
             <button type="submit" class="btn btn-secondary">Refresh Price Data</button>
         </form>
     </div>

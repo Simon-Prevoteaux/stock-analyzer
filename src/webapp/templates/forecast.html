@@ -118,7 +118,7 @@
         <span class="value">${{ "%.2f"|format(results.current_price) }}</span>
     </div>
     <div class="header-actions">
-        <a href="{{ url_for('stock_detail', ticker=results.ticker) }}" class="btn btn-secondary">View Details</a>
+        <a href="{{ url_for('core.stock_detail', ticker=results.ticker) }}" class="btn btn-secondary">View Details</a>
     </div>
 </div>
 

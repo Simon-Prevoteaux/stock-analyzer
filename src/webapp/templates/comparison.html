@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <tr>
                 <th>Metric</th>
                 {% for stock in stocks %}
-                <th><a href="{{ url_for('stock_detail', ticker=stock.ticker) }}" style="color: #00ff88; text-decoration: none;">{{ stock.ticker }}</a></th>
+                <th><a href="{{ url_for('core.stock_detail', ticker=stock.ticker) }}" style="color: #00ff88; text-decoration: none;">{{ stock.ticker }}</a></th>
                 {% endfor %}
             </tr>
         </thead>

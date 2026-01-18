@@ -23,48 +23,48 @@
                 Stock Analyzer
             </h1>
             <ul class="nav-links">
-                <li><a href="{{ url_for('index') }}">Home</a></li>
+                <li><a href="{{ url_for('core.index') }}">Home</a></li>
                 <li class="dropdown">
                     <a href="#" class="dropbtn">Tools ▾</a>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('fetch_stocks') }}">Fetch Data</a>
-                        <a href="{{ url_for('screener') }}">Screener</a>
-                        <a href="{{ url_for('comparison') }}">Compare</a>
-                        <a href="{{ url_for('forecast') }}">Forecast</a>
-                        <a href="{{ url_for('upside_calculator') }}">Upside</a>
+                        <a href="{{ url_for('core.fetch_stocks') }}">Fetch Data</a>
+                        <a href="{{ url_for('core.screener') }}">Screener</a>
+                        <a href="{{ url_for('core.comparison') }}">Compare</a>
+                        <a href="{{ url_for('forecast.forecast') }}">Forecast</a>
+                        <a href="{{ url_for('forecast.upside_calculator') }}">Upside</a>
                     </div>
                 </li>
                 <li class="dropdown">
                     <a href="#" class="dropbtn">Technical Analysis ▾</a>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('technical_analysis_basic') }}">Basic</a>
+                        <a href="{{ url_for('technical.technical_analysis_basic') }}">Basic</a>
                     </div>
                 </li>
                 <li class="dropdown">
                     <a href="#" class="dropbtn">Macro Signals ▾</a>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('macro_signals') }}">Dashboard</a>
-                        <a href="{{ url_for('macro_signals') }}#currencies">Currencies & Gold</a>
-                        <a href="{{ url_for('macro_signals') }}#rates">Rates & Spreads</a>
+                        <a href="{{ url_for('macro.macro_signals') }}">Dashboard</a>
+                        <a href="{{ url_for('macro.macro_signals') }}#currencies">Currencies & Gold</a>
+                        <a href="{{ url_for('macro.macro_signals') }}#rates">Rates & Spreads</a>
                     </div>
                 </li>
                 <li class="dropdown">
                     <a href="#" class="dropbtn">Stock Analysis ▾</a>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('quality_growth') }}">Quality Growth</a>
-                        <a href="{{ url_for('growth_inflection') }}">Growth Inflection</a>
-                        <a href="{{ url_for('rule_of_40') }}">Rule of 40</a>
-                        <a href="{{ url_for('margin_expansion') }}">Margin Expansion</a>
-                        <a href="{{ url_for('cash_generative_growth') }}">Cash-Gen Growth</a>
-                        <a href="{{ url_for('value_plays') }}">Value Plays</a>
-                        <a href="{{ url_for('bubble_territory') }}">Bubble Territory</a>
+                        <a href="{{ url_for('strategies.quality_growth') }}">Quality Growth</a>
+                        <a href="{{ url_for('strategies.growth_inflection') }}">Growth Inflection</a>
+                        <a href="{{ url_for('strategies.rule_of_40') }}">Rule of 40</a>
+                        <a href="{{ url_for('strategies.margin_expansion') }}">Margin Expansion</a>
+                        <a href="{{ url_for('strategies.cash_generative_growth') }}">Cash-Gen Growth</a>
+                        <a href="{{ url_for('strategies.value_plays') }}">Value Plays</a>
+                        <a href="{{ url_for('strategies.bubble_territory') }}">Bubble Territory</a>
                     </div>
                 </li>
                 <li class="dropdown">
                     <a href="#" class="dropbtn">My Stocks ▾</a>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('watchlist') }}">Watchlist</a>
-                        <a href="{{ url_for('portfolio') }}">Portfolio</a>
+                        <a href="{{ url_for('watchlist.watchlist') }}">Watchlist</a>
+                        <a href="{{ url_for('portfolio.portfolio') }}">Portfolio</a>
                     </div>
                 </li>
             </ul>

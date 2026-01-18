@@ -1,0 +1,84 @@
+{#
+   Reusable Jinja2 macros for consistent styling across templates.
+   Import this file at the top of templates that need these macros:
+   {% from "components/macros.html" import peg_color, threshold_color, percentage_color %}
+#}
+
+{# PEG ratio color class based on value thresholds #}
+{% macro peg_color(value) -%}
+{% if value < 1 %}text-positive{% elif value <= 2 %}text-warning{% else %}text-negative{% endif %}
+{%- endmacro %}
+
+{# Generic threshold color class (green/yellow/red based on low/mid/high thresholds) #}
+{% macro threshold_color(value, low, high) -%}
+{% if value >= high %}text-positive{% elif value >= low %}text-warning{% else %}text-negative{% endif %}
+{%- endmacro %}
+
+{# Inverted threshold color (lower is better, like P/E ratio) #}
+{% macro threshold_color_inverted(value, low, high) -%}
+{% if value < low %}text-positive{% elif value < high %}text-warning{% else %}text-negative{% endif %}
+{%- endmacro %}
+
+{# Percentage growth color (positive is green, negative is red) #}
+{% macro percentage_color(value) -%}
+{% if value > 0 %}text-positive{% elif value < 0 %}text-negative{% else %}text-neutral{% endif %}
+{%- endmacro %}
+
+{# Rule of 40 color based on standard thresholds #}
+{% macro rule_of_40_color(value) -%}
+{% if value >= 40 %}text-positive{% elif value >= 20 %}text-warning{% else %}text-negative{% endif %}
+{%- endmacro %}
+
+{# R-squared trend confidence color #}
+{% macro trend_confidence_color(value) -%}
+{% if value >= 0.7 %}text-positive{% elif value >= 0.4 %}text-warning{% else %}text-neutral{% endif %}
+{%- endmacro %}
+
+{# Price comparison color (higher target is green) #}
+{% macro price_target_color(target, current) -%}
+{% if target > current %}text-positive{% else %}text-negative{% endif %}
+{%- endmacro %}
+
+{# Sector rank color (top 25% = green, top 50% = yellow, else red) #}
+{% macro sector_rank_color(percentile) -%}
+{% if percentile >= 75 %}text-positive{% elif percentile >= 50 %}text-warning{% else %}text-negative{% endif %}
+{%- endmacro %}
+
+{# Format a PEG value with color #}
+{% macro peg_value(value) -%}
+<span class="{{ peg_color(value) }}">{{ "%.2f"|format(value) }}</span>
+{%- endmacro %}
+
+{# Format a Rule of 40 value with color #}
+{% macro rule_of_40_value(value) -%}
+<span class="{{ rule_of_40_color(value) }} font-bold">{{ "%.1f"|format(value) }}</span>
+{%- endmacro %}
+
+{# Info card component #}
+{% macro info_card(title, content, features=None) %}
+<div class="info-card">
+    <h3>{{ title }}</h3>
+    <p>{{ content }}</p>
+    {% if features %}
+    <div class="grid-auto-fit gap-md mt-md">
+        {% for feature in features %}
+        <div class="feature-box {{ feature.bg_class|default('bg-accent-subtle') }}">
+            <strong class="{{ feature.title_class|default('text-accent') }}">{{ feature.title }}</strong>
+            <p class="text-sm mb-0">{{ feature.description }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{# Stock link component #}
+{% macro stock_link(ticker, blueprint='core') %}
+<a href="{{ url_for(blueprint + '.stock_detail', ticker=ticker) }}">{{ ticker }}</a>
+{% endmacro %}
+
+{# Action buttons group for stock detail #}
+{% macro stock_action_buttons(ticker) %}
+<a href="{{ url_for('core.stock_detail', ticker=ticker) }}" class="btn btn-sm">View</a>
+<a href="{{ url_for('forecast.forecast') }}?ticker={{ ticker }}" class="btn btn-sm">Forecast</a>
+{% endmacro %}
