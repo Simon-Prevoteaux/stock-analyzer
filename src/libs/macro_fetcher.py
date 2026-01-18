@@ -53,6 +53,32 @@ class MacroDataFetcher:
         'bbb': 'BAMLC0A4CBBB',                 # ICE BofA BBB US Corporate Index OAS
     }
 
+    # Global Economy Series IDs
+    GLOBAL_ECONOMY_SERIES = {
+        'wilshire_5000': 'WILL5000INDFC',     # Wilshire 5000 Total Market Full Cap Index
+        'gdp': 'GDP',                          # Gross Domestic Product (quarterly)
+        'm2': 'M2SL',                          # M2 Money Stock (monthly)
+        'm2_velocity': 'M2V',                  # Velocity of M2 Money Stock
+        'debt_gdp': 'GFDEGDQ188S',            # Federal Debt: Total Public Debt as % of GDP
+        'debt_public_gdp': 'FYGFGDQ188S',     # Federal Debt Held by Public as % of GDP
+    }
+
+    # Real Estate Series IDs
+    REAL_ESTATE_SERIES = {
+        'case_shiller_national': 'CSUSHPINSA',    # Case-Shiller US National Home Price Index
+        'case_shiller_20city': 'SPCS20RSA',       # Case-Shiller 20-City Composite
+        'housing_starts': 'HOUST',                 # New Housing Units Started
+        'building_permits': 'PERMIT',              # Building Permits
+        'existing_home_sales': 'EXHOSLUSM495N',   # Existing Home Sales
+        'housing_inventory': 'HOSINVUSM495N',     # Housing Inventory
+        'months_supply': 'HOSSUPUSM673N',         # Months Supply of Existing Homes
+        'new_home_months_supply': 'MSACSR',       # Monthly Supply of New Houses
+        'mortgage_30y': 'MORTGAGE30US',           # 30-Year Fixed Mortgage Rate
+        'affordability_index': 'FIXHAI',          # Housing Affordability Index
+        'median_home_price': 'MSPUS',             # Median Sales Price of Houses Sold
+        'median_income': 'MEHOINUSA646N',         # Median Household Income (annual)
+    }
+
     def __init__(self, fred_api_key: str, db=None, cache_hours: int = 24):
         """
         Initialize with FRED API key and optional database for caching
@@ -86,6 +112,31 @@ class MacroDataFetcher:
                 data_type = 'credit_spread'
             elif series_id == 'GC=F':
                 data_type = 'gold'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('wilshire_5000')]:
+                data_type = 'market_cap'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('gdp')]:
+                data_type = 'gdp'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('m2'), self.GLOBAL_ECONOMY_SERIES.get('m2_velocity')]:
+                data_type = 'money_supply'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('debt_gdp'), self.GLOBAL_ECONOMY_SERIES.get('debt_public_gdp')]:
+                data_type = 'debt'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('case_shiller_national'),
+                              self.REAL_ESTATE_SERIES.get('case_shiller_20city'),
+                              self.REAL_ESTATE_SERIES.get('median_home_price')]:
+                data_type = 'housing_price'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('housing_starts'),
+                              self.REAL_ESTATE_SERIES.get('building_permits'),
+                              self.REAL_ESTATE_SERIES.get('existing_home_sales')]:
+                data_type = 'housing_activity'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('housing_inventory'),
+                              self.REAL_ESTATE_SERIES.get('months_supply'),
+                              self.REAL_ESTATE_SERIES.get('new_home_months_supply')]:
+                data_type = 'housing_inventory'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('mortgage_30y')]:
+                data_type = 'mortgage'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('affordability_index'),
+                              self.REAL_ESTATE_SERIES.get('median_income')]:
+                data_type = 'affordability'
             else:
                 return None
 
@@ -98,6 +149,15 @@ class MacroDataFetcher:
             # Check if cache is fresh (has data from last cache_hours)
             latest_date = pd.to_datetime(df['date'].max())
             cache_age = datetime.now() - latest_date.replace(tzinfo=None)
+
+            # Also check if cache covers the requested start_date
+            if start_date:
+                earliest_date = pd.to_datetime(df['date'].min())
+                requested_start = pd.to_datetime(start_date)
+                # Allow 30 days tolerance for data that may not be available at exact start
+                if earliest_date > requested_start + pd.Timedelta(days=30):
+                    logger.info(f"Cache incomplete for {series_id}: earliest={earliest_date.date()}, requested={requested_start.date()}")
+                    return None
 
             if cache_age.total_seconds() / 3600 <= self.cache_hours:
                 logger.info(f"Using cached data for {series_id} (age: {cache_age.total_seconds()/3600:.1f}h)")
@@ -125,6 +185,31 @@ class MacroDataFetcher:
                 data_type = 'credit_spread'
             elif series_id == 'GC=F':
                 data_type = 'gold'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('wilshire_5000')]:
+                data_type = 'market_cap'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('gdp')]:
+                data_type = 'gdp'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('m2'), self.GLOBAL_ECONOMY_SERIES.get('m2_velocity')]:
+                data_type = 'money_supply'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('debt_gdp'), self.GLOBAL_ECONOMY_SERIES.get('debt_public_gdp')]:
+                data_type = 'debt'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('case_shiller_national'),
+                              self.REAL_ESTATE_SERIES.get('case_shiller_20city'),
+                              self.REAL_ESTATE_SERIES.get('median_home_price')]:
+                data_type = 'housing_price'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('housing_starts'),
+                              self.REAL_ESTATE_SERIES.get('building_permits'),
+                              self.REAL_ESTATE_SERIES.get('existing_home_sales')]:
+                data_type = 'housing_activity'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('housing_inventory'),
+                              self.REAL_ESTATE_SERIES.get('months_supply'),
+                              self.REAL_ESTATE_SERIES.get('new_home_months_supply')]:
+                data_type = 'housing_inventory'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('mortgage_30y')]:
+                data_type = 'mortgage'
+            elif series_id in [self.REAL_ESTATE_SERIES.get('affordability_index'),
+                              self.REAL_ESTATE_SERIES.get('median_income')]:
+                data_type = 'affordability'
             else:
                 return
 
@@ -867,3 +952,616 @@ class MacroDataFetcher:
         if not df.empty:
             return df.iloc[-1]['date'].strftime('%Y-%m-%d')
         return None
+
+    # =========================================================================
+    # GLOBAL ECONOMY INDICATORS
+    # =========================================================================
+
+    def fetch_buffett_indicator(self, lookback_years: int = 25) -> Dict:
+        """
+        Fetch and calculate the Buffett Indicator (Market Cap / GDP)
+
+        The Buffett Indicator compares total stock market capitalization (Wilshire 5000)
+        to US GDP. Warren Buffett called this "probably the best single measure of
+        where valuations stand at any given moment."
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current value, historical series, percentile, and interpretation
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch Wilshire 5000 (daily)
+        wilshire_df = self._fetch_series(
+            self.GLOBAL_ECONOMY_SERIES['wilshire_5000'],
+            start_date=start_date
+        )
+
+        # Fetch GDP (quarterly) - values in billions
+        gdp_df = self._fetch_series(
+            self.GLOBAL_ECONOMY_SERIES['gdp'],
+            start_date=start_date
+        )
+
+        if wilshire_df.empty or gdp_df.empty:
+            logger.warning("Could not fetch Buffett Indicator data")
+            return {
+                'current': None,
+                'percentile': None,
+                'history': {'dates': [], 'values': []},
+                'gdp_history': {'dates': [], 'values': []},
+                'wilshire_history': {'dates': [], 'values': []}
+            }
+
+        # Wilshire 5000 is an index where 1 point = $1 billion market cap
+        # GDP is in billions of dollars
+        # Buffett Indicator = (Wilshire 5000 / GDP) * 100
+
+        # Forward-fill GDP to daily frequency for calculation
+        gdp_df = gdp_df.set_index('date')
+        gdp_daily = gdp_df.reindex(wilshire_df['date']).ffill().reset_index()
+        gdp_daily.columns = ['date', 'gdp']
+
+        # Merge and calculate
+        merged = pd.merge(wilshire_df, gdp_daily, on='date')
+        merged['buffett'] = (merged['value'] / merged['gdp']) * 100
+
+        # Get current value
+        current_value = merged.iloc[-1]['buffett'] if not merged.empty else None
+
+        # Calculate percentile
+        percentile = None
+        if current_value is not None and len(merged) > 10:
+            percentile = (merged['buffett'] <= current_value).sum() / len(merged) * 100
+
+        # Prepare history for charting
+        history = {
+            'dates': merged['date'].dt.strftime('%Y-%m-%d').tolist(),
+            'values': merged['buffett'].round(1).tolist()
+        }
+
+        # Also return raw Wilshire and GDP for additional charts
+        wilshire_history = {
+            'dates': wilshire_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+            'values': wilshire_df['value'].round(0).tolist()
+        }
+
+        gdp_history = {
+            'dates': gdp_df.reset_index()['date'].dt.strftime('%Y-%m-%d').tolist(),
+            'values': gdp_df.reset_index()['value'].round(0).tolist()
+        }
+
+        return {
+            'current': round(current_value, 1) if current_value else None,
+            'percentile': round(percentile, 1) if percentile else None,
+            'history': history,
+            'wilshire_history': wilshire_history,
+            'gdp_history': gdp_history
+        }
+
+    def fetch_m2_gdp_ratio(self, lookback_years: int = 25) -> Dict:
+        """
+        Fetch and calculate M2 Money Supply to GDP ratio
+
+        This ratio indicates liquidity in the economy. A rising ratio means
+        more money is chasing the same economic output, which can lead to
+        asset inflation.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current value, historical series, and year-over-year change
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch M2 Money Supply (monthly, in billions)
+        m2_df = self._fetch_series(
+            self.GLOBAL_ECONOMY_SERIES['m2'],
+            start_date=start_date
+        )
+
+        # Fetch GDP (quarterly, in billions)
+        gdp_df = self._fetch_series(
+            self.GLOBAL_ECONOMY_SERIES['gdp'],
+            start_date=start_date
+        )
+
+        if m2_df.empty or gdp_df.empty:
+            logger.warning("Could not fetch M2/GDP ratio data")
+            return {
+                'current': None,
+                'yoy_change': None,
+                'history': {'dates': [], 'values': []}
+            }
+
+        # Forward-fill GDP to monthly frequency
+        gdp_df = gdp_df.set_index('date')
+        gdp_monthly = gdp_df.reindex(m2_df['date']).ffill().reset_index()
+        gdp_monthly.columns = ['date', 'gdp']
+
+        # Merge and calculate ratio
+        merged = pd.merge(m2_df, gdp_monthly, on='date')
+        merged['ratio'] = (merged['value'] / merged['gdp']) * 100
+
+        # Get current value
+        current_value = merged.iloc[-1]['ratio'] if not merged.empty else None
+
+        # Calculate YoY change
+        yoy_change = None
+        if len(merged) > 12:
+            year_ago_value = merged.iloc[-13]['ratio'] if len(merged) >= 13 else None
+            if year_ago_value:
+                yoy_change = current_value - year_ago_value
+
+        # Prepare history for charting
+        history = {
+            'dates': merged['date'].dt.strftime('%Y-%m-%d').tolist(),
+            'values': merged['ratio'].round(1).tolist()
+        }
+
+        return {
+            'current': round(current_value, 1) if current_value else None,
+            'yoy_change': round(yoy_change, 1) if yoy_change else None,
+            'history': history
+        }
+
+    def fetch_debt_to_gdp(self, lookback_years: int = 25) -> Dict:
+        """
+        Fetch Federal Debt to GDP ratio
+
+        This shows the government's debt burden relative to economic output.
+        High levels (>100%) can lead to concerns about debt sustainability.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current value, historical series, and key historical comparisons
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch total public debt as % of GDP (already calculated by FRED)
+        debt_df = self._fetch_series(
+            self.GLOBAL_ECONOMY_SERIES['debt_gdp'],
+            start_date=start_date
+        )
+
+        if debt_df.empty:
+            logger.warning("Could not fetch Debt/GDP ratio data")
+            return {
+                'current': None,
+                'history': {'dates': [], 'values': []},
+                'historical_comparison': {}
+            }
+
+        # Get current value
+        current_value = debt_df.iloc[-1]['value'] if not debt_df.empty else None
+
+        # Historical comparisons
+        historical_comparison = {}
+        for years_back, label in [(5, '5y_ago'), (10, '10y_ago'), (20, '20y_ago')]:
+            target_date = datetime.now() - timedelta(days=years_back * 365)
+            past_data = debt_df[debt_df['date'] <= target_date]
+            if not past_data.empty:
+                historical_comparison[label] = round(past_data.iloc[-1]['value'], 1)
+
+        # Prepare history for charting
+        history = {
+            'dates': debt_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+            'values': debt_df['value'].round(1).tolist()
+        }
+
+        return {
+            'current': round(current_value, 1) if current_value else None,
+            'history': history,
+            'historical_comparison': historical_comparison
+        }
+
+    def fetch_m2_velocity(self, lookback_years: int = 25) -> Dict:
+        """
+        Fetch M2 Money Velocity (GDP / M2)
+
+        Money velocity shows how quickly money circulates in the economy.
+        Low velocity means money is being held rather than spent, which can
+        indicate economic weakness or increased saving.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current value, historical series, and trend
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch M2 Velocity (already calculated by FRED as GDP/M2)
+        velocity_df = self._fetch_series(
+            self.GLOBAL_ECONOMY_SERIES['m2_velocity'],
+            start_date=start_date
+        )
+
+        if velocity_df.empty:
+            logger.warning("Could not fetch M2 Velocity data")
+            return {
+                'current': None,
+                'history': {'dates': [], 'values': []},
+                'historical_avg': None
+            }
+
+        # Get current value
+        current_value = velocity_df.iloc[-1]['value'] if not velocity_df.empty else None
+
+        # Calculate historical average
+        historical_avg = velocity_df['value'].mean() if not velocity_df.empty else None
+
+        # Prepare history for charting
+        history = {
+            'dates': velocity_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+            'values': velocity_df['value'].round(2).tolist()
+        }
+
+        return {
+            'current': round(current_value, 2) if current_value else None,
+            'history': history,
+            'historical_avg': round(historical_avg, 2) if historical_avg else None
+        }
+
+    # =========================================================================
+    # REAL ESTATE INDICATORS
+    # =========================================================================
+
+    def fetch_case_shiller(self, lookback_years: int = 25) -> Dict:
+        """
+        Fetch Case-Shiller Home Price Index data
+
+        The S&P/Case-Shiller Index measures changes in the value of residential
+        real estate using repeat-sales methodology.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with national and 20-city indices, historical series, and YoY change
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch national index
+        national_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['case_shiller_national'],
+            start_date=start_date
+        )
+
+        # Fetch 20-city composite
+        city20_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['case_shiller_20city'],
+            start_date=start_date
+        )
+
+        result = {
+            'national': {'current': None, 'yoy_change': None, 'history': {'dates': [], 'values': []}},
+            'city20': {'current': None, 'yoy_change': None, 'history': {'dates': [], 'values': []}}
+        }
+
+        # Process national index
+        if not national_df.empty:
+            current = national_df.iloc[-1]['value']
+            result['national']['current'] = round(current, 1)
+
+            # YoY change
+            if len(national_df) >= 13:
+                year_ago = national_df.iloc[-13]['value']
+                result['national']['yoy_change'] = round(((current - year_ago) / year_ago) * 100, 1)
+
+            result['national']['history'] = {
+                'dates': national_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': national_df['value'].round(1).tolist()
+            }
+
+        # Process 20-city index
+        if not city20_df.empty:
+            current = city20_df.iloc[-1]['value']
+            result['city20']['current'] = round(current, 1)
+
+            # YoY change
+            if len(city20_df) >= 13:
+                year_ago = city20_df.iloc[-13]['value']
+                result['city20']['yoy_change'] = round(((current - year_ago) / year_ago) * 100, 1)
+
+            result['city20']['history'] = {
+                'dates': city20_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': city20_df['value'].round(1).tolist()
+            }
+
+        return result
+
+    def fetch_housing_supply(self) -> Dict:
+        """
+        Fetch housing inventory and months supply data
+
+        Months supply indicates how long it would take to sell all homes
+        at the current sales pace. 4-6 months is considered balanced.
+
+        Returns:
+            Dict with inventory, months supply, and trends
+        """
+        lookback_days = 10 * 365  # 10 years
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch months supply of existing homes
+        months_supply_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['months_supply'],
+            start_date=start_date
+        )
+
+        # Fetch housing inventory
+        inventory_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['housing_inventory'],
+            start_date=start_date
+        )
+
+        # Fetch new home months supply
+        new_months_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['new_home_months_supply'],
+            start_date=start_date
+        )
+
+        result = {
+            'existing_months_supply': None,
+            'new_home_months_supply': None,
+            'inventory': None,
+            'months_supply_history': {'dates': [], 'values': []},
+            'inventory_history': {'dates': [], 'values': []}
+        }
+
+        # Use existing home months supply for current value if available
+        if not months_supply_df.empty:
+            result['existing_months_supply'] = round(months_supply_df.iloc[-1]['value'], 1)
+
+        if not inventory_df.empty:
+            # Inventory is in thousands
+            result['inventory'] = round(inventory_df.iloc[-1]['value'], 0)
+            result['inventory_history'] = {
+                'dates': inventory_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': inventory_df['value'].round(0).tolist()
+            }
+
+        if not new_months_df.empty:
+            result['new_home_months_supply'] = round(new_months_df.iloc[-1]['value'], 1)
+            # Use new home months supply for chart since it has full historical data
+            # NAR existing home data is limited to 13 months on FRED
+            result['months_supply_history'] = {
+                'dates': new_months_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': new_months_df['value'].round(1).tolist()
+            }
+
+        return result
+
+    def fetch_housing_activity(self, lookback_years: int = 15) -> Dict:
+        """
+        Fetch housing starts, permits, and sales data
+
+        These are leading indicators of housing market activity and
+        overall economic health.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current values and historical series
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch housing starts (thousands of units, SAAR)
+        starts_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['housing_starts'],
+            start_date=start_date
+        )
+
+        # Fetch building permits
+        permits_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['building_permits'],
+            start_date=start_date
+        )
+
+        # Fetch existing home sales
+        sales_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['existing_home_sales'],
+            start_date=start_date
+        )
+
+        result = {
+            'housing_starts': {'current': None, 'yoy_change': None, 'history': {'dates': [], 'values': []}},
+            'building_permits': {'current': None, 'yoy_change': None, 'history': {'dates': [], 'values': []}},
+            'existing_sales': {'current': None, 'yoy_change': None, 'history': {'dates': [], 'values': []}}
+        }
+
+        # Process housing starts
+        if not starts_df.empty:
+            current = starts_df.iloc[-1]['value']
+            result['housing_starts']['current'] = round(current, 0)
+
+            if len(starts_df) >= 13:
+                year_ago = starts_df.iloc[-13]['value']
+                result['housing_starts']['yoy_change'] = round(((current - year_ago) / year_ago) * 100, 1)
+
+            result['housing_starts']['history'] = {
+                'dates': starts_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': starts_df['value'].round(0).tolist()
+            }
+
+        # Process building permits
+        if not permits_df.empty:
+            current = permits_df.iloc[-1]['value']
+            result['building_permits']['current'] = round(current, 0)
+
+            if len(permits_df) >= 13:
+                year_ago = permits_df.iloc[-13]['value']
+                result['building_permits']['yoy_change'] = round(((current - year_ago) / year_ago) * 100, 1)
+
+            result['building_permits']['history'] = {
+                'dates': permits_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': permits_df['value'].round(0).tolist()
+            }
+
+        # Process existing home sales
+        if not sales_df.empty:
+            current = sales_df.iloc[-1]['value']
+            result['existing_sales']['current'] = round(current, 0)
+
+            if len(sales_df) >= 13:
+                year_ago = sales_df.iloc[-13]['value']
+                result['existing_sales']['yoy_change'] = round(((current - year_ago) / year_ago) * 100, 1)
+
+            result['existing_sales']['history'] = {
+                'dates': sales_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': sales_df['value'].round(0).tolist()
+            }
+
+        return result
+
+    def fetch_mortgage_rates(self, lookback_years: int = 15) -> Dict:
+        """
+        Fetch 30-year mortgage rate data
+
+        Mortgage rates directly impact housing affordability and demand.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current rate, historical series, and comparisons
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        mortgage_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['mortgage_30y'],
+            start_date=start_date
+        )
+
+        if mortgage_df.empty:
+            return {
+                'current': None,
+                'history': {'dates': [], 'values': []},
+                'historical_avg': None,
+                'yoy_change': None
+            }
+
+        current = mortgage_df.iloc[-1]['value']
+
+        # Calculate YoY change
+        yoy_change = None
+        if len(mortgage_df) >= 53:  # Weekly data
+            year_ago = mortgage_df.iloc[-53]['value']
+            yoy_change = current - year_ago
+
+        # Historical average
+        historical_avg = mortgage_df['value'].mean()
+
+        return {
+            'current': round(current, 2),
+            'history': {
+                'dates': mortgage_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': mortgage_df['value'].round(2).tolist()
+            },
+            'historical_avg': round(historical_avg, 2),
+            'yoy_change': round(yoy_change, 2) if yoy_change else None
+        }
+
+    def fetch_housing_affordability(self, lookback_years: int = 15) -> Dict:
+        """
+        Fetch Housing Affordability Index
+
+        An index value of 100 means a median-income family has exactly enough
+        income to qualify for a mortgage on a median-priced home. Higher values
+        indicate greater affordability.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current value, historical series, and interpretation
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        affordability_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['affordability_index'],
+            start_date=start_date
+        )
+
+        if affordability_df.empty:
+            return {
+                'current': None,
+                'history': {'dates': [], 'values': []},
+                'historical_avg': None,
+                'percentile': None
+            }
+
+        current = affordability_df.iloc[-1]['value']
+
+        # Historical average
+        historical_avg = affordability_df['value'].mean()
+
+        # Percentile (lower percentile = less affordable historically)
+        percentile = (affordability_df['value'] >= current).sum() / len(affordability_df) * 100
+
+        return {
+            'current': round(current, 1),
+            'history': {
+                'dates': affordability_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': affordability_df['value'].round(1).tolist()
+            },
+            'historical_avg': round(historical_avg, 1),
+            'percentile': round(percentile, 1)
+        }
+
+    def fetch_median_home_price(self, lookback_years: int = 25) -> Dict:
+        """
+        Fetch median home sales price
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current price, historical series, and YoY change
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        price_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['median_home_price'],
+            start_date=start_date
+        )
+
+        if price_df.empty:
+            return {
+                'current': None,
+                'history': {'dates': [], 'values': []},
+                'yoy_change': None
+            }
+
+        current = price_df.iloc[-1]['value']
+
+        # YoY change (quarterly data)
+        yoy_change = None
+        if len(price_df) >= 5:
+            year_ago = price_df.iloc[-5]['value']
+            yoy_change = ((current - year_ago) / year_ago) * 100
+
+        return {
+            'current': round(current, 0),
+            'history': {
+                'dates': price_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': price_df['value'].round(0).tolist()
+            },
+            'yoy_change': round(yoy_change, 1) if yoy_change else None
+        }

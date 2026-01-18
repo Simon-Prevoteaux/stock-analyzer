@@ -233,6 +233,164 @@ function switchGoldCalcMethod(method) {
 }
 
 /**
+ * Render historical spread trends chart
+ */
+function renderSpreadHistory(spreadData) {
+    const ctx = document.getElementById('spreadHistoryChart');
+
+    if (!ctx) {
+        console.error('Spread history canvas element not found');
+        return;
+    }
+
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js library not loaded');
+        return;
+    }
+
+    // Destroy existing chart if it exists
+    if (window.spreadHistoryChart && typeof window.spreadHistoryChart.destroy === 'function') {
+        window.spreadHistoryChart.destroy();
+    }
+
+    const datasets = [];
+
+    // 10Y-2Y Spread
+    if (spreadData.spreads['10y2y'] && spreadData.spreads['10y2y'].length > 0) {
+        datasets.push({
+            label: '10Y-2Y Spread',
+            data: spreadData.spreads['10y2y'],
+            borderColor: '#00ff88',
+            backgroundColor: 'rgba(0, 255, 136, 0.1)',
+            fill: false,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 5
+        });
+    }
+
+    // 10Y-3M Spread
+    if (spreadData.spreads['10y3m'] && spreadData.spreads['10y3m'].length > 0) {
+        datasets.push({
+            label: '10Y-3M Spread',
+            data: spreadData.spreads['10y3m'],
+            borderColor: '#64b5f6',
+            backgroundColor: 'rgba(100, 181, 246, 0.1)',
+            fill: false,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 5
+        });
+    }
+
+    // 30Y-5Y Spread
+    if (spreadData.spreads['30y5y'] && spreadData.spreads['30y5y'].length > 0) {
+        datasets.push({
+            label: '30Y-5Y Spread',
+            data: spreadData.spreads['30y5y'],
+            borderColor: '#ffc107',
+            backgroundColor: 'rgba(255, 193, 7, 0.1)',
+            fill: false,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 5
+        });
+    }
+
+    window.spreadHistoryChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: spreadData.dates,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Spread (%)',
+                        color: '#e0e6ed'
+                    },
+                    ticks: {
+                        color: '#e0e6ed'
+                    },
+                    grid: {
+                        color: 'rgba(168, 178, 209, 0.1)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date',
+                        color: '#e0e6ed'
+                    },
+                    ticks: {
+                        color: '#e0e6ed',
+                        maxTicksLimit: 12,
+                        maxRotation: 45
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Yield Spread History (1 Year)',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    },
+                    color: '#00ff88',
+                    padding: {
+                        bottom: 20
+                    }
+                },
+                legend: {
+                    display: true,
+                    labels: {
+                        color: '#e0e6ed'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(30, 33, 57, 0.95)',
+                    borderColor: 'rgba(0, 255, 136, 0.3)',
+                    borderWidth: 1,
+                    titleColor: '#00ff88',
+                    bodyColor: '#e0e6ed'
+                },
+                annotation: {
+                    annotations: {
+                        zeroLine: {
+                            type: 'line',
+                            yMin: 0,
+                            yMax: 0,
+                            borderColor: 'rgba(255, 68, 68, 0.7)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                content: 'Inversion Threshold',
+                                enabled: true,
+                                position: 'end',
+                                color: '#ff4444',
+                                backgroundColor: 'rgba(30, 33, 57, 0.8)'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
  * Smooth scroll to anchors
  */
 document.addEventListener('DOMContentLoaded', function() {
