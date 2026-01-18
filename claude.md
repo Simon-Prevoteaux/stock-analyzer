@@ -250,7 +250,21 @@ stock-analyzer/
 │   │   ├── macro_fetcher.py    # Macro data fetching (FRED API, Yahoo Finance) with caching
 │   │   ├── macro_analyzer.py   # Macro data interpretation and analysis
 │   │   ├── forecaster.py       # Stock valuation models
-│   │   └── database.py         # Database management (stocks + macro data)
+│   │   ├── growth_analyzer.py  # Historical growth analysis & CAGR calculations
+│   │   ├── technical_analyzer.py  # Technical analysis (support/resistance, trends)
+│   │   ├── spread_calculator.py   # Yield spread calculations (extracted from macro_fetcher)
+│   │   ├── stock_lists.py      # Curated stock lists (Mag 7, S&P 500, sectors)
+│   │   ├── database.py         # Database facade (backwards-compatible interface)
+│   │   └── db/                 # Modular database package
+│   │       ├── __init__.py     # Package exports
+│   │       ├── connection.py   # Database connection & schema management
+│   │       ├── stock_repository.py    # Stock CRUD operations
+│   │       ├── watchlist_repository.py  # Watchlist management
+│   │       ├── portfolio_repository.py  # Portfolio management
+│   │       ├── screening.py    # Stock screening & filtering (StockScreener)
+│   │       ├── financial_repository.py  # Financial history & growth metrics
+│   │       ├── technical_repository.py  # Price history & technical indicators
+│   │       └── macro_repository.py      # Macroeconomic data persistence
 │   └── webapp/
 │       ├── __init__.py
 │       ├── app.py              # Flask application entry point
@@ -338,6 +352,28 @@ This is a personal project. For modifications:
 4. Document changes in this file
 
 ## Version History
+
+- **v1.4.0** (2026-01-18): Database Layer Modularization
+  - **Database Package Architecture** (`libs/db/`)
+    - Split monolithic database.py (1,347 lines) into modular repository pattern
+    - Created dedicated repository classes for each data domain
+    - Maintained backwards compatibility via facade pattern in database.py
+  - **New Modules**
+    - `connection.py`: Database connection and schema management
+    - `stock_repository.py`: Stock CRUD operations
+    - `watchlist_repository.py`: Watchlist management
+    - `portfolio_repository.py`: Portfolio management
+    - `screening.py`: Stock screening with StockScreener class
+    - `financial_repository.py`: Financial history and growth metrics
+    - `technical_repository.py`: Price history and technical indicators
+    - `macro_repository.py`: Macroeconomic data persistence
+  - **Spread Calculator Extraction**
+    - Created `spread_calculator.py` for yield spread calculations
+    - Extracted from macro_fetcher.py for better separation of concerns
+  - **Backwards Compatibility**
+    - All existing code using `from libs.database import StockDatabase` continues to work
+    - StockDatabase acts as facade delegating to specialized repositories
+    - New code can directly use repository classes for cleaner architecture
 
 - **v1.3.0** (2026-01-17): Codebase Modularization & Refactoring
   - **Flask Blueprint Architecture**
