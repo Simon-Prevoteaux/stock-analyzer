@@ -91,7 +91,7 @@ def macro_rates():
         yield_curve = macro_fetcher.fetch_yield_curve()
         spreads_raw = macro_fetcher.calculate_yield_spreads()
         spreads = analyzer.interpret_yield_curve(spreads_raw)
-        spread_history = macro_fetcher.get_spread_history(lookback_days=365)
+        spread_history = macro_fetcher.get_spread_history(lookback_days=7300)  # 20 years
         recession_indicators = analyzer.get_recession_indicator_summary(spreads)
 
         # Credit spreads

@@ -839,26 +839,39 @@ class MacroDataFetcher:
 
         return spreads
 
-    def get_spread_history(self, lookback_days: int = 365) -> Dict:
+    def get_spread_history(self, lookback_days: int = 365, sample_interval: int = None) -> Dict:
         """
         Get historical spread data for charting
 
         Args:
             lookback_days: Days of history to fetch (default 1 year)
+            sample_interval: Sample every N days to reduce data points (default: auto-calculated)
+                            If None, will auto-calculate based on lookback to keep ~500 points
 
         Returns:
             Dict with dates and spread values for each spread type
         """
-        yields_10y = self._fetch_series(self.TREASURY_SERIES['10Y'],
-                                        start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
-        yields_2y = self._fetch_series(self.TREASURY_SERIES['2Y'],
-                                       start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
-        yields_3m = self._fetch_series(self.TREASURY_SERIES['3M'],
-                                       start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
-        yields_30y = self._fetch_series(self.TREASURY_SERIES['30Y'],
-                                        start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
-        yields_5y = self._fetch_series(self.TREASURY_SERIES['5Y'],
-                                       start_date=(datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d'))
+        # Auto-calculate sample interval if not provided
+        # Target ~500 data points for good chart performance
+        if sample_interval is None:
+            # ~252 trading days per year, so lookback_days / 252 = years
+            # For 1 year: daily (1), for 20 years: weekly (7)
+            if lookback_days <= 365:
+                sample_interval = 1  # Daily for 1 year or less
+            elif lookback_days <= 730:
+                sample_interval = 2  # Every other day for 2 years
+            elif lookback_days <= 1825:
+                sample_interval = 5  # ~Weekly for up to 5 years
+            else:
+                sample_interval = 7  # Weekly for longer periods
+
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        yields_10y = self._fetch_series(self.TREASURY_SERIES['10Y'], start_date=start_date)
+        yields_2y = self._fetch_series(self.TREASURY_SERIES['2Y'], start_date=start_date)
+        yields_3m = self._fetch_series(self.TREASURY_SERIES['3M'], start_date=start_date)
+        yields_30y = self._fetch_series(self.TREASURY_SERIES['30Y'], start_date=start_date)
+        yields_5y = self._fetch_series(self.TREASURY_SERIES['5Y'], start_date=start_date)
 
         history = {
             'dates': [],
@@ -871,7 +884,10 @@ class MacroDataFetcher:
         if not yields_10y.empty and not yields_2y.empty:
             merged = pd.merge(yields_10y, yields_2y, on='date', suffixes=('_10y', '_2y'))
 
-            for _, row in merged.iterrows():
+            # Sample data at specified interval
+            sampled = merged.iloc[::sample_interval].copy()
+
+            for _, row in sampled.iterrows():
                 date_str = row['date'].strftime('%Y-%m-%d')
                 if date_str not in history['dates']:
                     history['dates'].append(date_str)
@@ -882,26 +898,28 @@ class MacroDataFetcher:
         # 10Y-3M spread
         if not yields_10y.empty and not yields_3m.empty:
             merged = pd.merge(yields_10y, yields_3m, on='date', suffixes=('_10y', '_3m'))
+            sampled = merged.iloc[::sample_interval].copy()
 
             # Reset if we're starting fresh
             if not history['dates']:
-                for _, row in merged.iterrows():
+                for _, row in sampled.iterrows():
                     history['dates'].append(row['date'].strftime('%Y-%m-%d'))
 
-            for _, row in merged.iterrows():
+            for _, row in sampled.iterrows():
                 spread_10y3m = row['value_10y'] - row['value_3m']
                 history['10y3m'].append(round(spread_10y3m, 2))
 
         # 30Y-5Y spread
         if not yields_30y.empty and not yields_5y.empty:
             merged = pd.merge(yields_30y, yields_5y, on='date', suffixes=('_30y', '_5y'))
+            sampled = merged.iloc[::sample_interval].copy()
 
             # Reset if we're starting fresh
             if not history['dates']:
-                for _, row in merged.iterrows():
+                for _, row in sampled.iterrows():
                     history['dates'].append(row['date'].strftime('%Y-%m-%d'))
 
-            for _, row in merged.iterrows():
+            for _, row in sampled.iterrows():
                 spread_30y5y = row['value_30y'] - row['value_5y']
                 history['30y5y'].append(round(spread_30y5y, 2))
 
