@@ -99,7 +99,142 @@
         </div>
     </div>
 
-    <!-- Section 2: Housing Supply -->
+    <!-- Section 2: Housing Affordability (NAR Index) -->
+    <div class="macro-section">
+        <h2>
+            Housing Affordability Index
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Housing Affordability Index</strong><br><br>
+                    Measures whether a typical family earns enough to qualify for a mortgage on a typical home.<br><br>
+                    <strong>How to read:</strong><br>
+                    - Index = 100: Median family has exactly enough income for median home<br>
+                    - Index > 100: More affordable (family has income to spare)<br>
+                    - Index < 100: Less affordable (family income insufficient)<br><br>
+                    <strong>Components:</strong><br>
+                    - Median family income<br>
+                    - Median home price<br>
+                    - Current mortgage rate
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card {{ affordability_interp.status_class }}">
+                <div class="metric-title">Affordability Index</div>
+                <div class="metric-value">{{ affordability.current if affordability.current else 'N/A' }}</div>
+                {% if affordability.percentile %}
+                <div class="metric-subtitle">{{ affordability.percentile }}th percentile</div>
+                {% endif %}
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Recent Average</div>
+                <div class="metric-value">{{ affordability.historical_avg if affordability.historical_avg else 'N/A' }}</div>
+                <div class="metric-subtitle">Available Data Average</div>
+            </div>
+        </div>
+
+        <div class="interpretation-box {{ affordability_interp.status_class }}">
+            <div class="status-label">{{ affordability_interp.status }}</div>
+            <p>{{ affordability_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="affordabilityChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>The affordability squeeze:</strong> Affordability is determined by three factors: home prices, mortgage rates, and incomes. When prices rise faster than incomes, or when rates increase, affordability declines even if prices are flat. The current environment reflects the combined pressure of elevated prices AND higher rates.</p>
+        </div>
+    </div>
+
+    <!-- Section 3: Mortgage Debt Service Ratio -->
+    <div class="macro-section">
+        <h2>
+            Mortgage Debt Service Ratio
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Mortgage Debt Service as % of Disposable Income</strong><br><br>
+                    Shows what percentage of household disposable income goes to mortgage payments (principal + interest).<br><br>
+                    <strong>Interpretation:</strong><br>
+                    - Lower values = More affordable (less income to housing)<br>
+                    - Higher values = Less affordable (more income to housing)<br><br>
+                    <strong>Historical context:</strong><br>
+                    - Pre-2008: Peaked around 7.2%<br>
+                    - Post-2008: Fell to ~4% as rates dropped<br>
+                    - Current: Rising as rates normalize<br><br>
+                    Data source: Federal Reserve (quarterly, 20 years)
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">Current Ratio</div>
+                <div class="metric-value">{{ mortgage_debt_service.current if mortgage_debt_service.current else 'N/A' }}%</div>
+                <div class="metric-subtitle">% of disposable income</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">20-Year Average</div>
+                <div class="metric-value">{{ mortgage_debt_service.historical_avg if mortgage_debt_service.historical_avg else 'N/A' }}%</div>
+                <div class="metric-subtitle">Historical average</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Historical Range</div>
+                <div class="metric-value">{{ mortgage_debt_service.historical_low if mortgage_debt_service.historical_low else 'N/A' }}% - {{ mortgage_debt_service.historical_high if mortgage_debt_service.historical_high else 'N/A' }}%</div>
+                <div class="metric-subtitle">Low to High</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="mortgageDebtServiceChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Why this matters:</strong> The mortgage debt service ratio shows the actual burden of housing costs on households. Unlike the NAR Affordability Index (limited to 13 months of FRED data), this Fed series provides 20 years of quarterly data, showing how housing costs relative to income have evolved through multiple market cycles.</p>
+        </div>
+    </div>
+
+    <!-- Section 4: Price-to-Income Ratio -->
+    <div class="macro-section">
+        <h2>
+            Home Price to Income Ratio
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Median Home Price / Median Household Income</strong><br><br>
+                    A simple measure of how many years of income it takes to buy a home.<br><br>
+                    <strong>Interpretation:</strong><br>
+                    - Ratio of 3x: Historically affordable<br>
+                    - Ratio of 4x: Moderately expensive<br>
+                    - Ratio of 5x+: Significantly stretched<br><br>
+                    <strong>Note:</strong> This uses nominal values and annual data (income is reported annually).
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">Current Ratio</div>
+                <div class="metric-value">{{ price_to_income.current if price_to_income.current else 'N/A' }}x</div>
+                <div class="metric-subtitle">Years of income to buy</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">25-Year Average</div>
+                <div class="metric-value">{{ price_to_income.historical_avg if price_to_income.historical_avg else 'N/A' }}x</div>
+                <div class="metric-subtitle">Historical average</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="priceToIncomeChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Long-term perspective:</strong> The price-to-income ratio provides a fundamental view of housing affordability independent of interest rates. While low rates can make expensive homes affordable in terms of monthly payments, this ratio shows the underlying relationship between home prices and earning power.</p>
+        </div>
+    </div>
+
+    <!-- Section 5: Housing Supply -->
     <div class="macro-section">
         <h2>
             Housing Supply & Inventory
@@ -146,7 +281,7 @@
         </div>
     </div>
 
-    <!-- Section 3: Housing Activity -->
+    <!-- Section 6: Housing Activity -->
     <div class="macro-section">
         <h2>
             Housing Activity
@@ -199,7 +334,7 @@
         </div>
     </div>
 
-    <!-- Section 4: Mortgage Rates -->
+    <!-- Section 7: Mortgage Rates -->
     <div class="macro-section">
         <h2>
             Mortgage Rates
@@ -242,55 +377,6 @@
 
         <div class="chart-container">
             <canvas id="mortgageChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Section 5: Affordability -->
-    <div class="macro-section">
-        <h2>
-            Housing Affordability
-            <span class="tooltip">i
-                <span class="tooltiptext">
-                    <strong>Housing Affordability Index</strong><br><br>
-                    Measures whether a typical family earns enough to qualify for a mortgage on a typical home.<br><br>
-                    <strong>How to read:</strong><br>
-                    - Index = 100: Median family has exactly enough income for median home<br>
-                    - Index > 100: More affordable (family has income to spare)<br>
-                    - Index < 100: Less affordable (family income insufficient)<br><br>
-                    <strong>Components:</strong><br>
-                    - Median family income<br>
-                    - Median home price<br>
-                    - Current mortgage rate
-                </span>
-            </span>
-        </h2>
-
-        <div class="metrics-grid">
-            <div class="metric-card {{ affordability_interp.status_class }}">
-                <div class="metric-title">Affordability Index</div>
-                <div class="metric-value">{{ affordability.current if affordability.current else 'N/A' }}</div>
-                {% if affordability.percentile %}
-                <div class="metric-subtitle">{{ affordability.percentile }}th percentile</div>
-                {% endif %}
-            </div>
-            <div class="metric-card">
-                <div class="metric-title">Recent Average</div>
-                <div class="metric-value">{{ affordability.historical_avg if affordability.historical_avg else 'N/A' }}</div>
-                <div class="metric-subtitle">Available Data Average</div>
-            </div>
-        </div>
-
-        <div class="interpretation-box {{ affordability_interp.status_class }}">
-            <div class="status-label">{{ affordability_interp.status }}</div>
-            <p>{{ affordability_interp.interpretation }}</p>
-        </div>
-
-        <div class="chart-container">
-            <canvas id="affordabilityChart"></canvas>
-        </div>
-
-        <div class="explanation-box">
-            <p><strong>The affordability squeeze:</strong> Affordability is determined by three factors: home prices, mortgage rates, and incomes. When prices rise faster than incomes, or when rates increase, affordability declines even if prices are flat. The current environment reflects the combined pressure of elevated prices AND higher rates.</p>
         </div>
     </div>
 
@@ -368,6 +454,33 @@ document.addEventListener('DOMContentLoaded', function() {
         title: 'Housing Affordability Index - Recent History (NAR data)',
         horizontalLines: [
             { value: 100, label: 'Affordability Threshold', color: 'rgba(255, 68, 68, 0.5)' }
+        ]
+    });
+    {% endif %}
+
+    // Mortgage Debt Service Ratio Chart (20 years of data)
+    {% if mortgage_debt_service.history and mortgage_debt_service.history['dates'] %}
+    renderRealEstateChart('mortgageDebtServiceChart', {
+        dates: {{ mortgage_debt_service.history['dates'] | tojson }},
+        values: {{ mortgage_debt_service.history['values'] | tojson }},
+        label: 'Mortgage Debt Service (%)',
+        title: 'Mortgage Debt Service as % of Disposable Income - 20 Year History',
+        horizontalLines: [
+            { value: {{ mortgage_debt_service.historical_avg | tojson }}, label: 'Historical Average', color: 'rgba(100, 181, 246, 0.7)' }
+        ]
+    });
+    {% endif %}
+
+    // Price-to-Income Ratio Chart (25 years of data)
+    {% if price_to_income.history and price_to_income.history['dates'] %}
+    renderRealEstateChart('priceToIncomeChart', {
+        dates: {{ price_to_income.history['dates'] | tojson }},
+        values: {{ price_to_income.history['values'] | tojson }},
+        label: 'Price-to-Income Ratio',
+        title: 'Home Price to Income Ratio - 25 Year History',
+        horizontalLines: [
+            { value: {{ price_to_income.historical_avg | tojson }}, label: 'Historical Average', color: 'rgba(100, 181, 246, 0.7)' },
+            { value: 4, label: 'Moderate Threshold', color: 'rgba(255, 193, 7, 0.5)' }
         ]
     });
     {% endif %}

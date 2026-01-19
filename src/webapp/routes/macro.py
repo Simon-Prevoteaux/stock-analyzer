@@ -167,9 +167,9 @@ def macro_global_economy():
             buffett_data, m2_gdp_data, debt_gdp_data, velocity_data
         )
 
-        # Get last update date
+        # Get last update date (use GDP since Buffett indicator is now calculated from Yahoo Finance)
         last_update = macro_fetcher.get_last_update_date(
-            macro_fetcher.GLOBAL_ECONOMY_SERIES['wilshire_5000']
+            macro_fetcher.GLOBAL_ECONOMY_SERIES['gdp']
         )
 
         return render_template(
@@ -212,6 +212,8 @@ def macro_real_estate():
         mortgage_rates = macro_fetcher.fetch_mortgage_rates(lookback_years=15)
         affordability = macro_fetcher.fetch_housing_affordability(lookback_years=15)
         median_price = macro_fetcher.fetch_median_home_price(lookback_years=25)
+        mortgage_debt_service = macro_fetcher.fetch_mortgage_debt_service(lookback_years=20)
+        price_to_income = macro_fetcher.fetch_price_to_income_ratio(lookback_years=25)
 
         # Add interpretations
         supply_interp = analyzer.interpret_housing_supply(
@@ -252,6 +254,8 @@ def macro_real_estate():
             affordability=affordability,
             affordability_interp=affordability_interp,
             median_price=median_price,
+            mortgage_debt_service=mortgage_debt_service,
+            price_to_income=price_to_income,
             summary=summary,
             last_update=last_update
         )

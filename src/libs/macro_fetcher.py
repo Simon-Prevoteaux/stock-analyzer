@@ -55,7 +55,7 @@ class MacroDataFetcher:
 
     # Global Economy Series IDs
     GLOBAL_ECONOMY_SERIES = {
-        'wilshire_5000': 'WILL5000INDFC',     # Wilshire 5000 Total Market Full Cap Index
+        'buffett_indicator': 'DDDM01USA156NWDB',  # Stock Market Capitalization to GDP (pre-calculated Buffett Indicator)
         'gdp': 'GDP',                          # Gross Domestic Product (quarterly)
         'm2': 'M2SL',                          # M2 Money Stock (monthly)
         'm2_velocity': 'M2V',                  # Velocity of M2 Money Stock
@@ -77,6 +77,7 @@ class MacroDataFetcher:
         'affordability_index': 'FIXHAI',          # Housing Affordability Index
         'median_home_price': 'MSPUS',             # Median Sales Price of Houses Sold
         'median_income': 'MEHOINUSA646N',         # Median Household Income (annual)
+        'mortgage_debt_service': 'MDSP',          # Mortgage Debt Service as % of Disposable Income
     }
 
     def __init__(self, fred_api_key: str, db=None, cache_hours: int = 24):
@@ -112,8 +113,8 @@ class MacroDataFetcher:
                 data_type = 'credit_spread'
             elif series_id == 'GC=F':
                 data_type = 'gold'
-            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('wilshire_5000')]:
-                data_type = 'market_cap'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('buffett_indicator')]:
+                data_type = 'buffett_indicator'
             elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('gdp')]:
                 data_type = 'gdp'
             elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('m2'), self.GLOBAL_ECONOMY_SERIES.get('m2_velocity')]:
@@ -135,7 +136,8 @@ class MacroDataFetcher:
             elif series_id in [self.REAL_ESTATE_SERIES.get('mortgage_30y')]:
                 data_type = 'mortgage'
             elif series_id in [self.REAL_ESTATE_SERIES.get('affordability_index'),
-                              self.REAL_ESTATE_SERIES.get('median_income')]:
+                              self.REAL_ESTATE_SERIES.get('median_income'),
+                              self.REAL_ESTATE_SERIES.get('mortgage_debt_service')]:
                 data_type = 'affordability'
             else:
                 return None
@@ -185,8 +187,8 @@ class MacroDataFetcher:
                 data_type = 'credit_spread'
             elif series_id == 'GC=F':
                 data_type = 'gold'
-            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('wilshire_5000')]:
-                data_type = 'market_cap'
+            elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('buffett_indicator')]:
+                data_type = 'buffett_indicator'
             elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('gdp')]:
                 data_type = 'gdp'
             elif series_id in [self.GLOBAL_ECONOMY_SERIES.get('m2'), self.GLOBAL_ECONOMY_SERIES.get('m2_velocity')]:
@@ -208,7 +210,8 @@ class MacroDataFetcher:
             elif series_id in [self.REAL_ESTATE_SERIES.get('mortgage_30y')]:
                 data_type = 'mortgage'
             elif series_id in [self.REAL_ESTATE_SERIES.get('affordability_index'),
-                              self.REAL_ESTATE_SERIES.get('median_income')]:
+                              self.REAL_ESTATE_SERIES.get('median_income'),
+                              self.REAL_ESTATE_SERIES.get('mortgage_debt_service')]:
                 data_type = 'affordability'
             else:
                 return
@@ -959,11 +962,17 @@ class MacroDataFetcher:
 
     def fetch_buffett_indicator(self, lookback_years: int = 25) -> Dict:
         """
-        Fetch and calculate the Buffett Indicator (Market Cap / GDP)
+        Calculate the Buffett Indicator (Total Market Cap / GDP)
 
-        The Buffett Indicator compares total stock market capitalization (Wilshire 5000)
-        to US GDP. Warren Buffett called this "probably the best single measure of
+        Warren Buffett called this "probably the best single measure of
         where valuations stand at any given moment."
+
+        Calculates by fetching:
+        - Wilshire 5000 Total Market Index from Yahoo Finance (^W5000)
+        - GDP from FRED
+
+        The Wilshire 5000 index value represents approximately $1 billion per point
+        (this approximation has evolved over time but remains useful for the ratio).
 
         Args:
             lookback_years: Years of history to fetch
@@ -974,73 +983,86 @@ class MacroDataFetcher:
         lookback_days = lookback_years * 365
         start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
 
-        # Fetch Wilshire 5000 (daily)
-        wilshire_df = self._fetch_series(
-            self.GLOBAL_ECONOMY_SERIES['wilshire_5000'],
-            start_date=start_date
-        )
+        try:
+            # Fetch Wilshire 5000 from Yahoo Finance (FRED removed this data in June 2024)
+            wilshire = yf.Ticker("^W5000")
+            wilshire_df = wilshire.history(period=f"{lookback_years}y", interval="1mo")
 
-        # Fetch GDP (quarterly) - values in billions
-        gdp_df = self._fetch_series(
-            self.GLOBAL_ECONOMY_SERIES['gdp'],
-            start_date=start_date
-        )
+            if wilshire_df.empty:
+                logger.warning("Could not fetch Wilshire 5000 data from Yahoo Finance")
+                return {
+                    'current': None,
+                    'percentile': None,
+                    'history': {'dates': [], 'values': []}
+                }
 
-        if wilshire_df.empty or gdp_df.empty:
-            logger.warning("Could not fetch Buffett Indicator data")
+            # Process Wilshire data - use Close prices
+            wilshire_df = wilshire_df.reset_index()
+            wilshire_df = wilshire_df[['Date', 'Close']].copy()
+            wilshire_df.columns = ['date', 'wilshire']
+            wilshire_df['date'] = pd.to_datetime(wilshire_df['date']).dt.tz_localize(None)
+
+            # Fetch GDP from FRED (quarterly, in billions)
+            gdp_df = self._fetch_series(
+                self.GLOBAL_ECONOMY_SERIES['gdp'],
+                start_date=start_date
+            )
+
+            if gdp_df.empty:
+                logger.warning("Could not fetch GDP data from FRED")
+                return {
+                    'current': None,
+                    'percentile': None,
+                    'history': {'dates': [], 'values': []}
+                }
+
+            # Forward-fill GDP to monthly frequency to match Wilshire
+            gdp_df = gdp_df.set_index('date')
+            gdp_monthly = gdp_df.reindex(wilshire_df['date'], method='ffill').reset_index()
+            gdp_monthly.columns = ['date', 'gdp']
+
+            # Merge datasets
+            merged = pd.merge(wilshire_df, gdp_monthly, on='date', how='inner')
+            merged = merged.dropna()
+
+            if merged.empty:
+                logger.warning("No overlapping data between Wilshire and GDP")
+                return {
+                    'current': None,
+                    'percentile': None,
+                    'history': {'dates': [], 'values': []}
+                }
+
+            # Calculate Buffett Indicator
+            # Wilshire 5000 index value ≈ total market cap in billions (roughly 1:1)
+            # GDP is in billions, so ratio * 100 gives percentage
+            merged['buffett'] = (merged['wilshire'] / merged['gdp']) * 100
+
+            # Get current value
+            current_value = merged.iloc[-1]['buffett']
+
+            # Calculate percentile
+            percentile = (merged['buffett'] <= current_value).sum() / len(merged) * 100
+
+            # Prepare history for charting
+            history = {
+                'dates': merged['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': merged['buffett'].round(1).tolist()
+            }
+
+            return {
+                'current': round(current_value, 1),
+                'percentile': round(percentile, 1),
+                'history': history
+            }
+
+        except Exception as e:
+            logger.error(f"Error calculating Buffett Indicator: {e}")
             return {
                 'current': None,
                 'percentile': None,
-                'history': {'dates': [], 'values': []},
-                'gdp_history': {'dates': [], 'values': []},
-                'wilshire_history': {'dates': [], 'values': []}
+                'history': {'dates': [], 'values': []}
             }
-
-        # Wilshire 5000 is an index where 1 point = $1 billion market cap
-        # GDP is in billions of dollars
-        # Buffett Indicator = (Wilshire 5000 / GDP) * 100
-
-        # Forward-fill GDP to daily frequency for calculation
-        gdp_df = gdp_df.set_index('date')
-        gdp_daily = gdp_df.reindex(wilshire_df['date']).ffill().reset_index()
-        gdp_daily.columns = ['date', 'gdp']
-
-        # Merge and calculate
-        merged = pd.merge(wilshire_df, gdp_daily, on='date')
-        merged['buffett'] = (merged['value'] / merged['gdp']) * 100
-
-        # Get current value
-        current_value = merged.iloc[-1]['buffett'] if not merged.empty else None
-
-        # Calculate percentile
-        percentile = None
-        if current_value is not None and len(merged) > 10:
-            percentile = (merged['buffett'] <= current_value).sum() / len(merged) * 100
-
-        # Prepare history for charting
-        history = {
-            'dates': merged['date'].dt.strftime('%Y-%m-%d').tolist(),
-            'values': merged['buffett'].round(1).tolist()
-        }
-
-        # Also return raw Wilshire and GDP for additional charts
-        wilshire_history = {
-            'dates': wilshire_df['date'].dt.strftime('%Y-%m-%d').tolist(),
-            'values': wilshire_df['value'].round(0).tolist()
-        }
-
-        gdp_history = {
-            'dates': gdp_df.reset_index()['date'].dt.strftime('%Y-%m-%d').tolist(),
-            'values': gdp_df.reset_index()['value'].round(0).tolist()
-        }
-
-        return {
-            'current': round(current_value, 1) if current_value else None,
-            'percentile': round(percentile, 1) if percentile else None,
-            'history': history,
-            'wilshire_history': wilshire_history,
-            'gdp_history': gdp_history
-        }
 
     def fetch_m2_gdp_ratio(self, lookback_years: int = 25) -> Dict:
         """
@@ -1564,4 +1586,124 @@ class MacroDataFetcher:
                 'values': price_df['value'].round(0).tolist()
             },
             'yoy_change': round(yoy_change, 1) if yoy_change else None
+        }
+
+    def fetch_mortgage_debt_service(self, lookback_years: int = 20) -> Dict:
+        """
+        Fetch Mortgage Debt Service Payments as % of Disposable Personal Income
+
+        This metric shows what percentage of household income goes to mortgage payments.
+        Lower values indicate more affordable housing relative to income.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current value, historical series, and comparisons
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        mdsp_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['mortgage_debt_service'],
+            start_date=start_date
+        )
+
+        if mdsp_df.empty:
+            logger.warning("Could not fetch Mortgage Debt Service data")
+            return {
+                'current': None,
+                'history': {'dates': [], 'values': []},
+                'historical_avg': None,
+                'historical_high': None,
+                'historical_low': None
+            }
+
+        current = mdsp_df.iloc[-1]['value']
+
+        # Historical stats
+        historical_avg = mdsp_df['value'].mean()
+        historical_high = mdsp_df['value'].max()
+        historical_low = mdsp_df['value'].min()
+
+        return {
+            'current': round(current, 2),
+            'history': {
+                'dates': mdsp_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': mdsp_df['value'].round(2).tolist()
+            },
+            'historical_avg': round(historical_avg, 2),
+            'historical_high': round(historical_high, 2),
+            'historical_low': round(historical_low, 2)
+        }
+
+    def fetch_price_to_income_ratio(self, lookback_years: int = 25) -> Dict:
+        """
+        Calculate Home Price to Income Ratio
+
+        This is a simple affordability metric: Median Home Price / Median Household Income.
+        Higher values indicate less affordable housing.
+
+        Note: Income data is annual, so the ratio is calculated at annual frequency.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current ratio, historical series, and comparisons
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch median home price (quarterly)
+        price_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['median_home_price'],
+            start_date=start_date
+        )
+
+        # Fetch median household income (annual)
+        income_df = self._fetch_series(
+            self.REAL_ESTATE_SERIES['median_income'],
+            start_date=start_date
+        )
+
+        if price_df.empty or income_df.empty:
+            logger.warning("Could not fetch Price-to-Income ratio data")
+            return {
+                'current': None,
+                'history': {'dates': [], 'values': []},
+                'historical_avg': None
+            }
+
+        # Convert price to annual (use Q4 of each year for consistency)
+        price_df['year'] = price_df['date'].dt.year
+        annual_prices = price_df.groupby('year')['value'].last().reset_index()
+        annual_prices.columns = ['year', 'price']
+
+        # Prepare income data
+        income_df['year'] = income_df['date'].dt.year
+        income_annual = income_df[['year', 'value']].copy()
+        income_annual.columns = ['year', 'income']
+
+        # Merge and calculate ratio
+        merged = pd.merge(annual_prices, income_annual, on='year')
+        merged['ratio'] = merged['price'] / merged['income']
+
+        if merged.empty:
+            return {
+                'current': None,
+                'history': {'dates': [], 'values': []},
+                'historical_avg': None
+            }
+
+        current = merged.iloc[-1]['ratio']
+        historical_avg = merged['ratio'].mean()
+
+        return {
+            'current': round(current, 2),
+            'history': {
+                'dates': [f"{int(y)}-01-01" for y in merged['year'].tolist()],
+                'values': merged['ratio'].round(2).tolist()
+            },
+            'historical_avg': round(historical_avg, 2)
         }
