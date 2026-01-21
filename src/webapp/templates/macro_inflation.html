@@ -1,0 +1,593 @@
+{% extends "base.html" %}
+
+{% block title %}Inflation & Fed Watch - Macro Signals{% endblock %}
+
+{% block content %}
+<div class="macro-dashboard">
+    <div class="page-header">
+        <h1>Inflation & Fed Watch</h1>
+        <p class="subtitle">Track inflation metrics, Fed policy, and real interest rates</p>
+        {% if last_update %}
+        <p class="last-update">Last updated: {{ last_update }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Fed Policy Summary Section -->
+    {% if fed_summary %}
+    <div class="recession-indicators">
+        <h3>Fed Policy Assessment</h3>
+        <div class="indicator-summary {{ fed_summary.stance_class }}">
+            <div class="risk-level">Fed Stance: <strong>{{ fed_summary.stance }}</strong></div>
+            <div class="risk-summary">{{ fed_summary.summary }}</div>
+            {% if fed_summary.signals %}
+            <ul class="risk-signals">
+                {% for signal in fed_summary.signals %}
+                <li>{{ signal }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Section 1: Current Inflation Metrics -->
+    <div class="macro-section">
+        <h2>
+            Current Inflation Rates
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Key Inflation Measures</strong><br><br>
+                    <strong>CPI (Consumer Price Index):</strong><br>
+                    Measures price changes for a basket of consumer goods. Headline number includes food and energy.<br><br>
+                    <strong>Core CPI:</strong><br>
+                    CPI excluding volatile food and energy prices. Shows underlying inflation trend.<br><br>
+                    <strong>PCE (Personal Consumption Expenditures):</strong><br>
+                    Broader measure of consumer spending. Fed's preferred measure.<br><br>
+                    <strong>Core PCE:</strong><br>
+                    Fed's PRIMARY inflation target (2%). Most important for policy decisions.
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <!-- CPI -->
+            <div class="metric-card {{ 'positive' if inflation.cpi.current and inflation.cpi.current < 2.5 else 'warning' if inflation.cpi.current and inflation.cpi.current < 4 else 'danger' }}">
+                <div class="metric-label">CPI (YoY)</div>
+                <div class="metric-value">{{ inflation.cpi.current if inflation.cpi.current else 'N/A' }}%</div>
+                {% if inflation.cpi.previous %}
+                <div class="metric-change {{ 'positive' if inflation.cpi.current < inflation.cpi.previous else 'negative' }}">
+                    {% if inflation.cpi.current < inflation.cpi.previous %}&#9660;{% else %}&#9650;{% endif %}
+                    vs {{ inflation.cpi.previous }}% prev
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Core CPI -->
+            <div class="metric-card {{ 'positive' if inflation.core_cpi.current and inflation.core_cpi.current < 2.5 else 'warning' if inflation.core_cpi.current and inflation.core_cpi.current < 4 else 'danger' }}">
+                <div class="metric-label">Core CPI (YoY)</div>
+                <div class="metric-value">{{ inflation.core_cpi.current if inflation.core_cpi.current else 'N/A' }}%</div>
+                {% if inflation.core_cpi.previous %}
+                <div class="metric-change {{ 'positive' if inflation.core_cpi.current < inflation.core_cpi.previous else 'negative' }}">
+                    {% if inflation.core_cpi.current < inflation.core_cpi.previous %}&#9660;{% else %}&#9650;{% endif %}
+                    vs {{ inflation.core_cpi.previous }}% prev
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- PCE -->
+            <div class="metric-card {{ 'positive' if inflation.pce.current and inflation.pce.current < 2.5 else 'warning' if inflation.pce.current and inflation.pce.current < 4 else 'danger' }}">
+                <div class="metric-label">PCE (YoY)</div>
+                <div class="metric-value">{{ inflation.pce.current if inflation.pce.current else 'N/A' }}%</div>
+                {% if inflation.pce.previous %}
+                <div class="metric-change {{ 'positive' if inflation.pce.current < inflation.pce.previous else 'negative' }}">
+                    {% if inflation.pce.current < inflation.pce.previous %}&#9660;{% else %}&#9650;{% endif %}
+                    vs {{ inflation.pce.previous }}% prev
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Core PCE (Fed's Target) -->
+            <div class="metric-card highlight {{ 'positive' if inflation.core_pce.current and inflation.core_pce.current < 2.5 else 'warning' if inflation.core_pce.current and inflation.core_pce.current < 4 else 'danger' }}">
+                <div class="metric-label">Core PCE (YoY) - Fed Target</div>
+                <div class="metric-value">{{ inflation.core_pce.current if inflation.core_pce.current else 'N/A' }}%</div>
+                <div class="metric-target">Target: 2.0%</div>
+                {% if inflation_interp.vs_target %}
+                <div class="metric-vs-target {{ 'positive' if inflation_interp.vs_target <= 0.5 else 'warning' if inflation_interp.vs_target <= 1.5 else 'danger' }}">
+                    {{ '+' if inflation_interp.vs_target > 0 else '' }}{{ inflation_interp.vs_target }}% vs target
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="interpretation-box {{ inflation_interp.status_class }}">
+            <div class="status-label">{{ inflation_interp.status }}</div>
+            <p>{{ inflation_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="inflationChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Fed's 2% Target:</strong> The Fed targets 2% Core PCE inflation as optimal for economic stability. Above this, they tighten policy (raise rates); below, they ease. The horizontal line shows this target.</p>
+        </div>
+    </div>
+
+    <!-- Section 2: Inflation Expectations (Breakevens) -->
+    <div class="macro-section">
+        <h2>
+            Market Inflation Expectations (TIPS Breakevens)
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Breakeven Inflation Rates</strong><br><br>
+                    Derived from the difference between nominal Treasury yields and TIPS (inflation-protected) yields.<br><br>
+                    <strong>What it shows:</strong><br>
+                    What inflation rate makes investors indifferent between regular Treasuries and TIPS.<br><br>
+                    <strong>Why it matters:</strong><br>
+                    - Below 2%: Market expects Fed to undershoot target<br>
+                    - 2-2.5%: Well-anchored expectations<br>
+                    - Above 2.5%: Inflation concerns priced in<br><br>
+                    If expectations become unanchored (>3%), Fed loses credibility.
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <!-- 5Y Breakeven -->
+            <div class="metric-card {{ breakeven_interp.status_class }}">
+                <div class="metric-label">5-Year Breakeven</div>
+                <div class="metric-value">{{ breakevens['5y'].current if breakevens['5y'].current else 'N/A' }}%</div>
+                <div class="metric-sublabel">Market expects {{ breakevens['5y'].current }}% avg inflation over next 5 years</div>
+            </div>
+
+            <!-- 10Y Breakeven -->
+            <div class="metric-card {{ breakeven_interp.status_class }}">
+                <div class="metric-label">10-Year Breakeven</div>
+                <div class="metric-value">{{ breakevens['10y'].current if breakevens['10y'].current else 'N/A' }}%</div>
+                <div class="metric-sublabel">Market expects {{ breakevens['10y'].current }}% avg inflation over next 10 years</div>
+            </div>
+        </div>
+
+        <div class="interpretation-box {{ breakeven_interp.status_class }}">
+            <div class="status-label">{{ breakeven_interp.status }}</div>
+            <p>{{ breakeven_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="breakevenChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Section 3: Real Interest Rates -->
+    <div class="macro-section">
+        <h2>
+            Real Interest Rate
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Real Interest Rate</strong><br><br>
+                    <strong>Formula:</strong><br>
+                    Fed Funds Rate - Core PCE Inflation<br><br>
+                    <strong>Interpretation:</strong><br>
+                    - Negative: Borrowing costs below inflation = stimulative<br>
+                    - Positive: Borrowing costs above inflation = restrictive<br><br>
+                    <strong>Policy Stance:</strong><br>
+                    - Below -2%: Very accommodative<br>
+                    - -2% to 0%: Accommodative<br>
+                    - 0% to 1%: Neutral<br>
+                    - 1% to 2%: Restrictive<br>
+                    - Above 2%: Very restrictive<br><br>
+                    Real rates are arguably more important than nominal rates for understanding true monetary conditions.
+                </span>
+            </span>
+        </h2>
+
+        <div class="indicator-value-box {{ real_rate_interp.status_class }}">
+            <div class="big-value">{{ real_rate.current if real_rate.current else 'N/A' }}%</div>
+            <div class="value-label">Real Fed Funds Rate</div>
+            <div class="value-breakdown">
+                Fed Funds ({{ real_rate.fed_funds }}%) - Core PCE ({{ real_rate.core_pce }}%)
+            </div>
+        </div>
+
+        <div class="interpretation-box {{ real_rate_interp.status_class }}">
+            <div class="status-label">{{ real_rate_interp.status }}</div>
+            <p>{{ real_rate_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="realRateChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Why real rates matter:</strong> A 5% Fed Funds rate with 5% inflation means real borrowing costs are zero - still stimulative! Real rates show the true tightness of monetary policy.</p>
+        </div>
+    </div>
+
+    <!-- Section 4: Fed Balance Sheet -->
+    <div class="macro-section">
+        <h2>
+            Fed Balance Sheet
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Federal Reserve Total Assets</strong><br><br>
+                    The Fed's balance sheet represents money it has "printed" to buy assets.<br><br>
+                    <strong>QE (Quantitative Easing):</strong><br>
+                    Balance sheet expansion - Fed buys bonds, injecting liquidity. Supports asset prices.<br><br>
+                    <strong>QT (Quantitative Tightening):</strong><br>
+                    Balance sheet contraction - Fed lets bonds mature, draining liquidity. Headwind for assets.<br><br>
+                    <strong>Historical Context:</strong><br>
+                    - Pre-2008: ~$800B<br>
+                    - Post-2008 QE: ~$4.5T<br>
+                    - Post-2020 QE: ~$9T peak<br>
+                    - Current QT: Slowly declining
+                </span>
+            </span>
+        </h2>
+
+        <div class="indicator-value-box {{ balance_sheet_interp.status_class }}">
+            <div class="big-value">${{ balance_sheet.current_trillions if balance_sheet.current_trillions else 'N/A' }}T</div>
+            <div class="value-label">Total Fed Assets</div>
+            {% if balance_sheet.yoy_change_pct %}
+            <div class="change-info {{ 'positive' if balance_sheet.yoy_change_pct > 0 else 'negative' }}">
+                YoY: {{ '+' if balance_sheet.yoy_change_pct > 0 else '' }}{{ balance_sheet.yoy_change_pct }}%
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="interpretation-box {{ balance_sheet_interp.status_class }}">
+            <div class="status-label">{{ balance_sheet_interp.status }}</div>
+            <p>{{ balance_sheet_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="balanceSheetChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Liquidity impact:</strong> When the Fed expands its balance sheet, it creates money and injects it into the financial system. This excess liquidity often finds its way into stocks, bonds, and other assets, pushing prices higher.</p>
+        </div>
+    </div>
+
+    <!-- Section 5: Fed Funds Rate -->
+    <div class="macro-section">
+        <h2>
+            Fed Funds Target Rate
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Federal Funds Rate</strong><br><br>
+                    The interest rate at which banks lend to each other overnight.<br><br>
+                    <strong>Why it matters:</strong><br>
+                    - Sets the floor for all other interest rates<br>
+                    - Affects mortgage rates, credit cards, loans<br>
+                    - Primary tool for monetary policy<br><br>
+                    <strong>Historical Context:</strong><br>
+                    - 2008-2015: Near zero (0-0.25%)<br>
+                    - 2018-2019: Up to 2.5%<br>
+                    - 2020-2021: Back to near zero<br>
+                    - 2022-2023: Aggressive hiking cycle
+                </span>
+            </span>
+        </h2>
+
+        <div class="indicator-value-box neutral">
+            <div class="big-value">{{ fed_funds.current if fed_funds.current else 'N/A' }}%</div>
+            <div class="value-label">Current Target (Upper Bound)</div>
+            {% if fed_funds.yoy_change %}
+            <div class="change-info {{ 'negative' if fed_funds.yoy_change > 0 else 'positive' }}">
+                YoY: {{ '+' if fed_funds.yoy_change > 0 else '' }}{{ fed_funds.yoy_change }}%
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="chart-container">
+            <canvas id="fedFundsChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<style>
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.metric-card {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1.2rem;
+    text-align: center;
+    border: 1px solid #333;
+}
+
+.metric-card.highlight {
+    border: 2px solid #2196F3;
+    background: #1a2633;
+}
+
+.metric-card.positive {
+    border-color: #4caf50;
+}
+
+.metric-card.warning {
+    border-color: #ff9800;
+}
+
+.metric-card.danger {
+    border-color: #f44336;
+}
+
+.metric-label {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.metric-target {
+    font-size: 0.8rem;
+    color: #2196F3;
+    margin-top: 0.3rem;
+}
+
+.metric-vs-target {
+    font-size: 0.85rem;
+    margin-top: 0.3rem;
+}
+
+.metric-vs-target.positive {
+    color: #4caf50;
+}
+
+.metric-vs-target.warning {
+    color: #ff9800;
+}
+
+.metric-vs-target.danger {
+    color: #f44336;
+}
+
+.metric-change {
+    font-size: 0.8rem;
+    margin-top: 0.3rem;
+}
+
+.metric-change.positive {
+    color: #4caf50;
+}
+
+.metric-change.negative {
+    color: #f44336;
+}
+
+.metric-sublabel {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.5rem;
+}
+
+.value-breakdown {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 0.5rem;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: { color: '#ccc' }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#888' },
+                grid: { color: '#333' }
+            },
+            y: {
+                ticks: { color: '#888' },
+                grid: { color: '#333' }
+            }
+        }
+    };
+
+    // Inflation Chart
+    {% if inflation.core_pce.history['dates'] %}
+    new Chart(document.getElementById('inflationChart'), {
+        type: 'line',
+        data: {
+            labels: {{ inflation.core_pce.history['dates'] | tojson }},
+            datasets: [
+                {
+                    label: 'Core PCE (Fed Target)',
+                    data: {{ inflation.core_pce.history['values'] | tojson }},
+                    borderColor: '#2196F3',
+                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                    tension: 0.3,
+                    borderWidth: 2
+                },
+                {
+                    label: 'CPI',
+                    data: {{ inflation.cpi.history['values'] | tojson }},
+                    borderColor: '#ff9800',
+                    backgroundColor: 'transparent',
+                    tension: 0.3,
+                    borderWidth: 1
+                },
+                {
+                    label: '2% Target',
+                    data: Array({{ inflation.core_pce.history['dates'] | length }}).fill(2),
+                    borderColor: '#4caf50',
+                    borderDash: [5, 5],
+                    borderWidth: 1,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Inflation YoY (%) - 10 Year History',
+                    color: '#ccc'
+                },
+                annotation: {
+                    annotations: {
+                        line1: {
+                            type: 'line',
+                            yMin: 2,
+                            yMax: 2,
+                            borderColor: '#4caf50',
+                            borderWidth: 2,
+                            borderDash: [5, 5]
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // Breakeven Chart
+    {% if breakevens['5y'].history['dates'] %}
+    new Chart(document.getElementById('breakevenChart'), {
+        type: 'line',
+        data: {
+            labels: {{ breakevens['5y'].history['dates'] | tojson }},
+            datasets: [
+                {
+                    label: '5Y Breakeven',
+                    data: {{ breakevens['5y'].history['values'] | tojson }},
+                    borderColor: '#2196F3',
+                    tension: 0.3,
+                    borderWidth: 2
+                },
+                {
+                    label: '10Y Breakeven',
+                    data: {{ breakevens['10y'].history['values'] | tojson }},
+                    borderColor: '#9c27b0',
+                    tension: 0.3,
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Market Inflation Expectations (%)',
+                    color: '#ccc'
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // Real Rate Chart
+    {% if real_rate.history['dates'] %}
+    new Chart(document.getElementById('realRateChart'), {
+        type: 'line',
+        data: {
+            labels: {{ real_rate.history['dates'] | tojson }},
+            datasets: [{
+                label: 'Real Fed Funds Rate',
+                data: {{ real_rate.history['values'] | tojson }},
+                borderColor: '#2196F3',
+                backgroundColor: 'rgba(33, 150, 243, 0.2)',
+                fill: true,
+                tension: 0.3,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Real Interest Rate (Fed Funds - Core PCE)',
+                    color: '#ccc'
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // Balance Sheet Chart
+    {% if balance_sheet.history['dates'] %}
+    new Chart(document.getElementById('balanceSheetChart'), {
+        type: 'line',
+        data: {
+            labels: {{ balance_sheet.history['dates'] | tojson }},
+            datasets: [{
+                label: 'Fed Total Assets ($T)',
+                data: {{ balance_sheet.history['values'] | tojson }},
+                borderColor: '#9c27b0',
+                backgroundColor: 'rgba(156, 39, 176, 0.2)',
+                fill: true,
+                tension: 0.3,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Federal Reserve Balance Sheet (Trillions $)',
+                    color: '#ccc'
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // Fed Funds Chart
+    {% if fed_funds.history['dates'] %}
+    new Chart(document.getElementById('fedFundsChart'), {
+        type: 'line',
+        data: {
+            labels: {{ fed_funds.history['dates'] | tojson }},
+            datasets: [{
+                label: 'Fed Funds Target Rate (%)',
+                data: {{ fed_funds.history['values'] | tojson }},
+                borderColor: '#ff5722',
+                backgroundColor: 'rgba(255, 87, 34, 0.2)',
+                fill: true,
+                tension: 0.1,
+                stepped: true,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Fed Funds Target Rate - 20 Year History',
+                    color: '#ccc'
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

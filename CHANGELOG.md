@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-01-20
+
+### Added
+- **Inflation & Fed Watch Dashboard** (`/macro/inflation`): Track Fed policy and inflation metrics
+  - CPI, Core CPI, PCE, Core PCE with YoY trends and Fed target comparison
+  - TIPS Breakeven inflation rates (5Y and 10Y market expectations)
+  - Real interest rate calculation (Fed Funds - Core PCE)
+  - Fed Balance Sheet tracking with QE/QT trend detection
+  - Fed Funds target rate historical chart
+  - Overall Fed policy stance assessment (Hawkish/Neutral/Dovish)
+
+- **Market Sentiment Dashboard** (`/macro/sentiment`): Fear & Greed indicators
+  - Custom Fear & Greed Index (0-100) with visual gauge
+  - VIX analysis with historical percentile and contrarian signals
+  - VIX term structure (contango/backwardation) for stress detection
+  - S&P 500 trend analysis (price vs 50-day and 200-day moving averages)
+  - Credit spread risk appetite gauge
+  - Overall market sentiment assessment (Risk-On/Risk-Off)
+
+- **New FRED API Series**: 8 new economic indicators
+  - CPIAUCSL (CPI), CPILFESL (Core CPI)
+  - PCEPI (PCE), PCEPILFE (Core PCE)
+  - T5YIE (5Y Breakeven), T10YIE (10Y Breakeven)
+  - DFEDTARU (Fed Funds Target), WALCL (Fed Total Assets)
+
+- **New Yahoo Finance Integration**: VIX and VIX3M data with caching
+
+### Changed
+- Updated Macro Signals navigation: Now includes 6 pages (added Inflation & Fed, Market Sentiment)
+- Enhanced macro_fetcher.py with inflation and sentiment data methods
+- Enhanced macro_analyzer.py with interpretation methods for new indicators
+
 ## [1.2.6] - 2026-01-20
 
 ### Added

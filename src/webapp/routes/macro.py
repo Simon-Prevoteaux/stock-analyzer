@@ -321,3 +321,134 @@ def refresh_rates():
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# INFLATION & FED WATCH PAGE (NEW)
+# =============================================================================
+
+@macro_bp.route('/macro/inflation')
+def macro_inflation():
+    """Inflation metrics and Fed policy tracking"""
+    try:
+        macro_fetcher, analyzer, error = _get_fetcher_and_analyzer()
+        if error:
+            return render_template('error.html', error=error)
+
+        # Fetch inflation data
+        inflation_data = macro_fetcher.fetch_inflation_data(lookback_years=10)
+        breakevens = macro_fetcher.fetch_breakeven_inflation(lookback_years=10)
+        fed_funds = macro_fetcher.fetch_fed_funds_rate(lookback_years=20)
+        balance_sheet = macro_fetcher.fetch_fed_balance_sheet(lookback_years=20)
+        real_rate = macro_fetcher.calculate_real_rate(lookback_years=10)
+
+        # Add interpretations
+        inflation_interp = analyzer.interpret_inflation(
+            inflation_data['cpi'].get('current'),
+            inflation_data['core_cpi'].get('current'),
+            inflation_data['pce'].get('current'),
+            inflation_data['core_pce'].get('current')
+        )
+        breakeven_interp = analyzer.interpret_breakeven_inflation(
+            breakevens['5y'].get('current'),
+            breakevens['10y'].get('current')
+        )
+        real_rate_interp = analyzer.interpret_real_rate(real_rate.get('current'))
+        balance_sheet_interp = analyzer.interpret_fed_balance_sheet(
+            balance_sheet.get('current_trillions'),
+            balance_sheet.get('yoy_change_pct'),
+            balance_sheet.get('trend')
+        )
+
+        # Generate overall Fed policy summary
+        fed_summary = analyzer.get_fed_policy_summary(
+            inflation_interp,
+            real_rate,
+            balance_sheet,
+            breakeven_interp
+        )
+
+        # Get last update date
+        last_update = macro_fetcher.get_last_update_date(
+            macro_fetcher.INFLATION_SERIES['cpi']
+        )
+
+        return render_template(
+            'macro_inflation.html',
+            inflation=inflation_data,
+            inflation_interp=inflation_interp,
+            breakevens=breakevens,
+            breakeven_interp=breakeven_interp,
+            fed_funds=fed_funds,
+            balance_sheet=balance_sheet,
+            balance_sheet_interp=balance_sheet_interp,
+            real_rate=real_rate,
+            real_rate_interp=real_rate_interp,
+            fed_summary=fed_summary,
+            last_update=last_update
+        )
+
+    except Exception as e:
+        print(f"Error in macro_inflation route: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return f"<h1>Error loading inflation page</h1><pre>{str(e)}\n\n{traceback.format_exc()}</pre>", 500
+
+
+# =============================================================================
+# MARKET SENTIMENT PAGE (NEW)
+# =============================================================================
+
+@macro_bp.route('/macro/sentiment')
+def macro_sentiment():
+    """Market sentiment and fear/greed indicators"""
+    try:
+        macro_fetcher, analyzer, error = _get_fetcher_and_analyzer()
+        if error:
+            return render_template('error.html', error=error)
+
+        # Fetch sentiment data
+        vix_data = macro_fetcher.fetch_vix_data(lookback_years=5)
+        fear_greed = macro_fetcher.calculate_fear_greed_components()
+        sp500_trend = macro_fetcher.fetch_sp500_moving_averages()
+        credit_spreads = macro_fetcher.fetch_credit_spreads()
+
+        # Add interpretations
+        vix_interp = analyzer.interpret_vix(
+            vix_data['vix'].get('current'),
+            vix_data['vix'].get('percentile')
+        )
+        term_structure_interp = analyzer.interpret_vix_term_structure(
+            vix_data.get('term_structure'),
+            vix_data.get('term_structure_status')
+        )
+        fear_greed_interp = analyzer.interpret_fear_greed(
+            fear_greed.get('overall'),
+            fear_greed.get('status')
+        )
+
+        # Generate overall sentiment summary
+        sentiment_summary = analyzer.get_sentiment_summary(
+            fear_greed,
+            vix_data,
+            credit_spreads,
+            sp500_trend
+        )
+
+        return render_template(
+            'macro_sentiment.html',
+            vix=vix_data,
+            vix_interp=vix_interp,
+            term_structure_interp=term_structure_interp,
+            fear_greed=fear_greed,
+            fear_greed_interp=fear_greed_interp,
+            sp500_trend=sp500_trend,
+            credit_spreads=credit_spreads,
+            sentiment_summary=sentiment_summary
+        )
+
+    except Exception as e:
+        print(f"Error in macro_sentiment route: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return f"<h1>Error loading sentiment page</h1><pre>{str(e)}\n\n{traceback.format_exc()}</pre>", 500

@@ -930,3 +930,557 @@ class MacroAnalyzer:
             'signals': signals,
             'opportunities': opportunities
         }
+
+    # =========================================================================
+    # INFLATION & FED POLICY INTERPRETATIONS
+    # =========================================================================
+
+    @staticmethod
+    def interpret_inflation(cpi: float, core_cpi: float, pce: float, core_pce: float) -> Dict:
+        """
+        Interpret inflation metrics and Fed target alignment
+
+        The Fed targets 2% Core PCE inflation.
+
+        Args:
+            cpi: CPI YoY %
+            core_cpi: Core CPI YoY %
+            pce: PCE YoY %
+            core_pce: Core PCE YoY % (Fed's primary target)
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        # Use Core PCE as primary metric (Fed's target)
+        target = core_pce if core_pce is not None else core_cpi
+
+        if target is None:
+            return {
+                'status': 'N/A',
+                'interpretation': 'Data not available',
+                'status_class': 'neutral',
+                'vs_target': None
+            }
+
+        vs_target = target - 2.0  # How far from 2% target
+
+        if target < 1.0:
+            status = 'DEFLATION RISK'
+            interpretation = 'Inflation well below target. Risk of deflationary spiral. Fed likely to ease.'
+            status_class = 'warning'
+        elif target < 1.5:
+            status = 'BELOW TARGET'
+            interpretation = 'Inflation running below Fed\'s 2% target. Accommodative policy likely.'
+            status_class = 'positive'
+        elif target < 2.5:
+            status = 'AT TARGET'
+            interpretation = 'Inflation near Fed\'s 2% target. Policy likely stable.'
+            status_class = 'positive'
+        elif target < 3.5:
+            status = 'ABOVE TARGET'
+            interpretation = 'Inflation above target. Fed may maintain restrictive stance.'
+            status_class = 'warning'
+        elif target < 5.0:
+            status = 'ELEVATED'
+            interpretation = 'Inflation significantly above target. Fed tightening likely to continue.'
+            status_class = 'danger'
+        else:
+            status = 'HIGH'
+            interpretation = 'Inflation at concerning levels. Aggressive Fed action expected.'
+            status_class = 'danger'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class,
+            'vs_target': round(vs_target, 2),
+            'primary_metric': 'Core PCE' if core_pce is not None else 'Core CPI'
+        }
+
+    @staticmethod
+    def interpret_real_rate(real_rate: float) -> Dict:
+        """
+        Interpret real interest rate (Fed Funds - Core PCE)
+
+        Real rate indicates actual monetary policy stance:
+        - Negative: Stimulative (borrowing costs below inflation)
+        - Positive: Restrictive (borrowing costs above inflation)
+
+        Args:
+            real_rate: Current real rate (Fed Funds - Core PCE)
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        if real_rate is None:
+            return {
+                'status': 'N/A',
+                'interpretation': 'Data not available',
+                'status_class': 'neutral'
+            }
+
+        if real_rate < -2:
+            status = 'VERY ACCOMMODATIVE'
+            interpretation = 'Deeply negative real rates. Strongly stimulative policy encouraging risk-taking.'
+            status_class = 'warning'
+        elif real_rate < 0:
+            status = 'ACCOMMODATIVE'
+            interpretation = 'Negative real rates. Monetary policy still stimulative despite nominal rate level.'
+            status_class = 'positive'
+        elif real_rate < 1:
+            status = 'NEUTRAL'
+            interpretation = 'Real rates near neutral. Policy neither stimulating nor restricting.'
+            status_class = 'neutral'
+        elif real_rate < 2:
+            status = 'RESTRICTIVE'
+            interpretation = 'Positive real rates. Policy is tightening financial conditions.'
+            status_class = 'warning'
+        else:
+            status = 'VERY RESTRICTIVE'
+            interpretation = 'Highly positive real rates. Aggressive tightening affecting economy.'
+            status_class = 'danger'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class
+        }
+
+    @staticmethod
+    def interpret_fed_balance_sheet(current_trillions: float, yoy_change_pct: float, trend: str) -> Dict:
+        """
+        Interpret Fed balance sheet size and trend
+
+        QE (expansion) adds liquidity, supports asset prices
+        QT (contraction) removes liquidity, can pressure assets
+
+        Args:
+            current_trillions: Current balance sheet size in $T
+            yoy_change_pct: Year-over-year change percentage
+            trend: QE/QT/STABLE trend indicator
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        if current_trillions is None:
+            return {
+                'status': 'N/A',
+                'interpretation': 'Data not available',
+                'status_class': 'neutral'
+            }
+
+        if trend == 'QE':
+            status = 'EXPANDING (QE)'
+            interpretation = 'Fed actively adding liquidity. Supports asset prices and risk appetite.'
+            status_class = 'positive'
+        elif trend == 'QT':
+            status = 'CONTRACTING (QT)'
+            interpretation = 'Fed reducing balance sheet. Draining liquidity, headwind for assets.'
+            status_class = 'warning'
+        else:
+            status = 'STABLE'
+            interpretation = 'Balance sheet roughly stable. Neutral liquidity impact.'
+            status_class = 'neutral'
+
+        # Add size context
+        if current_trillions > 8:
+            interpretation += f' At ${current_trillions:.1f}T, balance sheet remains historically elevated.'
+        elif current_trillions > 5:
+            interpretation += f' At ${current_trillions:.1f}T, balance sheet moderating from peak.'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class,
+            'yoy_change': yoy_change_pct
+        }
+
+    @staticmethod
+    def interpret_breakeven_inflation(be_5y: float, be_10y: float) -> Dict:
+        """
+        Interpret market inflation expectations from TIPS breakevens
+
+        Breakeven rates show what inflation the market is pricing in.
+
+        Args:
+            be_5y: 5-year breakeven inflation rate
+            be_10y: 10-year breakeven inflation rate
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        # Use 5Y as primary (more responsive to near-term expectations)
+        be = be_5y if be_5y is not None else be_10y
+
+        if be is None:
+            return {
+                'status': 'N/A',
+                'interpretation': 'Data not available',
+                'status_class': 'neutral'
+            }
+
+        if be < 1.5:
+            status = 'LOW EXPECTATIONS'
+            interpretation = 'Market expects inflation well below Fed target. Deflationary concerns.'
+            status_class = 'warning'
+        elif be < 2.0:
+            status = 'BELOW TARGET'
+            interpretation = 'Market expects inflation below Fed\'s 2% target.'
+            status_class = 'neutral'
+        elif be < 2.5:
+            status = 'ANCHORED'
+            interpretation = 'Market expectations well-anchored near Fed\'s 2% target. Healthy sign.'
+            status_class = 'positive'
+        elif be < 3.0:
+            status = 'ABOVE TARGET'
+            interpretation = 'Market expects inflation above target. Some inflation concerns priced in.'
+            status_class = 'warning'
+        else:
+            status = 'ELEVATED EXPECTATIONS'
+            interpretation = 'Market pricing in persistently high inflation. Fed credibility in question.'
+            status_class = 'danger'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class,
+            '5y_expectation': be_5y,
+            '10y_expectation': be_10y
+        }
+
+    @staticmethod
+    def get_fed_policy_summary(inflation: Dict, real_rate: Dict, balance_sheet: Dict, breakevens: Dict) -> Dict:
+        """
+        Generate overall Fed policy assessment
+
+        Args:
+            inflation: Inflation data and interpretation
+            real_rate: Real rate data and interpretation
+            balance_sheet: Balance sheet data and interpretation
+            breakevens: Breakeven inflation data and interpretation
+
+        Returns:
+            Dict with overall hawkish/dovish assessment
+        """
+        hawkish_score = 0  # Positive = hawkish, Negative = dovish
+        signals = []
+
+        # Inflation vs target
+        if inflation.get('vs_target') is not None:
+            vs_target = inflation['vs_target']
+            if vs_target > 1.5:
+                hawkish_score += 2
+                signals.append("Inflation well above target - hawkish pressure")
+            elif vs_target > 0.5:
+                hawkish_score += 1
+                signals.append("Inflation above target")
+            elif vs_target < -0.5:
+                hawkish_score -= 1
+                signals.append("Inflation below target - dovish pressure")
+
+        # Real rate stance
+        if real_rate.get('current') is not None:
+            rr = real_rate['current']
+            if rr > 1.5:
+                hawkish_score += 1
+                signals.append("Real rates restrictive")
+            elif rr < 0:
+                hawkish_score -= 1
+                signals.append("Real rates still accommodative")
+
+        # Balance sheet
+        if balance_sheet.get('trend'):
+            if balance_sheet['trend'] == 'QT':
+                hawkish_score += 1
+                signals.append("QT in progress - tightening liquidity")
+            elif balance_sheet['trend'] == 'QE':
+                hawkish_score -= 2
+                signals.append("QE in progress - adding liquidity")
+
+        # Determine overall stance
+        if hawkish_score >= 3:
+            stance = 'HAWKISH'
+            stance_class = 'danger'
+            summary = 'Fed policy firmly in tightening mode. Risk assets face headwinds.'
+        elif hawkish_score >= 1:
+            stance = 'MODERATELY HAWKISH'
+            stance_class = 'warning'
+            summary = 'Fed maintaining restrictive stance but may be nearing pause.'
+        elif hawkish_score >= -1:
+            stance = 'NEUTRAL'
+            stance_class = 'neutral'
+            summary = 'Fed policy in wait-and-see mode. Data dependent.'
+        elif hawkish_score >= -3:
+            stance = 'MODERATELY DOVISH'
+            stance_class = 'positive'
+            summary = 'Fed leaning toward easing. Supportive for risk assets.'
+        else:
+            stance = 'DOVISH'
+            stance_class = 'positive'
+            summary = 'Fed in active easing mode. Strong tailwind for assets.'
+
+        return {
+            'stance': stance,
+            'stance_class': stance_class,
+            'hawkish_score': hawkish_score,
+            'summary': summary,
+            'signals': signals
+        }
+
+    # =========================================================================
+    # MARKET SENTIMENT INTERPRETATIONS
+    # =========================================================================
+
+    @staticmethod
+    def interpret_vix(vix_level: float, percentile: float = None) -> Dict:
+        """
+        Interpret VIX level
+
+        VIX thresholds:
+        - <12: Extreme complacency (contrarian sell)
+        - 12-20: Low volatility (bullish environment)
+        - 20-30: Elevated (caution warranted)
+        - 30-40: High fear (contrarian buy zone)
+        - >40: Panic (extreme contrarian buy)
+
+        Args:
+            vix_level: Current VIX value
+            percentile: Historical percentile
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        if vix_level is None:
+            return {
+                'status': 'N/A',
+                'interpretation': 'Data not available',
+                'status_class': 'neutral'
+            }
+
+        if vix_level < 12:
+            status = 'EXTREME COMPLACENCY'
+            interpretation = 'VIX at extreme lows. Market very complacent. Contrarian warning sign.'
+            status_class = 'warning'
+            contrarian = 'SELL SIGNAL'
+        elif vix_level < 16:
+            status = 'LOW'
+            interpretation = 'Low volatility environment. Bullish but watch for complacency.'
+            status_class = 'positive'
+            contrarian = None
+        elif vix_level < 20:
+            status = 'NORMAL'
+            interpretation = 'Volatility in normal range. Typical market conditions.'
+            status_class = 'neutral'
+            contrarian = None
+        elif vix_level < 25:
+            status = 'ELEVATED'
+            interpretation = 'Above-average volatility. Some caution warranted.'
+            status_class = 'warning'
+            contrarian = None
+        elif vix_level < 30:
+            status = 'HIGH'
+            interpretation = 'High volatility indicating market stress. Fear rising.'
+            status_class = 'warning'
+            contrarian = 'POSSIBLE BUY'
+        elif vix_level < 40:
+            status = 'VERY HIGH'
+            interpretation = 'Significant fear in markets. Historically good contrarian buy zone.'
+            status_class = 'danger'
+            contrarian = 'BUY SIGNAL'
+        else:
+            status = 'PANIC'
+            interpretation = 'Extreme panic levels. Major market stress. Historic buying opportunity.'
+            status_class = 'danger'
+            contrarian = 'STRONG BUY'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class,
+            'contrarian_signal': contrarian,
+            'percentile': percentile
+        }
+
+    @staticmethod
+    def interpret_vix_term_structure(term_structure: float, status: str) -> Dict:
+        """
+        Interpret VIX term structure (VIX3M - VIX)
+
+        - Contango (positive): Normal market, VIX3M > VIX
+        - Backwardation (negative): Stressed market, VIX > VIX3M
+
+        Args:
+            term_structure: VIX3M - VIX difference
+            status: CONTANGO/FLAT/BACKWARDATION
+
+        Returns:
+            Dict with interpretation
+        """
+        if term_structure is None:
+            return {
+                'status': 'N/A',
+                'interpretation': 'Data not available',
+                'status_class': 'neutral'
+            }
+
+        if status == 'CONTANGO':
+            interpretation = 'Normal term structure. Market expects current volatility to persist or decline.'
+            status_class = 'positive'
+        elif status == 'BACKWARDATION':
+            interpretation = 'Inverted term structure. Near-term fear exceeds longer-term. Stress signal.'
+            status_class = 'danger'
+        else:
+            interpretation = 'Flat term structure. Market uncertain about volatility direction.'
+            status_class = 'warning'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class,
+            'spread': term_structure
+        }
+
+    @staticmethod
+    def interpret_fear_greed(score: float, status: str) -> Dict:
+        """
+        Interpret Fear & Greed index score
+
+        Args:
+            score: Overall index (0-100)
+            status: EXTREME FEAR/FEAR/NEUTRAL/GREED/EXTREME GREED
+
+        Returns:
+            Dict with interpretation and contrarian signal
+        """
+        if score is None:
+            return {
+                'status': 'N/A',
+                'interpretation': 'Data not available',
+                'status_class': 'neutral',
+                'contrarian': None
+            }
+
+        if score < 20:
+            interpretation = 'Extreme fear. Markets deeply pessimistic. Historic buying opportunity.'
+            status_class = 'danger'
+            contrarian = 'STRONG BUY'
+        elif score < 40:
+            interpretation = 'Fear dominates. Investors cautious. Potential buying opportunity.'
+            status_class = 'warning'
+            contrarian = 'BUY'
+        elif score < 60:
+            interpretation = 'Neutral sentiment. Neither fear nor greed prevailing.'
+            status_class = 'neutral'
+            contrarian = None
+        elif score < 80:
+            interpretation = 'Greed rising. Markets optimistic. Consider taking profits.'
+            status_class = 'warning'
+            contrarian = 'CAUTION'
+        else:
+            interpretation = 'Extreme greed. Euphoria in markets. Contrarian warning sign.'
+            status_class = 'danger'
+            contrarian = 'SELL'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class,
+            'contrarian': contrarian,
+            'score': score
+        }
+
+    @staticmethod
+    def get_sentiment_summary(fear_greed: Dict, vix: Dict, credit_spreads: Dict, sp500_trend: Dict) -> Dict:
+        """
+        Generate overall market sentiment summary
+
+        Args:
+            fear_greed: Fear & Greed index data
+            vix: VIX data and interpretation
+            credit_spreads: Credit spread data
+            sp500_trend: S&P 500 trend data
+
+        Returns:
+            Dict with overall sentiment assessment
+        """
+        signals = []
+        risk_appetite_score = 0  # Positive = risk-on, Negative = risk-off
+
+        # Fear & Greed contribution
+        if fear_greed.get('overall') is not None:
+            fg = fear_greed['overall']
+            if fg > 70:
+                risk_appetite_score += 2
+                signals.append("Fear & Greed showing elevated greed")
+            elif fg > 55:
+                risk_appetite_score += 1
+                signals.append("Sentiment leaning bullish")
+            elif fg < 30:
+                risk_appetite_score -= 2
+                signals.append("Fear & Greed showing significant fear")
+            elif fg < 45:
+                risk_appetite_score -= 1
+                signals.append("Sentiment leaning cautious")
+
+        # VIX contribution
+        if vix.get('vix', {}).get('current'):
+            vix_val = vix['vix']['current']
+            if vix_val < 15:
+                risk_appetite_score += 1
+                signals.append("VIX low - complacency")
+            elif vix_val > 25:
+                risk_appetite_score -= 1
+                signals.append("VIX elevated - fear rising")
+            elif vix_val > 35:
+                risk_appetite_score -= 2
+                signals.append("VIX very high - significant fear")
+
+        # Credit spreads contribution
+        if credit_spreads.get('high_yield', {}).get('percentile'):
+            pct = credit_spreads['high_yield']['percentile']
+            if pct < 25:
+                risk_appetite_score += 1
+                signals.append("Credit spreads tight - risk appetite strong")
+            elif pct > 75:
+                risk_appetite_score -= 1
+                signals.append("Credit spreads wide - credit stress")
+
+        # S&P trend contribution
+        if sp500_trend.get('trend'):
+            trend = sp500_trend['trend']
+            if trend == 'UPTREND':
+                risk_appetite_score += 1
+                signals.append("S&P 500 in uptrend")
+            elif trend == 'DOWNTREND':
+                risk_appetite_score -= 1
+                signals.append("S&P 500 in downtrend")
+
+        # Determine overall sentiment
+        if risk_appetite_score >= 4:
+            sentiment = 'RISK-ON'
+            sentiment_class = 'positive'
+            summary = 'Strong risk appetite across indicators. Bullish environment.'
+        elif risk_appetite_score >= 2:
+            sentiment = 'MODERATELY RISK-ON'
+            sentiment_class = 'positive'
+            summary = 'Positive sentiment. Markets generally optimistic.'
+        elif risk_appetite_score >= -1:
+            sentiment = 'NEUTRAL'
+            sentiment_class = 'neutral'
+            summary = 'Mixed signals. Neither strong fear nor greed.'
+        elif risk_appetite_score >= -3:
+            sentiment = 'MODERATELY RISK-OFF'
+            sentiment_class = 'warning'
+            summary = 'Cautious sentiment. Some defensive positioning warranted.'
+        else:
+            sentiment = 'RISK-OFF'
+            sentiment_class = 'danger'
+            summary = 'Significant fear across indicators. Defensive stance appropriate.'
+
+        return {
+            'sentiment': sentiment,
+            'sentiment_class': sentiment_class,
+            'risk_score': risk_appetite_score,
+            'summary': summary,
+            'signals': signals
+        }
