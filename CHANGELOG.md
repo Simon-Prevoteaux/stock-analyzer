@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-01-20
+
+### Added
+- **Macro Signals Restructure**: Split single dashboard into 4 dedicated pages
+  - **Currencies & Gold** (`/macro/currencies`): Currency performance and gold comparisons
+  - **Rates & Spreads** (`/macro/rates`): Yield curve, yield spreads, and credit spreads
+  - **Global Economy** (`/macro/global-economy`): Buffett Indicator, M2/GDP, Debt/GDP, M2 Velocity
+  - **Real Estate** (`/macro/real-estate`): Case-Shiller, housing supply, affordability, mortgage rates
+
+- **Global Economic Indicators**: New valuation and liquidity metrics
+  - Buffett Indicator (Market Cap / GDP) with historical percentile and valuation zones
+  - M2 Money Supply / GDP ratio for liquidity analysis
+  - Federal Debt / GDP tracking with trend indicators
+  - M2 Velocity chart showing money circulation speed
+
+- **Real Estate Market Analysis**: Comprehensive housing market dashboard
+  - Case-Shiller National Home Price Index with YoY changes
+  - Housing supply metrics (months supply, inventory levels)
+  - Construction activity (housing starts, building permits)
+  - 30-year mortgage rate tracking
+  - Housing Affordability Index with interpretation
+
+- **External Tools Page**: Quick links to useful external resources
+  - Bridgewater Associates holdings (HedgeFollow)
+  - Finviz Market Map
+  - WhaleWisdom 13F tracker
+
+### Changed
+- Updated navigation: Macro Signals dropdown now links to 4 separate pages
+- Old `/macro-signals` URL redirects to `/macro/currencies`
+
 ## [1.2.5] - 2026-01-18
 
 ### Added

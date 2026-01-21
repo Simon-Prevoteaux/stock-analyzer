@@ -32,6 +32,7 @@
                         <a href="{{ url_for('core.comparison') }}">Compare</a>
                         <a href="{{ url_for('forecast.forecast') }}">Forecast</a>
                         <a href="{{ url_for('forecast.upside_calculator') }}">Upside</a>
+                        <a href="{{ url_for('core.external_tools') }}">External Tools</a>
                     </div>
                 </li>
                 <li class="dropdown">
@@ -43,9 +44,10 @@
                 <li class="dropdown">
                     <a href="#" class="dropbtn">Macro Signals ▾</a>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('macro.macro_signals') }}">Dashboard</a>
-                        <a href="{{ url_for('macro.macro_signals') }}#currencies">Currencies & Gold</a>
-                        <a href="{{ url_for('macro.macro_signals') }}#rates">Rates & Spreads</a>
+                        <a href="{{ url_for('macro.macro_currencies') }}">Currencies & Gold</a>
+                        <a href="{{ url_for('macro.macro_rates') }}">Rates & Spreads</a>
+                        <a href="{{ url_for('macro.macro_global_economy') }}">Global Economy</a>
+                        <a href="{{ url_for('macro.macro_real_estate') }}">Real Estate</a>
                     </div>
                 </li>
                 <li class="dropdown">

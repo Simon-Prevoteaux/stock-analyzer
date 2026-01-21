@@ -1,0 +1,759 @@
+{% extends "base.html" %}
+
+{% block title %}Real Estate - Macro Signals{% endblock %}
+
+{% block content %}
+<div class="macro-dashboard">
+    <div class="page-header">
+        <h1>Real Estate Market</h1>
+        <p class="subtitle">Home prices, inventory, affordability, and mortgage rates</p>
+        {% if last_update %}
+        <p class="last-update">Last updated: {{ last_update }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Summary Section -->
+    {% if summary %}
+    <div class="recession-indicators">
+        <h3>Housing Market Assessment</h3>
+        <div class="indicator-summary {{ summary.risk_class }}">
+            <div class="risk-level">Market Status: <strong>{{ summary.risk_level }}</strong></div>
+            <div class="risk-summary">{{ summary.summary }}</div>
+            {% if summary.signals %}
+            <ul class="risk-signals">
+                {% for signal in summary.signals %}
+                <li>{{ signal }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            {% if summary.opportunities %}
+            <ul class="risk-signals" style="margin-top: 0.5rem;">
+                {% for opp in summary.opportunities %}
+                <li style="color: #28a745;">{{ opp }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Section 1: Home Prices (Case-Shiller) -->
+    <div class="macro-section">
+        <h2>
+            Home Prices (Case-Shiller Index)
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>S&P/Case-Shiller Home Price Index</strong><br><br>
+                    The leading measure of US residential real estate prices using repeat-sales methodology.<br><br>
+                    <strong>Index base:</strong> January 2000 = 100<br><br>
+                    <strong>What it measures:</strong><br>
+                    - Tracks changes in the value of residential real estate<br>
+                    - Uses same-property sales to eliminate quality differences<br>
+                    - National index covers all 9 US Census divisions<br>
+                    - 20-City composite covers major metro areas
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card {{ case_shiller_interp.status_class }}">
+                <div class="metric-title">National Index</div>
+                <div class="metric-value">{{ case_shiller.national.current if case_shiller.national.current else 'N/A' }}</div>
+                {% if case_shiller.national.yoy_change %}
+                <div class="metric-change {{ 'positive' if case_shiller.national.yoy_change > 0 else 'negative' }}">
+                    YoY: {% if case_shiller.national.yoy_change >= 0 %}+{% endif %}{{ case_shiller.national.yoy_change }}%
+                </div>
+                {% endif %}
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">20-City Composite</div>
+                <div class="metric-value">{{ case_shiller.city20.current if case_shiller.city20.current else 'N/A' }}</div>
+                {% if case_shiller.city20.yoy_change %}
+                <div class="metric-change {{ 'positive' if case_shiller.city20.yoy_change > 0 else 'negative' }}">
+                    YoY: {% if case_shiller.city20.yoy_change >= 0 %}+{% endif %}{{ case_shiller.city20.yoy_change }}%
+                </div>
+                {% endif %}
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Median Home Price</div>
+                <div class="metric-value">${{ "{:,.0f}".format(median_price.current) if median_price.current else 'N/A' }}</div>
+                {% if median_price.yoy_change %}
+                <div class="metric-change {{ 'positive' if median_price.yoy_change > 0 else 'negative' }}">
+                    YoY: {% if median_price.yoy_change >= 0 %}+{% endif %}{{ median_price.yoy_change }}%
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="interpretation-box {{ case_shiller_interp.status_class }}">
+            <div class="status-label">{{ case_shiller_interp.status }}</div>
+            <p>{{ case_shiller_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="caseShillerChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Historical context:</strong> The Case-Shiller National Index peaked at ~184 during the 2006 housing bubble, fell to ~136 in 2012, and has been on an upward trajectory since, accelerating dramatically in 2020-2021.</p>
+        </div>
+    </div>
+
+    <!-- Section 2: Housing Affordability (NAR Index) -->
+    <div class="macro-section">
+        <h2>
+            Housing Affordability Index
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Housing Affordability Index</strong><br><br>
+                    Measures whether a typical family earns enough to qualify for a mortgage on a typical home.<br><br>
+                    <strong>How to read:</strong><br>
+                    - Index = 100: Median family has exactly enough income for median home<br>
+                    - Index > 100: More affordable (family has income to spare)<br>
+                    - Index < 100: Less affordable (family income insufficient)<br><br>
+                    <strong>Components:</strong><br>
+                    - Median family income<br>
+                    - Median home price<br>
+                    - Current mortgage rate
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card {{ affordability_interp.status_class }}">
+                <div class="metric-title">Affordability Index</div>
+                <div class="metric-value">{{ affordability.current if affordability.current else 'N/A' }}</div>
+                {% if affordability.percentile %}
+                <div class="metric-subtitle">{{ affordability.percentile }}th percentile</div>
+                {% endif %}
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Recent Average</div>
+                <div class="metric-value">{{ affordability.historical_avg if affordability.historical_avg else 'N/A' }}</div>
+                <div class="metric-subtitle">Available Data Average</div>
+            </div>
+        </div>
+
+        <div class="interpretation-box {{ affordability_interp.status_class }}">
+            <div class="status-label">{{ affordability_interp.status }}</div>
+            <p>{{ affordability_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="affordabilityChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>The affordability squeeze:</strong> Affordability is determined by three factors: home prices, mortgage rates, and incomes. When prices rise faster than incomes, or when rates increase, affordability declines even if prices are flat. The current environment reflects the combined pressure of elevated prices AND higher rates.</p>
+        </div>
+    </div>
+
+    <!-- Section 3: Mortgage Debt Service Ratio -->
+    <div class="macro-section">
+        <h2>
+            Mortgage Debt Service Ratio
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Mortgage Debt Service as % of Disposable Income</strong><br><br>
+                    Shows what percentage of household disposable income goes to mortgage payments (principal + interest).<br><br>
+                    <strong>Interpretation:</strong><br>
+                    - Lower values = More affordable (less income to housing)<br>
+                    - Higher values = Less affordable (more income to housing)<br><br>
+                    <strong>Historical context:</strong><br>
+                    - Pre-2008: Peaked around 7.2%<br>
+                    - Post-2008: Fell to ~4% as rates dropped<br>
+                    - Current: Rising as rates normalize<br><br>
+                    Data source: Federal Reserve (quarterly, 20 years)
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">Current Ratio</div>
+                <div class="metric-value">{{ mortgage_debt_service.current if mortgage_debt_service.current else 'N/A' }}%</div>
+                <div class="metric-subtitle">% of disposable income</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">20-Year Average</div>
+                <div class="metric-value">{{ mortgage_debt_service.historical_avg if mortgage_debt_service.historical_avg else 'N/A' }}%</div>
+                <div class="metric-subtitle">Historical average</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Historical Range</div>
+                <div class="metric-value">{{ mortgage_debt_service.historical_low if mortgage_debt_service.historical_low else 'N/A' }}% - {{ mortgage_debt_service.historical_high if mortgage_debt_service.historical_high else 'N/A' }}%</div>
+                <div class="metric-subtitle">Low to High</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="mortgageDebtServiceChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Why this matters:</strong> The mortgage debt service ratio shows the actual burden of housing costs on households. Unlike the NAR Affordability Index (limited to 13 months of FRED data), this Fed series provides 20 years of quarterly data, showing how housing costs relative to income have evolved through multiple market cycles.</p>
+        </div>
+    </div>
+
+    <!-- Section 4: Price-to-Income Ratio -->
+    <div class="macro-section">
+        <h2>
+            Home Price to Income Ratio
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Median Home Price / Median Household Income</strong><br><br>
+                    A simple measure of how many years of income it takes to buy a home.<br><br>
+                    <strong>Interpretation:</strong><br>
+                    - Ratio of 3x: Historically affordable<br>
+                    - Ratio of 4x: Moderately expensive<br>
+                    - Ratio of 5x+: Significantly stretched<br><br>
+                    <strong>Note:</strong> This uses nominal values and annual data (income is reported annually).
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">Current Ratio</div>
+                <div class="metric-value">{{ price_to_income.current if price_to_income.current else 'N/A' }}x</div>
+                <div class="metric-subtitle">Years of income to buy</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">25-Year Average</div>
+                <div class="metric-value">{{ price_to_income.historical_avg if price_to_income.historical_avg else 'N/A' }}x</div>
+                <div class="metric-subtitle">Historical average</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="priceToIncomeChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Long-term perspective:</strong> The price-to-income ratio provides a fundamental view of housing affordability independent of interest rates. While low rates can make expensive homes affordable in terms of monthly payments, this ratio shows the underlying relationship between home prices and earning power.</p>
+        </div>
+    </div>
+
+    <!-- Section 5: Housing Supply -->
+    <div class="macro-section">
+        <h2>
+            Housing Supply & Inventory
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Months Supply</strong><br><br>
+                    The number of months it would take to sell all homes on the market at the current sales pace.<br><br>
+                    <strong>Market types:</strong><br>
+                    - Below 3 months: Strong seller's market<br>
+                    - 3-4 months: Seller's market<br>
+                    - 4-6 months: Balanced market<br>
+                    - 6-8 months: Buyer's market<br>
+                    - Above 8 months: Strong buyer's market<br><br>
+                    Low inventory = upward price pressure<br>
+                    High inventory = downward price pressure
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card {{ supply_interp.status_class }}">
+                <div class="metric-title">Existing Homes Supply</div>
+                <div class="metric-value">{{ housing_supply.existing_months_supply if housing_supply.existing_months_supply else 'N/A' }} months</div>
+                <div class="metric-subtitle">{{ supply_interp.market_type }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">New Homes Supply</div>
+                <div class="metric-value">{{ housing_supply.new_home_months_supply if housing_supply.new_home_months_supply else 'N/A' }} months</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Total Inventory</div>
+                <div class="metric-value">{{ "{:,.0f}K".format(housing_supply.inventory) if housing_supply.inventory else 'N/A' }}</div>
+                <div class="metric-subtitle">Homes for Sale</div>
+            </div>
+        </div>
+
+        <div class="interpretation-box {{ supply_interp.status_class }}">
+            <div class="status-label">{{ supply_interp.status }}</div>
+            <p>{{ supply_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="supplyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Section 6: Housing Activity -->
+    <div class="macro-section">
+        <h2>
+            Housing Activity
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Leading Indicators</strong><br><br>
+                    <strong>Housing Starts:</strong><br>
+                    New residential construction started. Leading indicator of future supply.<br><br>
+                    <strong>Building Permits:</strong><br>
+                    Permits issued for new construction. Even more forward-looking than starts.<br><br>
+                    <strong>Existing Home Sales:</strong><br>
+                    Completed sales of previously owned homes. Reflects current demand.<br><br>
+                    All figures are seasonally adjusted annual rates (SAAR) in thousands of units.
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">Housing Starts</div>
+                <div class="metric-value">{{ "{:,.0f}K".format(housing_activity.housing_starts.current) if housing_activity.housing_starts.current else 'N/A' }}</div>
+                {% if housing_activity.housing_starts.yoy_change %}
+                <div class="metric-change {{ 'positive' if housing_activity.housing_starts.yoy_change > 0 else 'negative' }}">
+                    YoY: {% if housing_activity.housing_starts.yoy_change >= 0 %}+{% endif %}{{ housing_activity.housing_starts.yoy_change }}%
+                </div>
+                {% endif %}
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Building Permits</div>
+                <div class="metric-value">{{ "{:,.0f}K".format(housing_activity.building_permits.current) if housing_activity.building_permits.current else 'N/A' }}</div>
+                {% if housing_activity.building_permits.yoy_change %}
+                <div class="metric-change {{ 'positive' if housing_activity.building_permits.yoy_change > 0 else 'negative' }}">
+                    YoY: {% if housing_activity.building_permits.yoy_change >= 0 %}+{% endif %}{{ housing_activity.building_permits.yoy_change }}%
+                </div>
+                {% endif %}
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Existing Home Sales</div>
+                <div class="metric-value">{{ "{:,.0f}K".format(housing_activity.existing_sales.current) if housing_activity.existing_sales.current else 'N/A' }}</div>
+                {% if housing_activity.existing_sales.yoy_change %}
+                <div class="metric-change {{ 'positive' if housing_activity.existing_sales.yoy_change > 0 else 'negative' }}">
+                    YoY: {% if housing_activity.existing_sales.yoy_change >= 0 %}+{% endif %}{{ housing_activity.existing_sales.yoy_change }}%
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="activityChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Section 7: Mortgage Rates -->
+    <div class="macro-section">
+        <h2>
+            Mortgage Rates
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>30-Year Fixed Mortgage Rate</strong><br><br>
+                    The benchmark rate for most US home loans.<br><br>
+                    <strong>Historical context:</strong><br>
+                    - Long-term average: ~7-8%<br>
+                    - 2010s average: ~4%<br>
+                    - 2020-2021 lows: ~2.5-3%<br>
+                    - 2022-2023: Rose to 7%+<br><br>
+                    <strong>Impact:</strong><br>
+                    Every 1% rise in mortgage rates reduces purchasing power by ~10%, pricing some buyers out of the market.
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card {{ mortgage_interp.status_class }}">
+                <div class="metric-title">30-Year Fixed Rate</div>
+                <div class="metric-value">{{ mortgage_rates.current if mortgage_rates.current else 'N/A' }}%</div>
+                {% if mortgage_rates.yoy_change %}
+                <div class="metric-change {{ 'negative' if mortgage_rates.yoy_change > 0 else 'positive' }}">
+                    YoY: {% if mortgage_rates.yoy_change >= 0 %}+{% endif %}{{ mortgage_rates.yoy_change }}%
+                </div>
+                {% endif %}
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Historical Average</div>
+                <div class="metric-value">{{ mortgage_rates.historical_avg if mortgage_rates.historical_avg else 'N/A' }}%</div>
+                <div class="metric-subtitle">15-Year Average</div>
+            </div>
+        </div>
+
+        <div class="interpretation-box {{ mortgage_interp.status_class }}">
+            <div class="status-label">{{ mortgage_interp.status }}</div>
+            <p>{{ mortgage_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="mortgageChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Refresh Button -->
+    <div class="actions">
+        <button id="refresh-data" class="btn btn-primary" onclick="location.reload();">Refresh Data</button>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/macro_signals.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Case-Shiller Chart
+    {% if case_shiller.national.history and case_shiller.national.history['dates'] %}
+    renderRealEstateChart('caseShillerChart', {
+        dates: {{ case_shiller.national.history['dates'] | tojson }},
+        values: {{ case_shiller.national.history['values'] | tojson }},
+        label: 'Case-Shiller National Index',
+        title: 'Case-Shiller National Home Price Index - 25 Year History'
+    });
+    {% endif %}
+
+    // Months Supply Chart (uses New Home data for full history - Existing Home data limited to 13 months on FRED)
+    {% if housing_supply.months_supply_history and housing_supply.months_supply_history['dates'] %}
+    renderRealEstateChart('supplyChart', {
+        dates: {{ housing_supply.months_supply_history['dates'] | tojson }},
+        values: {{ housing_supply.months_supply_history['values'] | tojson }},
+        label: 'Months Supply (New Homes)',
+        title: 'New Home Months Supply - 10 Year History',
+        horizontalLines: [
+            { value: 4, label: 'Balanced Low', color: 'rgba(40, 167, 69, 0.5)' },
+            { value: 6, label: 'Balanced High', color: 'rgba(40, 167, 69, 0.5)' }
+        ]
+    });
+    {% endif %}
+
+    // Housing Activity Chart
+    {% if housing_activity.housing_starts.history and housing_activity.housing_starts.history['dates'] %}
+    renderDualLineChart('activityChart', {
+        dates: {{ housing_activity.housing_starts.history['dates'] | tojson }},
+        datasets: [
+            {
+                label: 'Housing Starts',
+                data: {{ housing_activity.housing_starts.history['values'] | tojson }},
+                borderColor: '#00ff88',
+                backgroundColor: 'rgba(0, 255, 136, 0.1)'
+            },
+            {
+                label: 'Building Permits',
+                data: {{ housing_activity.building_permits.history['values'] | tojson }},
+                borderColor: '#64b5f6',
+                backgroundColor: 'rgba(100, 181, 246, 0.1)'
+            }
+        ],
+        title: 'Housing Starts & Building Permits - 15 Year History'
+    });
+    {% endif %}
+
+    // Mortgage Rate Chart
+    {% if mortgage_rates.history and mortgage_rates.history['dates'] %}
+    renderRealEstateChart('mortgageChart', {
+        dates: {{ mortgage_rates.history['dates'] | tojson }},
+        values: {{ mortgage_rates.history['values'] | tojson }},
+        label: '30-Year Fixed Rate (%)',
+        title: '30-Year Mortgage Rate - 15 Year History'
+    });
+    {% endif %}
+
+    // Affordability Chart (NAR data limited to 13 months on FRED)
+    {% if affordability.history and affordability.history['dates'] %}
+    renderRealEstateChart('affordabilityChart', {
+        dates: {{ affordability.history['dates'] | tojson }},
+        values: {{ affordability.history['values'] | tojson }},
+        label: 'Affordability Index',
+        title: 'Housing Affordability Index - Recent History (NAR data)',
+        horizontalLines: [
+            { value: 100, label: 'Affordability Threshold', color: 'rgba(255, 68, 68, 0.5)' }
+        ]
+    });
+    {% endif %}
+
+    // Mortgage Debt Service Ratio Chart (20 years of data)
+    {% if mortgage_debt_service.history and mortgage_debt_service.history['dates'] %}
+    renderRealEstateChart('mortgageDebtServiceChart', {
+        dates: {{ mortgage_debt_service.history['dates'] | tojson }},
+        values: {{ mortgage_debt_service.history['values'] | tojson }},
+        label: 'Mortgage Debt Service (%)',
+        title: 'Mortgage Debt Service as % of Disposable Income - 20 Year History',
+        horizontalLines: [
+            { value: {{ mortgage_debt_service.historical_avg | tojson }}, label: 'Historical Average', color: 'rgba(100, 181, 246, 0.7)' }
+        ]
+    });
+    {% endif %}
+
+    // Price-to-Income Ratio Chart (25 years of data)
+    {% if price_to_income.history and price_to_income.history['dates'] %}
+    renderRealEstateChart('priceToIncomeChart', {
+        dates: {{ price_to_income.history['dates'] | tojson }},
+        values: {{ price_to_income.history['values'] | tojson }},
+        label: 'Price-to-Income Ratio',
+        title: 'Home Price to Income Ratio - 25 Year History',
+        horizontalLines: [
+            { value: {{ price_to_income.historical_avg | tojson }}, label: 'Historical Average', color: 'rgba(100, 181, 246, 0.7)' },
+            { value: 4, label: 'Moderate Threshold', color: 'rgba(255, 193, 7, 0.5)' }
+        ]
+    });
+    {% endif %}
+});
+
+function renderRealEstateChart(canvasId, config) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    const annotations = {};
+    if (config.horizontalLines) {
+        config.horizontalLines.forEach((line, idx) => {
+            annotations['line' + idx] = {
+                type: 'line',
+                yMin: line.value,
+                yMax: line.value,
+                borderColor: line.color,
+                borderWidth: 2,
+                borderDash: [5, 5],
+                label: {
+                    content: line.label,
+                    enabled: true,
+                    position: 'end'
+                }
+            };
+        });
+    }
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: config.dates,
+            datasets: [{
+                label: config.label,
+                data: config.values,
+                borderColor: '#00ff88',
+                backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                fill: true,
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: config.label,
+                        color: '#e0e6ed'
+                    },
+                    ticks: { color: '#e0e6ed' },
+                    grid: { color: 'rgba(168, 178, 209, 0.1)' }
+                },
+                x: {
+                    ticks: {
+                        color: '#e0e6ed',
+                        maxTicksLimit: 10,
+                        maxRotation: 45
+                    },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: config.title,
+                    color: '#00ff88',
+                    font: { size: 16, weight: 'bold' }
+                },
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(30, 33, 57, 0.95)',
+                    borderColor: 'rgba(0, 255, 136, 0.3)',
+                    borderWidth: 1,
+                    titleColor: '#00ff88',
+                    bodyColor: '#e0e6ed'
+                }
+            }
+        }
+    });
+}
+
+function renderDualLineChart(canvasId, config) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    const datasets = config.datasets.map(ds => ({
+        label: ds.label,
+        data: ds.data,
+        borderColor: ds.borderColor,
+        backgroundColor: ds.backgroundColor,
+        fill: false,
+        tension: 0.3,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 5
+    }));
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: config.dates,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Thousands of Units (SAAR)',
+                        color: '#e0e6ed'
+                    },
+                    ticks: { color: '#e0e6ed' },
+                    grid: { color: 'rgba(168, 178, 209, 0.1)' }
+                },
+                x: {
+                    ticks: {
+                        color: '#e0e6ed',
+                        maxTicksLimit: 10,
+                        maxRotation: 45
+                    },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: config.title,
+                    color: '#00ff88',
+                    font: { size: 16, weight: 'bold' }
+                },
+                legend: {
+                    display: true,
+                    labels: { color: '#e0e6ed' }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(30, 33, 57, 0.95)',
+                    borderColor: 'rgba(0, 255, 136, 0.3)',
+                    borderWidth: 1,
+                    titleColor: '#00ff88',
+                    bodyColor: '#e0e6ed'
+                }
+            }
+        }
+    });
+}
+</script>
+
+<style>
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.metric-card {
+    background: linear-gradient(135deg, #1e2139, #2d3250);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    border-left: 4px solid #00ff88;
+}
+
+.metric-card.danger {
+    border-left-color: #dc3545;
+}
+
+.metric-card.warning {
+    border-left-color: #ffc107;
+}
+
+.metric-card.positive {
+    border-left-color: #28a745;
+}
+
+.metric-title {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #00ff88;
+}
+
+.metric-card.danger .metric-value {
+    color: #dc3545;
+}
+
+.metric-card.warning .metric-value {
+    color: #ffc107;
+}
+
+.metric-change {
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+.metric-change.positive {
+    color: #28a745;
+}
+
+.metric-change.negative {
+    color: #dc3545;
+}
+
+.metric-subtitle {
+    color: #64b5f6;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+}
+
+.interpretation-box {
+    background: rgba(30, 33, 57, 0.5);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0 2rem 0;
+    border-left: 4px solid #00ff88;
+}
+
+.interpretation-box.danger {
+    border-left-color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.interpretation-box.warning {
+    border-left-color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.interpretation-box.positive {
+    border-left-color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+}
+
+.interpretation-box.neutral {
+    border-left-color: #6c757d;
+}
+
+.status-label {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #00ff88;
+    margin-bottom: 0.5rem;
+}
+
+.interpretation-box.danger .status-label {
+    color: #dc3545;
+}
+
+.interpretation-box.warning .status-label {
+    color: #ffc107;
+}
+
+.interpretation-box.positive .status-label {
+    color: #28a745;
+}
+
+.interpretation-box p {
+    color: #e0e6ed;
+    margin: 0;
+    line-height: 1.6;
+}
+</style>
+{% endblock %}

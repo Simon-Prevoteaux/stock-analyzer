@@ -217,6 +217,32 @@ def comparison():
                           suggestions=suggestions, available_stocks=available_stocks)
 
 
+@core_bp.route('/external-tools')
+def external_tools():
+    """External tools and resources page"""
+    tools = [
+        {
+            'name': 'Bridgewater Associates Holdings',
+            'url': 'https://hedgefollow.com/funds/Bridgewater+Associates',
+            'description': 'Track Bridgewater Associates portfolio holdings and changes via HedgeFollow',
+            'category': 'Hedge Fund Tracking'
+        },
+        {
+            'name': 'Finviz Market Map',
+            'url': 'https://finviz.com/map.ashx?t=sec',
+            'description': 'Visual stock market map showing sector performance and market overview',
+            'category': 'Market Visualization'
+        },
+        {
+            'name': 'WhaleWisdom',
+            'url': 'https://whalewisdom.com/',
+            'description': '13F filings tracker - see what institutional investors are buying and selling',
+            'category': 'Institutional Holdings'
+        }
+    ]
+    return render_template('external_tools.html', tools=tools)
+
+
 @core_bp.route('/delete/<ticker>', methods=['POST'])
 def delete_stock(ticker):
     """Delete a stock from the database"""

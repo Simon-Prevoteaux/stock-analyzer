@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Currencies & Gold - Macro Signals{% endblock %}
+
+{% block content %}
+<div class="macro-dashboard">
+    <div class="page-header">
+        <h1>Currencies & Gold</h1>
+        <p class="subtitle">Currency performance and purchasing power vs gold - Ray Dalio style</p>
+        {% if last_update %}
+        <p class="last-update">Last updated: {{ last_update }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Key Insights -->
+    {% if insights and insights.insights %}
+    <div class="insights-section">
+        <h3>Key Insights</h3>
+        {% for insight in insights.insights %}
+        <div class="insight-card {{ insight.severity }}">
+            {{ insight.message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Section 1: Currency Performance -->
+    <div class="macro-section" id="currencies">
+        <h2>
+            Currency Performance vs USD
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>How to read this table:</strong><br>
+                    - Negative % = Currency weakened vs USD (USD strengthened)<br>
+                    - Positive % = Currency strengthened vs USD (USD weakened)<br><br>
+                    <strong>Ray Dalio's perspective:</strong><br>
+                    When currencies fall against USD, it affects wealth, buying power, and inflation.
+                    Compare to gold to see real purchasing power changes beyond fiat currencies.
+                </span>
+            </span>
+        </h2>
+        <p class="table-description">
+            Positive % = strengthened vs USD | Negative % = weakened vs USD
+        </p>
+
+        <table class="macro-table">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for currency in currencies %}
+                <tr>
+                    <td><strong>{{ currency.name }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if currency[period] and currency[period] > 0 else 'negative' if currency[period] else '' }}">
+                        {% if currency[period] is not none %}
+                            {% if currency[period] >= 0 %}+{% endif %}{{ "%.2f"|format(currency[period]) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="explanation-box">
+            <p><strong>Example interpretation:</strong> If EUR shows -12% over 1 year, the Euro has weakened 12% against the Dollar. This means $100 now buys 12% more Euros than a year ago, but also means European investors' dollar-denominated assets are worth 12% less in Euro terms.</p>
+        </div>
+    </div>
+
+    <!-- Section 2: Currencies vs Gold Performance -->
+    <div class="macro-section">
+        <h2>
+            Currency Performance vs Gold
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Ray Dalio's methodology: Measure currency purchasing power vs gold</strong><br><br>
+                    Shows how each currency has performed vs gold. Negative values mean the currency lost purchasing power (gold price increased in that currency).<br><br>
+                    Gold is a non-fiat currency and traditional inflation hedge.<br><br>
+                    <strong>How to read:</strong><br>
+                    - Positive % = Currency gained vs gold (gold price fell in that currency)<br>
+                    - Negative % = Currency lost vs gold (gold price rose in that currency)<br><br>
+                    <strong>Ray Dalio's 2025 observation:</strong><br>
+                    Gold returned 65% in dollar terms, meaning USD lost 65% of purchasing power vs gold.
+                    The S&P fell 28% in gold terms - a crucial reality check on "returns."
+                </span>
+            </span>
+        </h2>
+
+        <!-- Calculation Method Toggle -->
+        <div class="calc-method-container">
+            <div class="calc-method-tabs">
+                <button class="calc-tab active" data-method="inverted" onclick="switchGoldCalcMethod('inverted')">
+                    Method 1: Inverted Gold Return
+                    <span class="tooltip">i
+                        <span class="tooltiptext" style="width: 350px;">
+                            <strong>Standard Asset Return (Inverted)</strong><br><br>
+                            Formula: -(Gold Price Return)<br>
+                            Example: If gold rises 65%, show -65%<br><br>
+                            <strong>Pros:</strong><br>
+                            - Standard in finance<br>
+                            - Directly comparable to stock returns<br>
+                            - Easy to verify vs market data<br>
+                            - Used by Ray Dalio in his LinkedIn posts
+                        </span>
+                    </span>
+                </button>
+                <button class="calc-tab" data-method="geometric" onclick="switchGoldCalcMethod('geometric')">
+                    Method 2: Geometric Purchasing Power
+                    <span class="tooltip">i
+                        <span class="tooltiptext" style="width: 350px;">
+                            <strong>True Purchasing Power Loss</strong><br><br>
+                            Formula: -X / (1 + X) x 100<br>
+                            Example: If gold rises 65%, show -39.4%<br><br>
+                            <strong>Pros:</strong><br>
+                            - Shows actual % of purchasing power lost<br>
+                            - Answers: "How much did $100 lose in gold terms?"<br>
+                            - More intuitive for wealth preservation analysis
+                        </span>
+                    </span>
+                </button>
+            </div>
+        </div>
+        <p class="table-description" id="gold-calc-description">
+            Method 1: Showing inverted gold price returns | Positive % = Currency gained vs Gold | Negative % = Currency lost vs Gold
+        </p>
+
+        <table class="macro-table gold-table" id="gold-table-inverted">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for currency in currencies_vs_gold %}
+                <tr>
+                    <td><strong>{{ currency.name }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if currency[period] and currency[period] > 0 else 'negative' if currency[period] else '' }}">
+                        {% if currency[period] is not none %}
+                            {% if currency[period] >= 0 %}+{% endif %}{{ "%.2f"|format(currency[period]) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Geometric Method Table (Hidden by Default) -->
+        <table class="macro-table gold-table" id="gold-table-geometric" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for currency in currencies_vs_gold %}
+                <tr>
+                    <td><strong>{{ currency.name }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if currency[period] and currency[period] > 0 else 'negative' if currency[period] else '' }}">
+                        {% if currency[period] is not none %}
+                            {% set gold_return = -currency[period] %}
+                            {% set geometric = -gold_return / (1 + gold_return/100) %}
+                            {% if geometric >= 0 %}+{% endif %}{{ "%.2f"|format(geometric) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- S&P 500 Performance -->
+        <h3 class="subsection-header">S&P 500 Performance</h3>
+        <table class="macro-table gold-table">
+            <thead>
+                <tr>
+                    <th>Asset</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>{{ sp500.name }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if sp500[period] and sp500[period] > 0 else 'negative' if sp500[period] else '' }}">
+                        {% if sp500[period] is not none %}
+                            {% if sp500[period] >= 0 %}+{% endif %}{{ "%.2f"|format(sp500[period]) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="explanation-box">
+            <p><strong>Ray Dalio's perspective - Real returns matter:</strong> When gold price rises in a currency, that currency lost purchasing power. If gold rises 30% in USD while S&P 500 rises 15%, the S&P has actually fallen 15% in gold terms (real purchasing power). This is why Dalio emphasizes measuring returns vs gold, not just vs fiat currencies.</p>
+        </div>
+
+        <!-- S&P 500 vs Gold Comparison -->
+        <h3 class="subsection-header">S&P 500 vs Gold</h3>
+        <table class="macro-table">
+            <thead>
+                <tr>
+                    <th>Comparison</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>S&P 500 in Gold Terms</strong>
+                        <span class="tooltip">i
+                            <span class="tooltiptext">
+                                Shows S&P 500 returns adjusted for gold purchasing power.
+                                Calculated as: S&P return - Gold price return
+                                Negative values mean stocks lost purchasing power vs gold.
+                                Example: If S&P +15% and Gold +30%, real return is -15% in gold terms (15% - 30%).
+                            </span>
+                        </span>
+                    </td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if (sp500[period] is not none and gold_returns[period] is not none and (sp500[period] - gold_returns[period]) > 0) else 'negative' if (sp500[period] is not none and gold_returns[period] is not none) else '' }}">
+                        {% if sp500[period] is not none and gold_returns[period] is not none %}
+                            {% set vs_gold = sp500[period] - gold_returns[period] %}
+                            {% if vs_gold >= 0 %}+{% endif %}{{ "%.2f"|format(vs_gold) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Refresh Button -->
+    <div class="actions">
+        <button id="refresh-data" class="btn btn-primary" onclick="location.reload();">Refresh Data</button>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/macro_signals.js') }}"></script>
+{% endblock %}

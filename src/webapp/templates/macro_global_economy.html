@@ -1,0 +1,530 @@
+{% extends "base.html" %}
+
+{% block title %}Global Economy - Macro Signals{% endblock %}
+
+{% block content %}
+<div class="macro-dashboard">
+    <div class="page-header">
+        <h1>Global Economic Indicators</h1>
+        <p class="subtitle">Market valuation, money supply, and debt metrics - Warren Buffett & Ray Dalio perspectives</p>
+        {% if last_update %}
+        <p class="last-update">Last updated: {{ last_update }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Summary Section -->
+    {% if summary %}
+    <div class="recession-indicators">
+        <h3>Economic Risk Assessment</h3>
+        <div class="indicator-summary {{ summary.risk_class }}">
+            <div class="risk-level">Risk Level: <strong>{{ summary.risk_level }}</strong></div>
+            <div class="risk-summary">{{ summary.summary }}</div>
+            {% if summary.signals %}
+            <ul class="risk-signals">
+                {% for signal in summary.signals %}
+                <li>{{ signal }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Section 1: Buffett Indicator -->
+    <div class="macro-section">
+        <h2>
+            Buffett Indicator (Market Cap / GDP)
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>The Buffett Indicator</strong><br><br>
+                    Warren Buffett called this "probably the best single measure of where valuations
+                    stand at any given moment."<br><br>
+                    <strong>Calculation:</strong><br>
+                    Total US Stock Market Cap (Wilshire 5000) / US GDP x 100<br><br>
+                    <strong>Historical Thresholds:</strong><br>
+                    - Below 75%: Significantly Undervalued<br>
+                    - 75-90%: Modestly Undervalued<br>
+                    - 90-115%: Fair Value<br>
+                    - 115-140%: Modestly Overvalued<br>
+                    - 140-180%: Significantly Overvalued<br>
+                    - Above 180%: Extreme Overvaluation<br><br>
+                    <strong>Historical peaks:</strong><br>
+                    - 2000 Dot-com: ~140%<br>
+                    - 2021: ~200%
+                </span>
+            </span>
+        </h2>
+
+        <div class="indicator-value-box {{ buffett_interp.status_class }}">
+            <div class="big-value">{{ buffett.current if buffett.current else 'N/A' }}%</div>
+            <div class="value-label">Current Value</div>
+            {% if buffett.percentile %}
+            <div class="percentile-info">{{ buffett.percentile }}th percentile (25-year history)</div>
+            {% endif %}
+        </div>
+
+        <div class="interpretation-box {{ buffett_interp.status_class }}">
+            <div class="status-label">{{ buffett_interp.status }}</div>
+            <p>{{ buffett_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="buffettChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Warren Buffett's wisdom:</strong> "If the ratio approaches 200%, you are playing with fire." The indicator helps identify when the market is pricing in unrealistic growth expectations relative to actual economic output.</p>
+        </div>
+    </div>
+
+    <!-- Section 2: M2/GDP Ratio -->
+    <div class="macro-section">
+        <h2>
+            M2 Money Supply / GDP Ratio
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Money Supply to GDP Ratio</strong><br><br>
+                    Measures liquidity in the economy relative to economic output.<br><br>
+                    <strong>Interpretation:</strong><br>
+                    - Rising ratio: More money chasing same output = potential inflation<br>
+                    - Stable ratio: Balanced monetary conditions<br>
+                    - Falling ratio: Tightening liquidity<br><br>
+                    <strong>Historical context:</strong><br>
+                    - Pre-2020: Typically 60-70%<br>
+                    - Post-2020 QE: Rose to 90%+<br><br>
+                    High levels can lead to asset price inflation even without consumer price inflation.
+                </span>
+            </span>
+        </h2>
+
+        <div class="indicator-value-box {{ m2_gdp_interp.status_class }}">
+            <div class="big-value">{{ m2_gdp.current if m2_gdp.current else 'N/A' }}%</div>
+            <div class="value-label">Current Value</div>
+            {% if m2_gdp.yoy_change %}
+            <div class="change-info {{ 'positive' if m2_gdp.yoy_change > 0 else 'negative' }}">
+                YoY Change: {% if m2_gdp.yoy_change >= 0 %}+{% endif %}{{ m2_gdp.yoy_change }}%
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="interpretation-box {{ m2_gdp_interp.status_class }}">
+            <div class="status-label">{{ m2_gdp_interp.status }}</div>
+            <p>{{ m2_gdp_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="m2GdpChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Why this matters:</strong> When central banks print money faster than the economy grows, the excess liquidity often flows into financial assets, pushing up prices. This can create asset bubbles while the "real" economy struggles.</p>
+        </div>
+    </div>
+
+    <!-- Section 3: Federal Debt / GDP -->
+    <div class="macro-section">
+        <h2>
+            Federal Debt / GDP Ratio
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Government Debt Burden</strong><br><br>
+                    Shows federal debt as a percentage of annual economic output.<br><br>
+                    <strong>Thresholds:</strong><br>
+                    - Below 60%: Sustainable<br>
+                    - 60-90%: Elevated<br>
+                    - 90-120%: High<br>
+                    - Above 120%: Very High<br><br>
+                    <strong>Ray Dalio's concern:</strong><br>
+                    High debt levels mean:<br>
+                    - More government revenue goes to interest payments<br>
+                    - Less fiscal flexibility for future crises<br>
+                    - Risk of debt monetization (inflation)<br>
+                    - Potential debt spiral if rates rise
+                </span>
+            </span>
+        </h2>
+
+        <div class="indicator-value-box {{ debt_gdp_interp.status_class }}">
+            <div class="big-value">{{ debt_gdp.current if debt_gdp.current else 'N/A' }}%</div>
+            <div class="value-label">Current Value</div>
+        </div>
+
+        <div class="interpretation-box {{ debt_gdp_interp.status_class }}">
+            <div class="status-label">{{ debt_gdp_interp.status }}</div>
+            <p>{{ debt_gdp_interp.interpretation }}</p>
+        </div>
+
+        {% if debt_gdp.historical_comparison %}
+        <div class="historical-comparison">
+            <h4>Historical Comparison</h4>
+            <div class="comparison-grid">
+                {% if debt_gdp.historical_comparison.get('5y_ago') %}
+                <div class="comparison-item">
+                    <span class="comparison-label">5 Years Ago</span>
+                    <span class="comparison-value">{{ debt_gdp.historical_comparison['5y_ago'] }}%</span>
+                </div>
+                {% endif %}
+                {% if debt_gdp.historical_comparison.get('10y_ago') %}
+                <div class="comparison-item">
+                    <span class="comparison-label">10 Years Ago</span>
+                    <span class="comparison-value">{{ debt_gdp.historical_comparison['10y_ago'] }}%</span>
+                </div>
+                {% endif %}
+                {% if debt_gdp.historical_comparison.get('20y_ago') %}
+                <div class="comparison-item">
+                    <span class="comparison-label">20 Years Ago</span>
+                    <span class="comparison-value">{{ debt_gdp.historical_comparison['20y_ago'] }}%</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="chart-container">
+            <canvas id="debtGdpChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Ray Dalio's warning:</strong> "When debts become big relative to incomes, and central banks can no longer stimulate credit growth by lowering interest rates, the economy typically enters a debt crisis." High debt/GDP ratios limit policy options during future economic downturns.</p>
+        </div>
+    </div>
+
+    <!-- Section 4: M2 Velocity -->
+    <div class="macro-section">
+        <h2>
+            M2 Money Velocity
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Money Velocity (GDP / M2)</strong><br><br>
+                    Shows how quickly money circulates in the economy.<br><br>
+                    <strong>Interpretation:</strong><br>
+                    - High velocity: Money being spent actively, economic activity strong<br>
+                    - Low velocity: Money being saved/hoarded, weak demand<br><br>
+                    <strong>Historical context:</strong><br>
+                    - Pre-2008: ~1.9-2.0<br>
+                    - Post-2008: Declined to ~1.4-1.5<br>
+                    - Post-2020: Dropped to ~1.1-1.2 (historic lows)<br><br>
+                    Low velocity explains why massive money printing hasn't always caused inflation - the money isn't circulating.
+                </span>
+            </span>
+        </h2>
+
+        <div class="indicator-value-box {{ velocity_interp.status_class }}">
+            <div class="big-value">{{ velocity.current if velocity.current else 'N/A' }}</div>
+            <div class="value-label">Current Value</div>
+            {% if velocity.historical_avg %}
+            <div class="avg-info">Historical Average: {{ velocity.historical_avg }}</div>
+            {% endif %}
+        </div>
+
+        <div class="interpretation-box {{ velocity_interp.status_class }}">
+            <div class="status-label">{{ velocity_interp.status }}</div>
+            <p>{{ velocity_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="velocityChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>The velocity puzzle:</strong> Despite massive money printing post-2020, velocity collapsed. This means much of the new money sits in bank reserves and financial assets rather than circulating through the real economy. If velocity ever normalizes while M2 stays elevated, inflation could surge.</p>
+        </div>
+    </div>
+
+    <!-- Refresh Button -->
+    <div class="actions">
+        <button id="refresh-data" class="btn btn-primary" onclick="location.reload();">Refresh Data</button>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/macro_signals.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Buffett Indicator Chart
+    {% if buffett.history and buffett.history['dates'] %}
+    renderHistoricalChart('buffettChart', {
+        dates: {{ buffett.history['dates'] | tojson }},
+        values: {{ buffett.history['values'] | tojson }},
+        label: 'Buffett Indicator (%)',
+        title: 'Buffett Indicator (Market Cap / GDP) - 25 Year History',
+        thresholds: [
+            { value: 75, label: 'Undervalued', color: 'rgba(40, 167, 69, 0.3)' },
+            { value: 115, label: 'Fair Value', color: 'rgba(255, 193, 7, 0.3)' },
+            { value: 140, label: 'Overvalued', color: 'rgba(220, 53, 69, 0.3)' }
+        ]
+    });
+    {% endif %}
+
+    // M2/GDP Ratio Chart
+    {% if m2_gdp.history and m2_gdp.history['dates'] %}
+    renderHistoricalChart('m2GdpChart', {
+        dates: {{ m2_gdp.history['dates'] | tojson }},
+        values: {{ m2_gdp.history['values'] | tojson }},
+        label: 'M2/GDP Ratio (%)',
+        title: 'M2 Money Supply / GDP Ratio - 25 Year History',
+        thresholds: [
+            { value: 70, label: 'Normal', color: 'rgba(40, 167, 69, 0.3)' },
+            { value: 85, label: 'Elevated', color: 'rgba(255, 193, 7, 0.3)' }
+        ]
+    });
+    {% endif %}
+
+    // Debt/GDP Chart
+    {% if debt_gdp.history and debt_gdp.history['dates'] %}
+    renderHistoricalChart('debtGdpChart', {
+        dates: {{ debt_gdp.history['dates'] | tojson }},
+        values: {{ debt_gdp.history['values'] | tojson }},
+        label: 'Debt/GDP Ratio (%)',
+        title: 'Federal Debt / GDP Ratio - 25 Year History',
+        thresholds: [
+            { value: 60, label: 'Sustainable', color: 'rgba(40, 167, 69, 0.3)' },
+            { value: 90, label: 'Elevated', color: 'rgba(255, 193, 7, 0.3)' },
+            { value: 120, label: 'High', color: 'rgba(220, 53, 69, 0.3)' }
+        ]
+    });
+    {% endif %}
+
+    // M2 Velocity Chart
+    {% if velocity.history and velocity.history['dates'] %}
+    renderHistoricalChart('velocityChart', {
+        dates: {{ velocity.history['dates'] | tojson }},
+        values: {{ velocity.history['values'] | tojson }},
+        label: 'M2 Velocity',
+        title: 'M2 Money Velocity (GDP/M2) - 25 Year History',
+        thresholds: [
+            { value: 1.4, label: 'Low', color: 'rgba(255, 193, 7, 0.3)' },
+            { value: 1.7, label: 'Normal', color: 'rgba(40, 167, 69, 0.3)' }
+        ],
+        invertThresholds: true
+    });
+    {% endif %}
+});
+
+/**
+ * Render a historical data chart with optional threshold zones
+ */
+function renderHistoricalChart(canvasId, config) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: config.dates,
+            datasets: [{
+                label: config.label,
+                data: config.values,
+                borderColor: '#00ff88',
+                backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                fill: true,
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: config.label,
+                        color: '#e0e6ed'
+                    },
+                    ticks: {
+                        color: '#e0e6ed'
+                    },
+                    grid: {
+                        color: 'rgba(168, 178, 209, 0.1)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date',
+                        color: '#e0e6ed'
+                    },
+                    ticks: {
+                        color: '#e0e6ed',
+                        maxTicksLimit: 10,
+                        maxRotation: 45
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: config.title,
+                    color: '#00ff88',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(30, 33, 57, 0.95)',
+                    borderColor: 'rgba(0, 255, 136, 0.3)',
+                    borderWidth: 1,
+                    titleColor: '#00ff88',
+                    bodyColor: '#e0e6ed'
+                }
+            }
+        }
+    });
+}
+</script>
+
+<style>
+.indicator-value-box {
+    background: linear-gradient(135deg, #1e2139, #2d3250);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    margin: 1.5rem 0;
+    border-left: 4px solid #00ff88;
+}
+
+.indicator-value-box.danger {
+    border-left-color: #dc3545;
+}
+
+.indicator-value-box.warning {
+    border-left-color: #ffc107;
+}
+
+.indicator-value-box.positive {
+    border-left-color: #28a745;
+}
+
+.indicator-value-box.neutral {
+    border-left-color: #6c757d;
+}
+
+.big-value {
+    font-size: 3.5rem;
+    font-weight: bold;
+    color: #00ff88;
+    margin-bottom: 0.5rem;
+}
+
+.indicator-value-box.danger .big-value {
+    color: #dc3545;
+}
+
+.indicator-value-box.warning .big-value {
+    color: #ffc107;
+}
+
+.value-label {
+    color: #a8b2d1;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.percentile-info, .change-info, .avg-info {
+    color: #64b5f6;
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
+}
+
+.change-info.positive {
+    color: #28a745;
+}
+
+.change-info.negative {
+    color: #dc3545;
+}
+
+.interpretation-box {
+    background: rgba(30, 33, 57, 0.5);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0 2rem 0;
+    border-left: 4px solid #00ff88;
+}
+
+.interpretation-box.danger {
+    border-left-color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.interpretation-box.warning {
+    border-left-color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.interpretation-box.positive {
+    border-left-color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+}
+
+.status-label {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #00ff88;
+    margin-bottom: 0.5rem;
+}
+
+.interpretation-box.danger .status-label {
+    color: #dc3545;
+}
+
+.interpretation-box.warning .status-label {
+    color: #ffc107;
+}
+
+.interpretation-box.positive .status-label {
+    color: #28a745;
+}
+
+.interpretation-box p {
+    color: #e0e6ed;
+    margin: 0;
+    line-height: 1.6;
+}
+
+.historical-comparison {
+    background: rgba(30, 33, 57, 0.5);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.historical-comparison h4 {
+    color: #00ff88;
+    margin: 0 0 1rem 0;
+}
+
+.comparison-grid {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.comparison-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.comparison-label {
+    color: #a8b2d1;
+    font-size: 0.9rem;
+}
+
+.comparison-value {
+    color: #e0e6ed;
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+</style>
+{% endblock %}
