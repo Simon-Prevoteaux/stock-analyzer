@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+
+{% block title %}Market Sentiment - Macro Signals{% endblock %}
+
+{% block content %}
+<div class="macro-dashboard">
+    <div class="page-header">
+        <h1>Market Sentiment</h1>
+        <p class="subtitle">Fear & Greed indicators, VIX analysis, and risk appetite gauges</p>
+    </div>
+
+    <!-- Sentiment Summary Section -->
+    {% if sentiment_summary %}
+    <div class="recession-indicators">
+        <h3>Market Sentiment Assessment</h3>
+        <div class="indicator-summary {{ sentiment_summary.sentiment_class }}">
+            <div class="risk-level">Sentiment: <strong>{{ sentiment_summary.sentiment }}</strong></div>
+            <div class="risk-summary">{{ sentiment_summary.summary }}</div>
+            {% if sentiment_summary.signals %}
+            <ul class="risk-signals">
+                {% for signal in sentiment_summary.signals %}
+                <li>{{ signal }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Section 1: Fear & Greed Index -->
+    <div class="macro-section">
+        <h2>
+            Fear & Greed Index
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Custom Fear & Greed Index</strong><br><br>
+                    A composite indicator combining multiple signals:<br><br>
+                    <strong>Components (25% each):</strong><br>
+                    1. VIX Level (inverted)<br>
+                    2. VIX Term Structure<br>
+                    3. Credit Spreads vs Average<br>
+                    4. S&P 500 vs 200-day MA<br><br>
+                    <strong>Interpretation:</strong><br>
+                    - 0-20: Extreme Fear (contrarian buy)<br>
+                    - 20-40: Fear<br>
+                    - 40-60: Neutral<br>
+                    - 60-80: Greed<br>
+                    - 80-100: Extreme Greed (contrarian sell)<br><br>
+                    Extreme readings often signal turning points.
+                </span>
+            </span>
+        </h2>
+
+        <!-- Fear & Greed Gauge -->
+        <div class="fear-greed-gauge">
+            <div class="gauge-container">
+                <div class="gauge-bg">
+                    <div class="gauge-fill" style="width: {{ fear_greed.overall if fear_greed.overall else 50 }}%"></div>
+                </div>
+                <div class="gauge-labels">
+                    <span class="gauge-label fear">Extreme Fear</span>
+                    <span class="gauge-label neutral">Neutral</span>
+                    <span class="gauge-label greed">Extreme Greed</span>
+                </div>
+                <div class="gauge-value {{ fear_greed_interp.status_class }}">
+                    <span class="big-number">{{ fear_greed.overall if fear_greed.overall else 'N/A' }}</span>
+                    <span class="status-text">{{ fear_greed.status if fear_greed.status else 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+
+        {% if fear_greed_interp.contrarian %}
+        <div class="contrarian-signal {{ fear_greed_interp.status_class }}">
+            Contrarian Signal: <strong>{{ fear_greed_interp.contrarian }}</strong>
+        </div>
+        {% endif %}
+
+        <div class="interpretation-box {{ fear_greed_interp.status_class }}">
+            <p>{{ fear_greed_interp.interpretation }}</p>
+        </div>
+
+        <!-- Component Breakdown -->
+        <h3>Component Breakdown</h3>
+        <div class="components-grid">
+            {% for key, component in fear_greed.components.items() %}
+            <div class="component-card">
+                <div class="component-label">{{ component.label }}</div>
+                <div class="component-bar-container">
+                    <div class="component-bar {{ 'fear' if component.score < 40 else 'greed' if component.score > 60 else 'neutral' }}"
+                         style="width: {{ component.score }}%"></div>
+                </div>
+                <div class="component-score">{{ component.score }}</div>
+                <div class="component-value">
+                    {% if key == 'vix_level' %}
+                    VIX: {{ component.value }}
+                    {% elif key == 'vix_term' %}
+                    Spread: {{ component.value }} ({{ component.status }})
+                    {% elif key == 'credit_spreads' %}
+                    HY: {{ component.value }}bps ({{ component.percentile }}th pctl)
+                    {% elif key == 'sp500_trend' %}
+                    {{ component.value }}% vs MA ({{ component.trend }})
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Section 2: VIX Analysis -->
+    <div class="macro-section">
+        <h2>
+            VIX Analysis
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>CBOE Volatility Index (VIX)</strong><br><br>
+                    Measures expected 30-day S&P 500 volatility implied by options prices.<br><br>
+                    <strong>Levels:</strong><br>
+                    - Below 12: Extreme complacency<br>
+                    - 12-16: Low volatility<br>
+                    - 16-20: Normal<br>
+                    - 20-25: Elevated<br>
+                    - 25-30: High fear<br>
+                    - 30-40: Very high fear<br>
+                    - Above 40: Panic<br><br>
+                    <strong>Contrarian Signals:</strong><br>
+                    - Very low VIX often precedes corrections<br>
+                    - VIX spikes often mark bottoms
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <!-- VIX Level -->
+            <div class="metric-card {{ vix_interp.status_class }}">
+                <div class="metric-label">VIX (Current)</div>
+                <div class="metric-value">{{ vix.vix.current if vix.vix.current else 'N/A' }}</div>
+                {% if vix.vix.percentile %}
+                <div class="metric-sublabel">{{ vix.vix.percentile }}th percentile (5yr)</div>
+                {% endif %}
+                {% if vix_interp.contrarian_signal %}
+                <div class="contrarian-badge {{ vix_interp.status_class }}">{{ vix_interp.contrarian_signal }}</div>
+                {% endif %}
+            </div>
+
+            <!-- VIX3M -->
+            <div class="metric-card neutral">
+                <div class="metric-label">VIX3M (3-Month)</div>
+                <div class="metric-value">{{ vix.vix3m.current if vix.vix3m.current else 'N/A' }}</div>
+                <div class="metric-sublabel">3-month volatility expectation</div>
+            </div>
+
+            <!-- Term Structure -->
+            <div class="metric-card {{ term_structure_interp.status_class }}">
+                <div class="metric-label">Term Structure</div>
+                <div class="metric-value">{{ vix.term_structure if vix.term_structure else 'N/A' }}</div>
+                <div class="metric-sublabel">{{ vix.term_structure_status if vix.term_structure_status else 'N/A' }}</div>
+            </div>
+        </div>
+
+        <div class="interpretation-box {{ vix_interp.status_class }}">
+            <div class="status-label">VIX: {{ vix_interp.status }}</div>
+            <p>{{ vix_interp.interpretation }}</p>
+        </div>
+
+        <div class="interpretation-box {{ term_structure_interp.status_class }}">
+            <div class="status-label">Term Structure: {{ term_structure_interp.status }}</div>
+            <p>{{ term_structure_interp.interpretation }}</p>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="vixChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>VIX Term Structure:</strong> When VIX3M > VIX (contango), markets are calm. When VIX > VIX3M (backwardation), near-term fear exceeds long-term - a stress signal that often coincides with market bottoms.</p>
+        </div>
+    </div>
+
+    <!-- Section 3: S&P 500 Trend -->
+    <div class="macro-section">
+        <h2>
+            S&P 500 Trend Analysis
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Price vs Moving Averages</strong><br><br>
+                    Compares current price to key moving averages:<br><br>
+                    <strong>50-Day MA:</strong><br>
+                    Short-term trend. Price above = bullish momentum.<br><br>
+                    <strong>200-Day MA:</strong><br>
+                    Long-term trend. Price above = bull market.<br><br>
+                    <strong>Interpretations:</strong><br>
+                    - Above both: Strong uptrend<br>
+                    - Between (above 200, below 50): Pullback in uptrend<br>
+                    - Below both: Downtrend<br><br>
+                    200-day MA often acts as support in bull markets.
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card neutral">
+                <div class="metric-label">S&P 500 Current</div>
+                <div class="metric-value">{{ '{:,.0f}'.format(sp500_trend.current) if sp500_trend.current else 'N/A' }}</div>
+            </div>
+
+            <div class="metric-card {{ 'positive' if sp500_trend.above_50 else 'warning' }}">
+                <div class="metric-label">50-Day MA</div>
+                <div class="metric-value">{{ '{:,.0f}'.format(sp500_trend.ma_50) if sp500_trend.ma_50 else 'N/A' }}</div>
+                <div class="metric-sublabel">{{ 'Above' if sp500_trend.above_50 else 'Below' }}</div>
+            </div>
+
+            <div class="metric-card {{ 'positive' if sp500_trend.above_200 else 'danger' }}">
+                <div class="metric-label">200-Day MA</div>
+                <div class="metric-value">{{ '{:,.0f}'.format(sp500_trend.ma_200) if sp500_trend.ma_200 else 'N/A' }}</div>
+                <div class="metric-sublabel">{{ 'Above' if sp500_trend.above_200 else 'Below' }}</div>
+            </div>
+
+            <div class="metric-card {{ 'positive' if sp500_trend.trend == 'UPTREND' else 'danger' if sp500_trend.trend == 'DOWNTREND' else 'warning' }}">
+                <div class="metric-label">Trend</div>
+                <div class="metric-value">{{ sp500_trend.trend if sp500_trend.trend else 'N/A' }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 4: Credit Spreads -->
+    <div class="macro-section">
+        <h2>
+            Credit Risk Appetite
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Credit Spreads as Risk Indicator</strong><br><br>
+                    Credit spreads measure the extra yield investors demand over Treasuries.<br><br>
+                    <strong>Tight Spreads:</strong><br>
+                    - Investors comfortable with risk<br>
+                    - Greed / risk-on environment<br>
+                    - Can signal complacency<br><br>
+                    <strong>Wide Spreads:</strong><br>
+                    - Investors demanding risk premium<br>
+                    - Fear / risk-off environment<br>
+                    - May signal opportunity<br><br>
+                    <strong>Divergence Warning:</strong><br>
+                    If stocks rally while spreads widen, credit market is not confirming - caution!
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            {% if credit_spreads.high_yield %}
+            <div class="metric-card {{ 'positive' if credit_spreads.high_yield.percentile < 30 else 'warning' if credit_spreads.high_yield.percentile < 70 else 'danger' }}">
+                <div class="metric-label">High Yield Spread</div>
+                <div class="metric-value">{{ credit_spreads.high_yield.current }}bps</div>
+                <div class="metric-sublabel">{{ credit_spreads.high_yield.percentile }}th percentile</div>
+                <div class="metric-sublabel">{{ 'Tight (Risk-On)' if credit_spreads.high_yield.percentile < 30 else 'Wide (Risk-Off)' if credit_spreads.high_yield.percentile > 70 else 'Normal' }}</div>
+            </div>
+            {% endif %}
+
+            {% if credit_spreads.corporate_master %}
+            <div class="metric-card {{ 'positive' if credit_spreads.corporate_master.percentile < 30 else 'warning' if credit_spreads.corporate_master.percentile < 70 else 'danger' }}">
+                <div class="metric-label">IG Corporate Spread</div>
+                <div class="metric-value">{{ credit_spreads.corporate_master.current }}bps</div>
+                <div class="metric-sublabel">{{ credit_spreads.corporate_master.percentile }}th percentile</div>
+            </div>
+            {% endif %}
+
+            {% if credit_spreads.bbb %}
+            <div class="metric-card {{ 'positive' if credit_spreads.bbb.percentile < 30 else 'warning' if credit_spreads.bbb.percentile < 70 else 'danger' }}">
+                <div class="metric-label">BBB Spread</div>
+                <div class="metric-value">{{ credit_spreads.bbb.current }}bps</div>
+                <div class="metric-sublabel">{{ credit_spreads.bbb.percentile }}th percentile</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+/* Fear & Greed Gauge */
+.fear-greed-gauge {
+    margin: 2rem 0;
+}
+
+.gauge-container {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.gauge-bg {
+    height: 30px;
+    background: linear-gradient(to right, #f44336, #ff9800, #ffeb3b, #8bc34a, #4caf50);
+    border-radius: 15px;
+    position: relative;
+    overflow: hidden;
+}
+
+.gauge-fill {
+    height: 100%;
+    background: transparent;
+    position: relative;
+}
+
+.gauge-fill::after {
+    content: '';
+    position: absolute;
+    right: -5px;
+    top: -5px;
+    width: 10px;
+    height: 40px;
+    background: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.gauge-value {
+    margin-top: 1rem;
+}
+
+.gauge-value .big-number {
+    font-size: 3rem;
+    font-weight: bold;
+    display: block;
+}
+
+.gauge-value .status-text {
+    font-size: 1.2rem;
+    display: block;
+    margin-top: 0.5rem;
+}
+
+.gauge-value.positive .big-number,
+.gauge-value.positive .status-text {
+    color: #4caf50;
+}
+
+.gauge-value.warning .big-number,
+.gauge-value.warning .status-text {
+    color: #ff9800;
+}
+
+.gauge-value.danger .big-number,
+.gauge-value.danger .status-text {
+    color: #f44336;
+}
+
+.gauge-value.neutral .big-number,
+.gauge-value.neutral .status-text {
+    color: #888;
+}
+
+/* Contrarian Signal */
+.contrarian-signal {
+    text-align: center;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin: 1rem auto;
+    max-width: 400px;
+    font-size: 1.1rem;
+}
+
+.contrarian-signal.danger {
+    background: rgba(244, 67, 54, 0.2);
+    border: 1px solid #f44336;
+    color: #f44336;
+}
+
+.contrarian-signal.warning {
+    background: rgba(255, 152, 0, 0.2);
+    border: 1px solid #ff9800;
+    color: #ff9800;
+}
+
+.contrarian-signal.positive {
+    background: rgba(76, 175, 80, 0.2);
+    border: 1px solid #4caf50;
+    color: #4caf50;
+}
+
+/* Components Grid */
+.components-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.component-card {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid #333;
+}
+
+.component-label {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 0.5rem;
+}
+
+.component-bar-container {
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+
+.component-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.component-bar.fear {
+    background: linear-gradient(to right, #f44336, #ff9800);
+}
+
+.component-bar.neutral {
+    background: #888;
+}
+
+.component-bar.greed {
+    background: linear-gradient(to right, #8bc34a, #4caf50);
+}
+
+.component-score {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.component-value {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.3rem;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.metric-card {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1.2rem;
+    text-align: center;
+    border: 1px solid #333;
+}
+
+.metric-card.positive {
+    border-color: #4caf50;
+}
+
+.metric-card.warning {
+    border-color: #ff9800;
+}
+
+.metric-card.danger {
+    border-color: #f44336;
+}
+
+.metric-card.neutral {
+    border-color: #555;
+}
+
+.metric-label {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.metric-sublabel {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.3rem;
+}
+
+.contrarian-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    display: inline-block;
+}
+
+.contrarian-badge.warning {
+    background: rgba(255, 152, 0, 0.2);
+    color: #ff9800;
+}
+
+.contrarian-badge.danger {
+    background: rgba(244, 67, 54, 0.2);
+    color: #f44336;
+}
+
+.contrarian-badge.positive {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: { color: '#ccc' }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#888' },
+                grid: { color: '#333' }
+            },
+            y: {
+                ticks: { color: '#888' },
+                grid: { color: '#333' }
+            }
+        }
+    };
+
+    // VIX Chart
+    {% if vix.vix.history['dates'] %}
+    new Chart(document.getElementById('vixChart'), {
+        type: 'line',
+        data: {
+            labels: {{ vix.vix.history['dates'] | tojson }},
+            datasets: [
+                {
+                    label: 'VIX',
+                    data: {{ vix.vix.history['values'] | tojson }},
+                    borderColor: '#f44336',
+                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2
+                },
+                {
+                    label: 'VIX3M',
+                    data: {{ vix.vix3m.history['values'] | tojson }},
+                    borderColor: '#2196F3',
+                    backgroundColor: 'transparent',
+                    tension: 0.3,
+                    borderWidth: 1.5
+                }
+            ]
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'VIX & VIX3M - 5 Year History',
+                    color: '#ccc'
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

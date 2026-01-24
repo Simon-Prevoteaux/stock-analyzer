@@ -80,6 +80,18 @@ class MacroDataFetcher:
         'mortgage_debt_service': 'MDSP',          # Mortgage Debt Service as % of Disposable Income
     }
 
+    # Inflation & Fed Policy Series IDs
+    INFLATION_SERIES = {
+        'cpi': 'CPIAUCSL',              # Consumer Price Index for All Urban Consumers
+        'core_cpi': 'CPILFESL',         # CPI Less Food and Energy (Core CPI)
+        'pce': 'PCEPI',                 # Personal Consumption Expenditures Price Index
+        'core_pce': 'PCEPILFE',         # PCE Less Food and Energy (Core PCE - Fed's target)
+        'breakeven_5y': 'T5YIE',        # 5-Year Breakeven Inflation Rate
+        'breakeven_10y': 'T10YIE',      # 10-Year Breakeven Inflation Rate
+        'fed_funds': 'DFEDTARU',        # Federal Funds Target Rate - Upper Bound
+        'fed_assets': 'WALCL',          # Fed Total Assets (Balance Sheet)
+    }
+
     def __init__(self, fred_api_key: str, db=None, cache_hours: int = 24):
         """
         Initialize with FRED API key and optional database for caching
@@ -139,6 +151,20 @@ class MacroDataFetcher:
                               self.REAL_ESTATE_SERIES.get('median_income'),
                               self.REAL_ESTATE_SERIES.get('mortgage_debt_service')]:
                 data_type = 'affordability'
+            elif series_id in [self.INFLATION_SERIES.get('cpi'),
+                              self.INFLATION_SERIES.get('core_cpi'),
+                              self.INFLATION_SERIES.get('pce'),
+                              self.INFLATION_SERIES.get('core_pce')]:
+                data_type = 'inflation'
+            elif series_id in [self.INFLATION_SERIES.get('breakeven_5y'),
+                              self.INFLATION_SERIES.get('breakeven_10y')]:
+                data_type = 'breakeven'
+            elif series_id in [self.INFLATION_SERIES.get('fed_funds')]:
+                data_type = 'fed_funds'
+            elif series_id in [self.INFLATION_SERIES.get('fed_assets')]:
+                data_type = 'fed_assets'
+            elif series_id in ['^VIX', '^VIX3M']:
+                data_type = 'vix'
             else:
                 return None
 
@@ -213,6 +239,20 @@ class MacroDataFetcher:
                               self.REAL_ESTATE_SERIES.get('median_income'),
                               self.REAL_ESTATE_SERIES.get('mortgage_debt_service')]:
                 data_type = 'affordability'
+            elif series_id in [self.INFLATION_SERIES.get('cpi'),
+                              self.INFLATION_SERIES.get('core_cpi'),
+                              self.INFLATION_SERIES.get('pce'),
+                              self.INFLATION_SERIES.get('core_pce')]:
+                data_type = 'inflation'
+            elif series_id in [self.INFLATION_SERIES.get('breakeven_5y'),
+                              self.INFLATION_SERIES.get('breakeven_10y')]:
+                data_type = 'breakeven'
+            elif series_id in [self.INFLATION_SERIES.get('fed_funds')]:
+                data_type = 'fed_funds'
+            elif series_id in [self.INFLATION_SERIES.get('fed_assets')]:
+                data_type = 'fed_assets'
+            elif series_id in ['^VIX', '^VIX3M']:
+                data_type = 'vix'
             else:
                 return
 
@@ -1724,4 +1764,635 @@ class MacroDataFetcher:
                 'values': merged['ratio'].round(2).tolist()
             },
             'historical_avg': round(historical_avg, 2)
+        }
+
+    # =========================================================================
+    # INFLATION & FED POLICY INDICATORS
+    # =========================================================================
+
+    def _calculate_yoy_change(self, df: pd.DataFrame, periods_back: int = 12) -> Optional[float]:
+        """
+        Calculate year-over-year percentage change for index data
+
+        Args:
+            df: DataFrame with date and value columns
+            periods_back: Number of periods to look back (12 for monthly, 4 for quarterly)
+
+        Returns:
+            YoY percentage change or None
+        """
+        if df.empty or len(df) < periods_back + 1:
+            return None
+
+        current = df.iloc[-1]['value']
+        year_ago = df.iloc[-(periods_back + 1)]['value']
+
+        if year_ago == 0 or pd.isna(year_ago):
+            return None
+
+        return ((current - year_ago) / year_ago) * 100
+
+    def fetch_inflation_data(self, lookback_years: int = 10) -> Dict:
+        """
+        Fetch all inflation metrics: CPI, Core CPI, PCE, Core PCE
+
+        Returns YoY changes (inflation rates) for each metric along with
+        historical series for charting.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current inflation rates, historical series, and trends
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        result = {
+            'cpi': {'current': None, 'previous': None, 'history': {'dates': [], 'values': []}},
+            'core_cpi': {'current': None, 'previous': None, 'history': {'dates': [], 'values': []}},
+            'pce': {'current': None, 'previous': None, 'history': {'dates': [], 'values': []}},
+            'core_pce': {'current': None, 'previous': None, 'history': {'dates': [], 'values': []}},
+        }
+
+        # Fetch each inflation series
+        for metric in ['cpi', 'core_cpi', 'pce', 'core_pce']:
+            df = self._fetch_series(
+                self.INFLATION_SERIES[metric],
+                start_date=start_date
+            )
+
+            if df.empty:
+                continue
+
+            # Calculate YoY inflation rate for each data point
+            df_copy = df.copy()
+            df_copy['yoy'] = df_copy['value'].pct_change(periods=12) * 100
+
+            # Get current and previous month YoY
+            valid_yoy = df_copy.dropna(subset=['yoy'])
+            if not valid_yoy.empty:
+                result[metric]['current'] = round(valid_yoy.iloc[-1]['yoy'], 2)
+                if len(valid_yoy) >= 2:
+                    result[metric]['previous'] = round(valid_yoy.iloc[-2]['yoy'], 2)
+
+                # Historical YoY rates for charting
+                result[metric]['history'] = {
+                    'dates': valid_yoy['date'].dt.strftime('%Y-%m-%d').tolist(),
+                    'values': valid_yoy['yoy'].round(2).tolist()
+                }
+
+        return result
+
+    def fetch_breakeven_inflation(self, lookback_years: int = 10) -> Dict:
+        """
+        Fetch market inflation expectations from TIPS breakeven rates
+
+        The breakeven rate is the difference between nominal Treasury yields
+        and TIPS yields - it represents the market's inflation expectation.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with 5Y and 10Y breakeven rates and history
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        result = {
+            '5y': {'current': None, 'history': {'dates': [], 'values': []}},
+            '10y': {'current': None, 'history': {'dates': [], 'values': []}},
+        }
+
+        # Fetch 5Y breakeven
+        be5_df = self._fetch_series(
+            self.INFLATION_SERIES['breakeven_5y'],
+            start_date=start_date
+        )
+        if not be5_df.empty:
+            result['5y']['current'] = round(be5_df.iloc[-1]['value'], 2)
+            result['5y']['history'] = {
+                'dates': be5_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': be5_df['value'].round(2).tolist()
+            }
+
+        # Fetch 10Y breakeven
+        be10_df = self._fetch_series(
+            self.INFLATION_SERIES['breakeven_10y'],
+            start_date=start_date
+        )
+        if not be10_df.empty:
+            result['10y']['current'] = round(be10_df.iloc[-1]['value'], 2)
+            result['10y']['history'] = {
+                'dates': be10_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': be10_df['value'].round(2).tolist()
+            }
+
+        return result
+
+    def fetch_fed_funds_rate(self, lookback_years: int = 20) -> Dict:
+        """
+        Fetch Fed Funds target rate (upper bound)
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current rate and historical series
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        df = self._fetch_series(
+            self.INFLATION_SERIES['fed_funds'],
+            start_date=start_date
+        )
+
+        if df.empty:
+            return {
+                'current': None,
+                'history': {'dates': [], 'values': []},
+                'yoy_change': None
+            }
+
+        current = df.iloc[-1]['value']
+
+        # YoY change (look back ~252 trading days)
+        yoy_change = None
+        if len(df) >= 253:
+            year_ago = df.iloc[-253]['value']
+            yoy_change = current - year_ago
+
+        return {
+            'current': round(current, 2),
+            'history': {
+                'dates': df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': df['value'].round(2).tolist()
+            },
+            'yoy_change': round(yoy_change, 2) if yoy_change is not None else None
+        }
+
+    def fetch_fed_balance_sheet(self, lookback_years: int = 20) -> Dict:
+        """
+        Fetch Fed Total Assets (balance sheet size)
+
+        This shows QE (increasing) or QT (decreasing) activity.
+        Values are in millions of dollars.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current size, YoY change, and historical series
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        df = self._fetch_series(
+            self.INFLATION_SERIES['fed_assets'],
+            start_date=start_date
+        )
+
+        if df.empty:
+            return {
+                'current': None,
+                'current_trillions': None,
+                'yoy_change_pct': None,
+                'history': {'dates': [], 'values': []},
+                'trend': None
+            }
+
+        current = df.iloc[-1]['value']  # In millions
+        current_trillions = current / 1_000_000  # Convert to trillions
+
+        # YoY change (weekly data, ~52 weeks back)
+        yoy_change_pct = None
+        trend = None
+        if len(df) >= 53:
+            year_ago = df.iloc[-53]['value']
+            if year_ago > 0:
+                yoy_change_pct = ((current - year_ago) / year_ago) * 100
+                if yoy_change_pct > 5:
+                    trend = 'QE'  # Quantitative Easing
+                elif yoy_change_pct < -5:
+                    trend = 'QT'  # Quantitative Tightening
+                else:
+                    trend = 'STABLE'
+
+        # Sample weekly data to reduce chart points
+        sampled = df.iloc[::4].copy()  # Every 4th point (~monthly)
+
+        return {
+            'current': round(current, 0),
+            'current_trillions': round(current_trillions, 2),
+            'yoy_change_pct': round(yoy_change_pct, 1) if yoy_change_pct is not None else None,
+            'history': {
+                'dates': sampled['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': (sampled['value'] / 1_000_000).round(2).tolist()  # In trillions
+            },
+            'trend': trend
+        }
+
+    def calculate_real_rate(self, lookback_years: int = 10) -> Dict:
+        """
+        Calculate Real Interest Rate = Fed Funds Rate - Core PCE Inflation
+
+        The real rate indicates the true cost of borrowing after inflation.
+        Negative real rates are stimulative, positive rates are restrictive.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current real rate, historical series, and interpretation
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch Fed Funds rate
+        fed_df = self._fetch_series(
+            self.INFLATION_SERIES['fed_funds'],
+            start_date=start_date
+        )
+
+        # Fetch Core PCE index for YoY calculation
+        pce_df = self._fetch_series(
+            self.INFLATION_SERIES['core_pce'],
+            start_date=start_date
+        )
+
+        if fed_df.empty or pce_df.empty:
+            return {
+                'current': None,
+                'fed_funds': None,
+                'core_pce': None,
+                'history': {'dates': [], 'values': []},
+            }
+
+        # Calculate Core PCE YoY
+        pce_df_copy = pce_df.copy()
+        pce_df_copy['yoy'] = pce_df_copy['value'].pct_change(periods=12) * 100
+
+        # Merge on date (need to align monthly PCE with daily Fed Funds)
+        # Use month-end for Fed Funds to match PCE
+        fed_df['month'] = fed_df['date'].dt.to_period('M')
+        fed_monthly = fed_df.groupby('month').last().reset_index()
+        fed_monthly['date'] = fed_monthly['month'].dt.to_timestamp()
+
+        pce_df_copy['month'] = pce_df_copy['date'].dt.to_period('M')
+        pce_monthly = pce_df_copy.groupby('month').last().reset_index()
+        pce_monthly['date'] = pce_monthly['month'].dt.to_timestamp()
+
+        merged = pd.merge(
+            fed_monthly[['date', 'value']],
+            pce_monthly[['date', 'yoy']],
+            on='date',
+            suffixes=('_fed', '_pce')
+        )
+
+        if merged.empty:
+            return {
+                'current': None,
+                'fed_funds': None,
+                'core_pce': None,
+                'history': {'dates': [], 'values': []},
+            }
+
+        # Calculate real rate
+        merged['real_rate'] = merged['value'] - merged['yoy']
+        merged = merged.dropna()
+
+        if merged.empty:
+            return {
+                'current': None,
+                'fed_funds': None,
+                'core_pce': None,
+                'history': {'dates': [], 'values': []},
+            }
+
+        current_real = merged.iloc[-1]['real_rate']
+        current_fed = merged.iloc[-1]['value']
+        current_pce = merged.iloc[-1]['yoy']
+
+        return {
+            'current': round(current_real, 2),
+            'fed_funds': round(current_fed, 2),
+            'core_pce': round(current_pce, 2),
+            'history': {
+                'dates': merged['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': merged['real_rate'].round(2).tolist()
+            },
+        }
+
+    # =========================================================================
+    # MARKET SENTIMENT INDICATORS
+    # =========================================================================
+
+    def fetch_vix_data(self, lookback_years: int = 5, use_cache: bool = True) -> Dict:
+        """
+        Fetch VIX and VIX3M data from Yahoo Finance
+
+        VIX measures 30-day expected volatility, VIX3M measures 3-month.
+        The term structure (VIX3M - VIX) indicates market stress:
+        - Contango (VIX3M > VIX): Normal, complacent market
+        - Backwardation (VIX < VIX3M): Stressed, fearful market
+
+        Args:
+            lookback_years: Years of history to fetch
+            use_cache: Whether to use database cache
+
+        Returns:
+            Dict with VIX data, term structure, and historical series
+        """
+        lookback_days = lookback_years * 365
+        start_date_str = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        result = {
+            'vix': {'current': None, 'percentile': None, 'history': {'dates': [], 'values': []}},
+            'vix3m': {'current': None, 'history': {'dates': [], 'values': []}},
+            'term_structure': None,
+            'term_structure_status': None,
+        }
+
+        # Fetch VIX
+        vix_df = self._fetch_vix_ticker('^VIX', lookback_days, use_cache)
+        if not vix_df.empty:
+            current_vix = vix_df.iloc[-1]['value']
+            result['vix']['current'] = round(current_vix, 2)
+
+            # Calculate percentile over lookback period
+            percentile = (vix_df['value'] <= current_vix).sum() / len(vix_df) * 100
+            result['vix']['percentile'] = round(percentile, 1)
+
+            result['vix']['history'] = {
+                'dates': vix_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': vix_df['value'].round(2).tolist()
+            }
+
+        # Fetch VIX3M
+        vix3m_df = self._fetch_vix_ticker('^VIX3M', lookback_days, use_cache)
+        if not vix3m_df.empty:
+            result['vix3m']['current'] = round(vix3m_df.iloc[-1]['value'], 2)
+            result['vix3m']['history'] = {
+                'dates': vix3m_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': vix3m_df['value'].round(2).tolist()
+            }
+
+        # Calculate term structure
+        if result['vix']['current'] and result['vix3m']['current']:
+            term_structure = result['vix3m']['current'] - result['vix']['current']
+            result['term_structure'] = round(term_structure, 2)
+
+            if term_structure > 2:
+                result['term_structure_status'] = 'CONTANGO'
+            elif term_structure < -2:
+                result['term_structure_status'] = 'BACKWARDATION'
+            else:
+                result['term_structure_status'] = 'FLAT'
+
+        return result
+
+    def _fetch_vix_ticker(self, ticker: str, lookback_days: int, use_cache: bool = True) -> pd.DataFrame:
+        """
+        Fetch VIX-related ticker from Yahoo Finance with caching
+
+        Args:
+            ticker: Yahoo Finance ticker (^VIX, ^VIX3M)
+            lookback_days: Days of history
+            use_cache: Whether to use cache
+
+        Returns:
+            DataFrame with date and value columns
+        """
+        start_date_str = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Try cache first
+        if use_cache and self.db:
+            try:
+                cached_df = self.db.get_macro_data('vix', ticker, start_date=start_date_str)
+                if not cached_df.empty:
+                    latest_date = pd.to_datetime(cached_df['date'].max())
+                    cache_age = datetime.now() - latest_date.replace(tzinfo=None)
+                    if cache_age.total_seconds() / 3600 <= self.cache_hours:
+                        logger.info(f"Using cached {ticker} data (age: {cache_age.total_seconds()/3600:.1f}h)")
+                        return cached_df
+            except Exception as e:
+                logger.error(f"Error reading {ticker} cache: {e}")
+
+        # Fetch from Yahoo Finance
+        try:
+            vix = yf.Ticker(ticker)
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=lookback_days)
+
+            hist = vix.history(start=start_date, end=end_date)
+
+            if hist.empty:
+                logger.warning(f"No {ticker} data available from Yahoo Finance")
+                return pd.DataFrame(columns=['date', 'value'])
+
+            df = pd.DataFrame({
+                'date': hist.index,
+                'value': hist['Close']
+            })
+            df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
+            df = df.sort_values('date').reset_index(drop=True)
+
+            logger.info(f"Fetched {len(df)} {ticker} observations from Yahoo Finance")
+
+            # Save to cache
+            if use_cache and self.db:
+                try:
+                    observations = [
+                        {'date': row['date'].strftime('%Y-%m-%d'), 'value': row['value']}
+                        for _, row in df.iterrows()
+                    ]
+                    self.db.save_macro_data('vix', ticker, observations)
+                    logger.info(f"Saved {ticker} data to cache")
+                except Exception as e:
+                    logger.error(f"Error saving {ticker} cache: {e}")
+
+            return df
+
+        except Exception as e:
+            logger.error(f"Error fetching {ticker} from Yahoo Finance: {e}")
+            return pd.DataFrame(columns=['date', 'value'])
+
+    def fetch_sp500_moving_averages(self, use_cache: bool = True) -> Dict:
+        """
+        Fetch S&P 500 price relative to moving averages
+
+        Shows whether the market is in an uptrend or downtrend.
+
+        Args:
+            use_cache: Whether to use cache
+
+        Returns:
+            Dict with current price, MAs, and position relative to MAs
+        """
+        # Get S&P 500 data (reuse existing method logic)
+        series_id = '^GSPC'
+        lookback_days = 400  # Need ~1 year for 200-day MA
+
+        # Try cache first
+        df = None
+        if use_cache and self.db:
+            try:
+                cached_df = self.db.get_macro_data('sp500', series_id)
+                if not cached_df.empty:
+                    latest_date = pd.to_datetime(cached_df['date'].max())
+                    cache_age = datetime.now() - latest_date.replace(tzinfo=None)
+                    if cache_age.total_seconds() / 3600 <= self.cache_hours:
+                        df = cached_df
+            except Exception:
+                pass
+
+        if df is None:
+            try:
+                sp500 = yf.Ticker(series_id)
+                hist = sp500.history(period="2y")
+                if not hist.empty:
+                    df = pd.DataFrame({
+                        'date': hist.index,
+                        'value': hist['Close']
+                    })
+                    df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
+                    df = df.sort_values('date').reset_index(drop=True)
+            except Exception as e:
+                logger.error(f"Error fetching S&P 500: {e}")
+                return {
+                    'current': None,
+                    'ma_50': None,
+                    'ma_200': None,
+                    'above_50': None,
+                    'above_200': None,
+                    'trend': None
+                }
+
+        if df is None or df.empty or len(df) < 200:
+            return {
+                'current': None,
+                'ma_50': None,
+                'ma_200': None,
+                'above_50': None,
+                'above_200': None,
+                'trend': None
+            }
+
+        # Calculate MAs
+        current = df.iloc[-1]['value']
+        ma_50 = df['value'].tail(50).mean()
+        ma_200 = df['value'].tail(200).mean()
+
+        above_50 = current > ma_50
+        above_200 = current > ma_200
+
+        # Determine trend
+        if above_50 and above_200:
+            trend = 'UPTREND'
+        elif not above_50 and not above_200:
+            trend = 'DOWNTREND'
+        else:
+            trend = 'MIXED'
+
+        return {
+            'current': round(current, 2),
+            'ma_50': round(ma_50, 2),
+            'ma_200': round(ma_200, 2),
+            'above_50': above_50,
+            'above_200': above_200,
+            'trend': trend
+        }
+
+    def calculate_fear_greed_components(self) -> Dict:
+        """
+        Calculate components for a Fear & Greed index
+
+        Components (each scored 0-100, 50 = neutral):
+        1. VIX level (inverted - lower VIX = more greed)
+        2. VIX term structure (contango = greed, backwardation = fear)
+        3. Credit spreads vs 1Y average (tight = greed, wide = fear)
+        4. S&P 500 vs 200-day MA (above = greed, below = fear)
+
+        Returns:
+            Dict with component scores and overall index
+        """
+        components = {}
+
+        # 1. VIX Level Score (0-100)
+        # VIX 10 = 100 (extreme greed), VIX 40 = 0 (extreme fear)
+        vix_data = self.fetch_vix_data(lookback_years=1)
+        if vix_data['vix']['current']:
+            vix = vix_data['vix']['current']
+            # Scale: 10 → 100, 25 → 50, 40 → 0
+            vix_score = max(0, min(100, 100 - ((vix - 10) / 30) * 100))
+            components['vix_level'] = {
+                'score': round(vix_score, 1),
+                'value': vix,
+                'label': 'VIX Level'
+            }
+
+        # 2. VIX Term Structure Score
+        if vix_data['term_structure'] is not None:
+            term = vix_data['term_structure']
+            # Contango (+5) = 100 (greed), Flat (0) = 50, Backwardation (-5) = 0 (fear)
+            term_score = max(0, min(100, 50 + (term / 5) * 50))
+            components['vix_term'] = {
+                'score': round(term_score, 1),
+                'value': term,
+                'status': vix_data['term_structure_status'],
+                'label': 'VIX Term Structure'
+            }
+
+        # 3. Credit Spreads Score
+        credit_data = self.fetch_credit_spreads()
+        if credit_data.get('high_yield', {}).get('percentile'):
+            # Low percentile = tight spreads = greed
+            # High percentile = wide spreads = fear
+            percentile = credit_data['high_yield']['percentile']
+            credit_score = 100 - percentile  # Invert so tight = high score
+            components['credit_spreads'] = {
+                'score': round(credit_score, 1),
+                'value': credit_data['high_yield']['current'],
+                'percentile': percentile,
+                'label': 'Credit Spreads'
+            }
+
+        # 4. S&P 500 vs 200-day MA
+        ma_data = self.fetch_sp500_moving_averages()
+        if ma_data['current'] and ma_data['ma_200']:
+            # Calculate % above/below 200-day MA
+            pct_vs_ma = ((ma_data['current'] - ma_data['ma_200']) / ma_data['ma_200']) * 100
+            # +10% above = 100 (greed), at MA = 50, -10% below = 0 (fear)
+            ma_score = max(0, min(100, 50 + (pct_vs_ma / 10) * 50))
+            components['sp500_trend'] = {
+                'score': round(ma_score, 1),
+                'value': round(pct_vs_ma, 2),
+                'trend': ma_data['trend'],
+                'label': 'S&P 500 Trend'
+            }
+
+        # Calculate overall index (equal weighted)
+        scores = [c['score'] for c in components.values() if c.get('score') is not None]
+        overall = sum(scores) / len(scores) if scores else None
+
+        # Determine status
+        status = None
+        if overall is not None:
+            if overall >= 80:
+                status = 'EXTREME GREED'
+            elif overall >= 60:
+                status = 'GREED'
+            elif overall >= 40:
+                status = 'NEUTRAL'
+            elif overall >= 20:
+                status = 'FEAR'
+            else:
+                status = 'EXTREME FEAR'
+
+        return {
+            'overall': round(overall, 1) if overall else None,
+            'status': status,
+            'components': components
         }
