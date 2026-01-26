@@ -271,6 +271,113 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Section 5: S&P 500 vs Consumer Sentiment -->
+    <div class="macro-section">
+        <h2>
+            S&P 500 vs Consumer Sentiment
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Market vs Sentiment Correlation</strong><br><br>
+                    Compares stock market performance with consumer confidence.<br><br>
+                    <strong>Divergence signals:</strong><br>
+                    - Market rising + sentiment falling = potential exhaustion<br>
+                    - Market falling + sentiment rising = potential bottom<br><br>
+                    <strong>S&P 500 is inflation-adjusted</strong> using CPI to show real returns.
+                </span>
+            </span>
+        </h2>
+
+        <!-- Divergence Alert -->
+        {% if sentiment_divergence and sentiment_divergence.status != 'NEUTRAL' and sentiment_divergence.status != 'ALIGNED POSITIVE' %}
+        <div class="contrarian-signal {{ sentiment_divergence.status_class }}">
+            <strong>{{ sentiment_divergence.status }}</strong><br>
+            {{ sentiment_divergence.interpretation }}
+        </div>
+        {% endif %}
+
+        <!-- Current Values -->
+        <div class="metrics-grid">
+            <div class="metric-card neutral">
+                <div class="metric-label">Consumer Sentiment</div>
+                <div class="metric-value">{{ consumer_sentiment.current if consumer_sentiment.current else 'N/A' }}</div>
+                <div class="metric-sublabel">{{ consumer_sentiment.percentile }}th percentile (10Y)</div>
+            </div>
+            <div class="metric-card neutral">
+                <div class="metric-label">Correlation</div>
+                <div class="metric-value">{{ sp500_sentiment_data.correlation if sp500_sentiment_data.correlation else 'N/A' }}</div>
+                <div class="metric-sublabel">S&P 500 vs Sentiment (10Y)</div>
+            </div>
+            {% if sentiment_divergence %}
+            <div class="metric-card {{ sentiment_divergence.status_class }}">
+                <div class="metric-label">Sentiment Change (1Y)</div>
+                <div class="metric-value">{{ '%+.1f'|format(sentiment_divergence.sentiment_change) if sentiment_divergence.sentiment_change else 'N/A' }} pts</div>
+                <div class="metric-sublabel">{{ sentiment_divergence.status }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Dual-Axis Chart -->
+        <div class="chart-container" style="height: 350px; margin-top: 1rem;">
+            <canvas id="sp500SentimentChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Section 6: Small Cap vs Large Cap -->
+    <div class="macro-section">
+        <h2>
+            Small Cap vs Large Cap Ratio
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Russell 2000 / S&P 500 Ratio</strong><br><br>
+                    Shows relative performance of small caps vs large caps.<br><br>
+                    <strong>High ratio (small caps outperforming):</strong><br>
+                    - Risk-on sentiment<br>
+                    - Economic optimism<br>
+                    - Value/cyclical rotation<br><br>
+                    <strong>Low ratio (large caps outperforming):</strong><br>
+                    - Risk-off/quality preference<br>
+                    - Defensive positioning<br>
+                    - Flight to safety
+                </span>
+            </span>
+        </h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card neutral">
+                <div class="metric-label">Current Ratio</div>
+                <div class="metric-value">{{ '%.3f'|format(small_large_ratio.current_ratio) if small_large_ratio.current_ratio else 'N/A' }}</div>
+                <div class="metric-sublabel">{{ small_large_ratio.percentile }}th percentile (10Y)</div>
+            </div>
+            <div class="metric-card {{ 'positive' if small_large_ratio.trend == 'SMALL CAPS GAINING' else 'warning' if small_large_ratio.trend == 'LARGE CAPS GAINING' else 'neutral' }}">
+                <div class="metric-label">3-Month Trend</div>
+                <div class="metric-value">{{ small_large_ratio.trend if small_large_ratio.trend else 'N/A' }}</div>
+                {% if small_large_ratio.change_3m %}
+                <div class="metric-sublabel">{{ '%+.1f'|format(small_large_ratio.change_3m) }}%</div>
+                {% endif %}
+            </div>
+            <div class="metric-card neutral">
+                <div class="metric-label">Russell 2000</div>
+                <div class="metric-value">{% if small_large_ratio.rut_current %}{{ small_large_ratio.rut_current | round | int }}{% else %}N/A{% endif %}</div>
+            </div>
+            <div class="metric-card neutral">
+                <div class="metric-label">S&P 500</div>
+                <div class="metric-value">{% if small_large_ratio.sp500_current %}{{ small_large_ratio.sp500_current | round | int }}{% else %}N/A{% endif %}</div>
+            </div>
+        </div>
+
+        {% if small_large_interp %}
+        <div class="contrarian-signal {{ small_large_interp.status_class }}">
+            <strong>{{ small_large_interp.status }}</strong><br>
+            {{ small_large_interp.interpretation }}
+        </div>
+        {% endif %}
+
+        <!-- Small/Large Cap Chart -->
+        <div class="chart-container" style="height: 300px; margin-top: 1rem;">
+            <canvas id="smallLargeChart"></canvas>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -574,6 +681,109 @@ document.addEventListener('DOMContentLoaded', function() {
                     text: 'VIX & VIX3M - 5 Year History',
                     color: '#ccc'
                 }
+            }
+        }
+    });
+    {% endif %}
+
+    // S&P 500 vs Consumer Sentiment Chart (Dual Y-Axis)
+    {% if sp500_sentiment_data and sp500_sentiment_data.dates %}
+    new Chart(document.getElementById('sp500SentimentChart'), {
+        type: 'line',
+        data: {
+            labels: {{ sp500_sentiment_data.dates | tojson }},
+            datasets: [
+                {
+                    label: '{{ sp500_sentiment_data.sp500_label }}',
+                    data: {{ sp500_sentiment_data.sp500 | tojson }},
+                    borderColor: '#00ff88',
+                    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.3,
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    fill: true
+                },
+                {
+                    label: 'Consumer Sentiment',
+                    data: {{ sp500_sentiment_data.sentiment | tojson }},
+                    borderColor: '#64b5f6',
+                    backgroundColor: 'transparent',
+                    yAxisID: 'y1',
+                    tension: 0.3,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: '{{ sp500_sentiment_data.sp500_label }}', color: '#00ff88' },
+                    ticks: { color: '#00ff88' },
+                    grid: { color: 'rgba(0, 255, 136, 0.1)' }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'Consumer Sentiment', color: '#64b5f6' },
+                    ticks: { color: '#64b5f6' },
+                    grid: { drawOnChartArea: false }
+                },
+                x: {
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { color: '#333' }
+                }
+            },
+            plugins: {
+                title: { display: true, text: 'S&P 500 vs Consumer Sentiment (10 Year)', color: '#ccc' },
+                legend: { display: true, labels: { color: '#ccc' } }
+            }
+        }
+    });
+    {% endif %}
+
+    // Small Cap vs Large Cap Ratio Chart
+    {% if small_large_ratio and small_large_ratio.history and small_large_ratio.history.dates %}
+    new Chart(document.getElementById('smallLargeChart'), {
+        type: 'line',
+        data: {
+            labels: {{ small_large_ratio.history.dates | tojson }},
+            datasets: [{
+                label: 'Russell 2000 / S&P 500 Ratio',
+                data: {{ small_large_ratio.history.ratios | tojson }},
+                borderColor: '#ff9800',
+                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    title: { display: true, text: 'Ratio', color: '#ff9800' },
+                    ticks: { color: '#888' },
+                    grid: { color: '#333' }
+                },
+                x: {
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { color: '#333' }
+                }
+            },
+            plugins: {
+                title: { display: true, text: 'Small Cap vs Large Cap - 10 Year History', color: '#ccc' },
+                legend: { display: false }
             }
         }
     });

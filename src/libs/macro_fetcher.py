@@ -92,6 +92,16 @@ class MacroDataFetcher:
         'fed_assets': 'WALCL',          # Fed Total Assets (Balance Sheet)
     }
 
+    # Consumer Sentiment Series IDs
+    SENTIMENT_SERIES = {
+        'consumer_sentiment': 'UMCSENT',  # University of Michigan Consumer Sentiment Index
+    }
+
+    # Money Market Funds Series IDs
+    MONEY_MARKET_SERIES = {
+        'total_assets': 'MMMFFAQ027S',  # Money Market Funds Total Financial Assets (quarterly)
+    }
+
     def __init__(self, fred_api_key: str, db=None, cache_hours: int = 24):
         """
         Initialize with FRED API key and optional database for caching
@@ -165,6 +175,14 @@ class MacroDataFetcher:
                 data_type = 'fed_assets'
             elif series_id in ['^VIX', '^VIX3M']:
                 data_type = 'vix'
+            elif series_id in [self.SENTIMENT_SERIES.get('consumer_sentiment')]:
+                data_type = 'consumer_sentiment'
+            elif series_id in [self.MONEY_MARKET_SERIES.get('total_assets')]:
+                data_type = 'money_market'
+            elif series_id in ['^RUT']:
+                data_type = 'small_cap_index'
+            elif series_id in ['BTC-USD']:
+                data_type = 'crypto'
             else:
                 return None
 
@@ -253,6 +271,14 @@ class MacroDataFetcher:
                 data_type = 'fed_assets'
             elif series_id in ['^VIX', '^VIX3M']:
                 data_type = 'vix'
+            elif series_id in [self.SENTIMENT_SERIES.get('consumer_sentiment')]:
+                data_type = 'consumer_sentiment'
+            elif series_id in [self.MONEY_MARKET_SERIES.get('total_assets')]:
+                data_type = 'money_market'
+            elif series_id in ['^RUT']:
+                data_type = 'small_cap_index'
+            elif series_id in ['BTC-USD']:
+                data_type = 'crypto'
             else:
                 return
 
@@ -2396,3 +2422,587 @@ class MacroDataFetcher:
             'status': status,
             'components': components
         }
+
+    # =========================================================================
+    # CONSUMER SENTIMENT METHODS
+    # =========================================================================
+
+    def fetch_consumer_sentiment(self, lookback_years: int = 10) -> Dict:
+        """
+        Fetch University of Michigan Consumer Sentiment Index
+
+        The sentiment index is a monthly survey. Values above 100 indicate
+        optimism, below 100 indicate pessimism. Historical average is around 85.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current value, historical series, percentile, and 1-year ago value
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        sentiment_df = self._fetch_series(
+            self.SENTIMENT_SERIES['consumer_sentiment'],
+            start_date=start_date
+        )
+
+        if sentiment_df.empty:
+            return {
+                'current': None,
+                'percentile': None,
+                'one_year_ago': None,
+                'history': {'dates': [], 'values': []}
+            }
+
+        current = sentiment_df.iloc[-1]['value']
+        percentile = (sentiment_df['value'] <= current).sum() / len(sentiment_df) * 100
+
+        # Get value from 1 year ago (approximately 12 months back)
+        one_year_ago = None
+        if len(sentiment_df) >= 13:
+            one_year_ago = sentiment_df.iloc[-13]['value']
+
+        return {
+            'current': round(current, 1),
+            'percentile': round(percentile, 1),
+            'one_year_ago': round(one_year_ago, 1) if one_year_ago else None,
+            'history': {
+                'dates': sentiment_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': sentiment_df['value'].round(1).tolist()
+            }
+        }
+
+    def fetch_sp500_vs_sentiment(self, lookback_years: int = 10, adjust_for_inflation: bool = True) -> Dict:
+        """
+        Fetch S&P 500 and Consumer Sentiment for correlation chart
+
+        Args:
+            lookback_years: Years of history
+            adjust_for_inflation: Whether to adjust S&P 500 for CPI
+
+        Returns:
+            Dict with aligned dates, S&P 500 values, sentiment values, and correlation
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Fetch Consumer Sentiment (monthly)
+        sentiment_df = self._fetch_series(
+            self.SENTIMENT_SERIES['consumer_sentiment'],
+            start_date=start_date
+        )
+
+        if sentiment_df.empty:
+            return {
+                'dates': [],
+                'sp500': [],
+                'sp500_label': 'S&P 500',
+                'sentiment': [],
+                'correlation': None
+            }
+
+        # Fetch S&P 500 from Yahoo Finance
+        try:
+            sp500 = yf.Ticker('^GSPC')
+            hist = sp500.history(start=start_date)
+
+            if hist.empty:
+                return {
+                    'dates': [],
+                    'sp500': [],
+                    'sp500_label': 'S&P 500',
+                    'sentiment': [],
+                    'correlation': None
+                }
+
+            sp500_df = pd.DataFrame({
+                'date': hist.index,
+                'value': hist['Close']
+            })
+            sp500_df['date'] = pd.to_datetime(sp500_df['date']).dt.tz_localize(None)
+
+            # Resample S&P 500 to monthly (end of month)
+            sp500_df = sp500_df.set_index('date')
+            sp500_monthly = sp500_df.resample('ME').last().reset_index()
+            sp500_monthly.columns = ['date', 'sp500']
+
+        except Exception as e:
+            logger.error(f"Error fetching S&P 500: {e}")
+            return {
+                'dates': [],
+                'sp500': [],
+                'sp500_label': 'S&P 500',
+                'sentiment': [],
+                'correlation': None
+            }
+
+        # Adjust for inflation if requested
+        sp500_label = 'S&P 500'
+        if adjust_for_inflation:
+            cpi_df = self._fetch_series(
+                self.INFLATION_SERIES['cpi'],
+                start_date=start_date
+            )
+
+            if not cpi_df.empty:
+                # Resample CPI to monthly if needed
+                cpi_df = cpi_df.set_index('date')
+                cpi_monthly = cpi_df.resample('ME').last().reset_index()
+                cpi_monthly.columns = ['date', 'cpi']
+
+                # Merge and calculate real S&P 500
+                sp500_monthly = sp500_monthly.merge(cpi_monthly, on='date', how='inner')
+                latest_cpi = sp500_monthly['cpi'].iloc[-1]
+                sp500_monthly['sp500_real'] = sp500_monthly['sp500'] * (latest_cpi / sp500_monthly['cpi'])
+                sp500_monthly['sp500'] = sp500_monthly['sp500_real']
+                sp500_label = 'S&P 500 (Inflation-Adjusted)'
+
+        # Prepare sentiment data for merge
+        sentiment_df = sentiment_df.copy()
+        sentiment_df['date'] = sentiment_df['date'].dt.to_period('M').dt.to_timestamp('M')
+        sentiment_df.columns = ['date', 'sentiment']
+
+        # Merge on month
+        merged = sp500_monthly.merge(sentiment_df, on='date', how='inner')
+
+        if merged.empty:
+            return {
+                'dates': [],
+                'sp500': [],
+                'sp500_label': sp500_label,
+                'sentiment': [],
+                'correlation': None
+            }
+
+        # Calculate correlation
+        correlation = merged['sp500'].corr(merged['sentiment'])
+
+        return {
+            'dates': merged['date'].dt.strftime('%Y-%m').tolist(),
+            'sp500': merged['sp500'].round(0).tolist(),
+            'sp500_label': sp500_label,
+            'sentiment': merged['sentiment'].round(1).tolist(),
+            'correlation': round(correlation, 2) if not pd.isna(correlation) else None
+        }
+
+    # =========================================================================
+    # MONEY MARKET FUNDS METHODS
+    # =========================================================================
+
+    def fetch_money_market_funds(self, lookback_years: int = 15) -> Dict:
+        """
+        Fetch Money Market Fund Total Assets
+
+        Shows liquidity/cash on sidelines - indicator of potential money to deploy.
+        Rising MMF assets often seen during uncertainty, falling assets may indicate
+        risk-on behavior as investors move money into equities.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current value in trillions, historical series, YoY change
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        mmf_df = self._fetch_series(
+            self.MONEY_MARKET_SERIES['total_assets'],
+            start_date=start_date
+        )
+
+        if mmf_df.empty:
+            return {
+                'current_trillions': None,
+                'yoy_change_pct': None,
+                'all_time_high': None,
+                'at_all_time_high': False,
+                'history': {'dates': [], 'values': []}
+            }
+
+        # Values are in millions, convert to trillions
+        mmf_df['value_trillions'] = mmf_df['value'] / 1_000_000
+
+        current = mmf_df.iloc[-1]['value_trillions']
+        all_time_high = mmf_df['value_trillions'].max()
+
+        # YoY change (quarterly data, so 4 periods back)
+        yoy_change = None
+        if len(mmf_df) >= 5:
+            year_ago = mmf_df.iloc[-5]['value_trillions']
+            yoy_change = ((current - year_ago) / year_ago) * 100
+
+        return {
+            'current_trillions': round(current, 2),
+            'yoy_change_pct': round(yoy_change, 1) if yoy_change else None,
+            'all_time_high': round(all_time_high, 2),
+            'at_all_time_high': current >= all_time_high * 0.98,  # Within 2% of ATH
+            'history': {
+                'dates': mmf_df['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'values': mmf_df['value_trillions'].round(2).tolist()
+            }
+        }
+
+    # =========================================================================
+    # SMALL CAP VS LARGE CAP METHODS
+    # =========================================================================
+
+    def fetch_small_large_cap_ratio(self, lookback_years: int = 10) -> Dict:
+        """
+        Calculate Small Cap (Russell 2000) vs Large Cap (S&P 500) price ratio
+
+        Shows relative performance:
+        - Rising ratio: Small caps outperforming (risk-on, economic optimism)
+        - Falling ratio: Large caps outperforming (risk-off, quality preference)
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with current ratio, historical series, percentile, trend
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        try:
+            # Fetch Russell 2000 (small cap)
+            rut = yf.Ticker('^RUT')
+            rut_hist = rut.history(start=start_date)
+
+            # Fetch S&P 500 (large cap)
+            sp500 = yf.Ticker('^GSPC')
+            sp500_hist = sp500.history(start=start_date)
+
+            if rut_hist.empty or sp500_hist.empty:
+                return {
+                    'current_ratio': None,
+                    'percentile': None,
+                    'trend': None,
+                    'change_3m': None,
+                    'rut_current': None,
+                    'sp500_current': None,
+                    'history': {'dates': [], 'values': []}
+                }
+
+            # Create DataFrames
+            rut_df = pd.DataFrame({
+                'date': rut_hist.index,
+                'rut': rut_hist['Close']
+            })
+            rut_df['date'] = pd.to_datetime(rut_df['date']).dt.tz_localize(None)
+
+            sp500_df = pd.DataFrame({
+                'date': sp500_hist.index,
+                'sp500': sp500_hist['Close']
+            })
+            sp500_df['date'] = pd.to_datetime(sp500_df['date']).dt.tz_localize(None)
+
+            # Merge on date
+            merged = rut_df.merge(sp500_df, on='date', how='inner')
+
+            if merged.empty:
+                return {
+                    'current_ratio': None,
+                    'percentile': None,
+                    'trend': None,
+                    'change_3m': None,
+                    'rut_current': None,
+                    'sp500_current': None,
+                    'history': {'dates': [], 'values': []}
+                }
+
+            # Calculate ratio
+            merged['ratio'] = merged['rut'] / merged['sp500']
+
+            current_ratio = merged.iloc[-1]['ratio']
+            percentile = (merged['ratio'] <= current_ratio).sum() / len(merged) * 100
+
+            # Calculate 3-month trend (~63 trading days)
+            trend = None
+            change_3m = None
+            if len(merged) > 63:
+                ratio_3m_ago = merged.iloc[-63]['ratio']
+                change_3m = (current_ratio - ratio_3m_ago) / ratio_3m_ago * 100
+                if change_3m > 3:
+                    trend = 'SMALL CAPS GAINING'
+                elif change_3m < -3:
+                    trend = 'LARGE CAPS GAINING'
+                else:
+                    trend = 'STABLE'
+
+            # Resample to weekly for chart (less noise)
+            merged_weekly = merged.set_index('date').resample('W').last().reset_index()
+            merged_weekly = merged_weekly.dropna()
+
+            return {
+                'current_ratio': round(current_ratio, 4),
+                'percentile': round(percentile, 1),
+                'trend': trend,
+                'change_3m': round(change_3m, 2) if change_3m else None,
+                'rut_current': round(merged.iloc[-1]['rut'], 2),
+                'sp500_current': round(merged.iloc[-1]['sp500'], 2),
+                'history': {
+                    'dates': merged_weekly['date'].dt.strftime('%Y-%m-%d').tolist(),
+                    'ratios': merged_weekly['ratio'].round(4).tolist()
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Error fetching small/large cap ratio: {e}")
+            return {
+                'current_ratio': None,
+                'percentile': None,
+                'trend': None,
+                'change_3m': None,
+                'rut_current': None,
+                'sp500_current': None,
+                'history': {'dates': [], 'ratios': []}
+            }
+
+    # =========================================================================
+    # CRYPTOCURRENCY METHODS
+    # =========================================================================
+
+    def fetch_btc_price(self, lookback_days: int = 1825, use_cache: bool = True) -> pd.DataFrame:
+        """
+        Fetch Bitcoin price data from Yahoo Finance with caching
+
+        Args:
+            lookback_days: Days of history to fetch (default 5 years)
+            use_cache: Whether to use database cache
+
+        Returns:
+            DataFrame with date and value columns
+        """
+        series_id = 'BTC-USD'
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        # Try cache first
+        if use_cache:
+            cached_df = self._get_cached_series(series_id, start_date)
+            if cached_df is not None:
+                return cached_df
+
+        try:
+            btc = yf.Ticker(series_id)
+            hist = btc.history(start=start_date)
+
+            if hist.empty:
+                return pd.DataFrame(columns=['date', 'value'])
+
+            df = pd.DataFrame({
+                'date': hist.index,
+                'value': hist['Close']
+            })
+            df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
+            df = df.sort_values('date').reset_index(drop=True)
+
+            # Save to cache
+            if use_cache:
+                self._save_to_cache(series_id, df)
+
+            return df
+
+        except Exception as e:
+            logger.error(f"Error fetching BTC price: {e}")
+            return pd.DataFrame(columns=['date', 'value'])
+
+    def calculate_btc_returns(self) -> Dict:
+        """
+        Calculate BTC returns across multiple timeframes
+
+        Returns:
+            Dict with returns for each timeframe
+        """
+        timeframes = {
+            '1d': 1, '1w': 7, '1m': 30, '3m': 90, '1y': 365, '3y': 1095, '5y': 1825
+        }
+
+        df = self.fetch_btc_price(lookback_days=1825)
+
+        btc_data = {'name': 'BTC/USD', 'code': 'BTC'}
+
+        for period, days in timeframes.items():
+            return_pct = self._calculate_period_return(df, days)
+            btc_data[period] = round(return_pct, 2) if return_pct is not None else None
+
+        return btc_data
+
+    def calculate_btc_vs_currencies(self) -> List[Dict]:
+        """
+        Calculate BTC performance vs major currencies
+
+        Shows how each currency has performed vs Bitcoin.
+        Negative % means currency lost purchasing power vs BTC.
+
+        Returns:
+            List of dicts with currency performance vs BTC
+        """
+        timeframes = {
+            '1d': 1, '1w': 7, '1m': 30, '3m': 90, '1y': 365, '3y': 1095, '5y': 1825
+        }
+
+        btc_usd_df = self.fetch_btc_price(lookback_days=1825)
+
+        if btc_usd_df.empty:
+            return []
+
+        results = []
+
+        # USD vs BTC
+        usd_data = {'name': 'USD', 'code': 'USD'}
+        for period, days in timeframes.items():
+            btc_return = self._calculate_period_return(btc_usd_df, days)
+            # Invert: if BTC went up 10%, USD lost 10% purchasing power vs BTC
+            usd_data[period] = round(-btc_return, 2) if btc_return is not None else None
+        results.append(usd_data)
+
+        # Other currencies vs BTC
+        for currency in ['EUR', 'JPY', 'CNY', 'CHF']:
+            fx_df = self.fetch_exchange_rate(currency, lookback_days=1825)
+
+            if fx_df.empty:
+                continue
+
+            # Merge BTC and FX data
+            merged = pd.merge(btc_usd_df, fx_df, on='date', suffixes=('_btc', '_fx'))
+
+            if merged.empty:
+                continue
+
+            # Calculate BTC price in local currency
+            if currency == 'EUR':
+                # EUR: DEXUSEU = USD per EUR, so BTC_EUR = BTC_USD / DEXUSEU
+                merged['btc_local'] = merged['value_btc'] / merged['value_fx']
+            else:
+                # JPY/CNY/CHF: Foreign per USD, so BTC_LOCAL = BTC_USD * FX_RATE
+                merged['btc_local'] = merged['value_btc'] * merged['value_fx']
+
+            btc_local_df = pd.DataFrame({
+                'date': merged['date'],
+                'value': merged['btc_local']
+            })
+
+            currency_data = {'name': currency, 'code': currency}
+            for period, days in timeframes.items():
+                btc_return_local = self._calculate_period_return(btc_local_df, days)
+                # Invert: positive BTC return = negative currency performance vs BTC
+                currency_data[period] = round(-btc_return_local, 2) if btc_return_local is not None else None
+
+            results.append(currency_data)
+
+        return results
+
+    def fetch_btc_market_data(self) -> Dict:
+        """
+        Fetch BTC market cap and additional data from Yahoo Finance
+
+        Returns:
+            Dict with market cap, volume, current price, 52-week high/low
+        """
+        try:
+            btc = yf.Ticker('BTC-USD')
+            info = btc.info
+
+            market_cap = info.get('marketCap')
+
+            return {
+                'market_cap': market_cap,
+                'market_cap_trillions': round(market_cap / 1e12, 2) if market_cap else None,
+                'volume_24h': info.get('volume24Hr') or info.get('volume'),
+                'circulating_supply': info.get('circulatingSupply'),
+                'current_price': info.get('regularMarketPrice') or info.get('previousClose'),
+                'high_52w': info.get('fiftyTwoWeekHigh'),
+                'low_52w': info.get('fiftyTwoWeekLow'),
+            }
+
+        except Exception as e:
+            logger.error(f"Error fetching BTC market data: {e}")
+            return {
+                'market_cap': None,
+                'market_cap_trillions': None,
+                'volume_24h': None,
+                'circulating_supply': None,
+                'current_price': None,
+                'high_52w': None,
+                'low_52w': None,
+            }
+
+    def fetch_asset_market_caps(self) -> Dict:
+        """
+        Fetch market caps for BTC, Gold, and Silver for comparison
+
+        Gold: ~$16T (estimated from total above-ground gold ~210,000 tonnes * price/oz)
+        Silver: ~$1.5T (estimated from total above-ground silver)
+        BTC: From Yahoo Finance
+
+        Returns:
+            Dict with market caps and percentages
+        """
+        try:
+            # BTC market cap from Yahoo Finance
+            btc = yf.Ticker('BTC-USD')
+            btc_info = btc.info
+            btc_market_cap = btc_info.get('marketCap', 0)
+
+            # Gold price from Yahoo Finance
+            gold = yf.Ticker('GC=F')
+            gold_info = gold.history(period='1d')
+            gold_price = gold_info['Close'].iloc[-1] if not gold_info.empty else 2650
+
+            # Silver price from Yahoo Finance
+            silver = yf.Ticker('SI=F')
+            silver_info = silver.history(period='1d')
+            silver_price = silver_info['Close'].iloc[-1] if not silver_info.empty else 30
+
+            # Estimated total above-ground gold: ~210,000 metric tonnes
+            # 1 metric tonne = 32,150.75 troy ounces
+            gold_tonnes = 210000
+            gold_oz = gold_tonnes * 32150.75
+            gold_market_cap = gold_oz * gold_price
+
+            # Estimated total above-ground silver: ~1.7 million metric tonnes (investment grade ~50,000)
+            # Using investable silver estimate
+            silver_tonnes = 50000
+            silver_oz = silver_tonnes * 32150.75
+            silver_market_cap = silver_oz * silver_price
+
+            total = btc_market_cap + gold_market_cap + silver_market_cap
+
+            return {
+                'btc': {
+                    'name': 'Bitcoin',
+                    'market_cap': btc_market_cap,
+                    'market_cap_trillions': round(btc_market_cap / 1e12, 2) if btc_market_cap else None,
+                    'percentage': round((btc_market_cap / total) * 100, 1) if total else None,
+                    'color': '#f7931a'
+                },
+                'gold': {
+                    'name': 'Gold',
+                    'market_cap': gold_market_cap,
+                    'market_cap_trillions': round(gold_market_cap / 1e12, 2),
+                    'percentage': round((gold_market_cap / total) * 100, 1) if total else None,
+                    'price_per_oz': round(gold_price, 2),
+                    'color': '#ffd700'
+                },
+                'silver': {
+                    'name': 'Silver',
+                    'market_cap': silver_market_cap,
+                    'market_cap_trillions': round(silver_market_cap / 1e12, 2),
+                    'percentage': round((silver_market_cap / total) * 100, 1) if total else None,
+                    'price_per_oz': round(silver_price, 2),
+                    'color': '#c0c0c0'
+                },
+                'total_trillions': round(total / 1e12, 2) if total else None
+            }
+
+        except Exception as e:
+            logger.error(f"Error fetching asset market caps: {e}")
+            return {
+                'btc': {'name': 'Bitcoin', 'market_cap_trillions': None, 'percentage': None},
+                'gold': {'name': 'Gold', 'market_cap_trillions': None, 'percentage': None},
+                'silver': {'name': 'Silver', 'market_cap_trillions': None, 'percentage': None},
+                'total_trillions': None
+            }

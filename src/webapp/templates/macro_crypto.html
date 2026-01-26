@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+
+{% block title %}Cryptocurrency - Macro Signals{% endblock %}
+
+{% block content %}
+<div class="macro-dashboard">
+    <div class="page-header">
+        <h1>Cryptocurrency Analysis</h1>
+        <p class="subtitle">Bitcoin performance vs fiat currencies - Digital gold perspective</p>
+    </div>
+
+    <!-- Section 1: BTC Market Overview -->
+    <div class="macro-section">
+        <h2>Bitcoin Market Overview</h2>
+
+        <div class="metrics-grid">
+            <div class="metric-card neutral">
+                <div class="metric-label">BTC Price</div>
+                <div class="metric-value">${{ '{:,.0f}'.format(btc_market_data.current_price) if btc_market_data.current_price else 'N/A' }}</div>
+            </div>
+            <div class="metric-card neutral">
+                <div class="metric-label">Market Cap</div>
+                <div class="metric-value">${{ '%.2f'|format(btc_market_data.market_cap_trillions) if btc_market_data.market_cap_trillions else 'N/A' }}T</div>
+            </div>
+            <div class="metric-card neutral">
+                <div class="metric-label">52W High</div>
+                <div class="metric-value">${{ '{:,.0f}'.format(btc_market_data.high_52w) if btc_market_data.high_52w else 'N/A' }}</div>
+            </div>
+            <div class="metric-card neutral">
+                <div class="metric-label">52W Low</div>
+                <div class="metric-value">${{ '{:,.0f}'.format(btc_market_data.low_52w) if btc_market_data.low_52w else 'N/A' }}</div>
+            </div>
+        </div>
+
+        <div class="chart-container" style="height: 400px;">
+            <canvas id="btcPriceChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Section 2: Market Cap Comparison -->
+    <div class="macro-section">
+        <h2>
+            Market Cap Comparison: BTC vs Gold vs Silver
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Store of Value Assets</strong><br><br>
+                    Comparing total market capitalization:<br>
+                    - Gold: ~210,000 tonnes above ground<br>
+                    - Silver: ~50,000 tonnes (investment grade)<br>
+                    - Bitcoin: 21M max supply<br><br>
+                    Shows Bitcoin's size relative to traditional stores of value.
+                </span>
+            </span>
+        </h2>
+
+        {% if asset_market_caps %}
+        <div class="market-cap-comparison">
+            <div class="market-cap-bar-container">
+                {% for asset_key in ['gold', 'btc', 'silver'] %}
+                {% set asset = asset_market_caps[asset_key] %}
+                {% if asset and asset.percentage %}
+                <div class="market-cap-bar" style="width: {{ asset.percentage }}%; background-color: {{ asset.color }};">
+                    <span class="bar-label">{{ asset.name }}: {{ asset.percentage }}%</span>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="metrics-grid" style="margin-top: 1.5rem;">
+                <div class="metric-card" style="border-left: 3px solid #ffd700;">
+                    <div class="metric-label">Gold Market Cap</div>
+                    <div class="metric-value">${{ asset_market_caps.gold.market_cap_trillions if asset_market_caps.gold.market_cap_trillions else 'N/A' }}T</div>
+                    <div class="metric-sublabel">${{ asset_market_caps.gold.price_per_oz if asset_market_caps.gold.price_per_oz else 'N/A' }}/oz</div>
+                </div>
+                <div class="metric-card" style="border-left: 3px solid #f7931a;">
+                    <div class="metric-label">Bitcoin Market Cap</div>
+                    <div class="metric-value">${{ asset_market_caps.btc.market_cap_trillions if asset_market_caps.btc.market_cap_trillions else 'N/A' }}T</div>
+                    <div class="metric-sublabel">{{ asset_market_caps.btc.percentage if asset_market_caps.btc.percentage else 'N/A' }}% of Gold+BTC+Silver</div>
+                </div>
+                <div class="metric-card" style="border-left: 3px solid #c0c0c0;">
+                    <div class="metric-label">Silver Market Cap</div>
+                    <div class="metric-value">${{ asset_market_caps.silver.market_cap_trillions if asset_market_caps.silver.market_cap_trillions else 'N/A' }}T</div>
+                    <div class="metric-sublabel">${{ asset_market_caps.silver.price_per_oz if asset_market_caps.silver.price_per_oz else 'N/A' }}/oz</div>
+                </div>
+            </div>
+
+            <div class="explanation-box" style="margin-top: 1rem;">
+                <p><strong>Total combined market cap:</strong> ${{ asset_market_caps.total_trillions if asset_market_caps.total_trillions else 'N/A' }}T. Bitcoin bulls argue BTC could eventually capture a larger share of this "store of value" market.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Section 3: BTC Returns -->
+    <div class="macro-section">
+        <h2>Bitcoin Performance (USD)</h2>
+        <p class="table-description">
+            Bitcoin price returns across different timeframes
+        </p>
+
+        <table class="macro-table">
+            <thead>
+                <tr>
+                    <th>Asset</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>{{ btc_returns.name if btc_returns else 'BTC/USD' }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if btc_returns[period] and btc_returns[period] > 0 else 'negative' if btc_returns[period] and btc_returns[period] < 0 else '' }}">
+                        {% if btc_returns and btc_returns[period] is not none %}
+                            {% if btc_returns[period] >= 0 %}+{% endif %}{{ "%.2f"|format(btc_returns[period]) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 4: Currencies vs Bitcoin -->
+    <div class="macro-section">
+        <h2>
+            Currency Performance vs Bitcoin
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>How currencies have performed vs BTC</strong><br><br>
+                    Negative % = Currency lost purchasing power vs BTC<br>
+                    (BTC price increased in that currency)<br><br>
+                    Positive % = Currency gained purchasing power vs BTC<br>
+                    (BTC price decreased in that currency)<br><br>
+                    Similar to Ray Dalio's gold analysis but for digital assets.
+                </span>
+            </span>
+        </h2>
+        <p class="table-description">
+            Positive % = Currency gained vs BTC | Negative % = Currency lost vs BTC
+        </p>
+
+        <table class="macro-table">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>5 Years</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for currency in btc_vs_currencies %}
+                <tr>
+                    <td><strong>{{ currency.name }}</strong></td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y', '5y'] %}
+                    <td class="{{ 'positive' if currency[period] and currency[period] > 0 else 'negative' if currency[period] and currency[period] < 0 else '' }}">
+                        {% if currency[period] is not none %}
+                            {% if currency[period] >= 0 %}+{% endif %}{{ "%.2f"|format(currency[period]) }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="explanation-box">
+            <p><strong>Digital Gold Thesis:</strong> Some investors view Bitcoin as "digital gold" - a store of value that may appreciate against fiat currencies over time due to its fixed supply. Compare these returns to the <a href="{{ url_for('macro.macro_currencies') }}">Gold vs Currencies table</a> to see how both assets perform as inflation hedges and stores of value.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Market Cap Comparison Bar */
+.market-cap-comparison {
+    margin: 1rem 0;
+}
+
+.market-cap-bar-container {
+    display: flex;
+    height: 50px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1a1a1a;
+}
+
+.market-cap-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 60px;
+    transition: all 0.3s ease;
+}
+
+.market-cap-bar:hover {
+    filter: brightness(1.2);
+}
+
+.bar-label {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #000;
+    text-shadow: 0 0 2px rgba(255,255,255,0.5);
+    white-space: nowrap;
+    padding: 0 0.5rem;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.metric-card {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid #333;
+}
+
+.metric-card.neutral {
+    border-left: 3px solid #888;
+}
+
+.metric-card.positive {
+    border-left: 3px solid #4caf50;
+}
+
+.metric-card.negative {
+    border-left: 3px solid #f44336;
+}
+
+.metric-card.warning {
+    border-left: 3px solid #ff9800;
+}
+
+.metric-label {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.metric-sublabel {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.3rem;
+}
+
+.chart-container {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #1a1a1a;
+    border-radius: 8px;
+}
+
+.explanation-box {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.explanation-box p {
+    color: #aaa;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.explanation-box a {
+    color: #f7931a;
+}
+
+.explanation-box a:hover {
+    text-decoration: underline;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // BTC Price Chart
+    {% if btc_history and btc_history.dates %}
+    new Chart(document.getElementById('btcPriceChart'), {
+        type: 'line',
+        data: {
+            labels: {{ btc_history.dates | tojson }},
+            datasets: [{
+                label: 'BTC Price (USD)',
+                data: {{ btc_history.prices | tojson }},
+                borderColor: '#f7931a',
+                backgroundColor: 'rgba(247, 147, 26, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: { display: true, text: 'Price (USD)', color: '#888' },
+                    ticks: {
+                        color: '#888',
+                        callback: function(value) { return '$' + value.toLocaleString(); }
+                    },
+                    grid: { color: 'rgba(168, 178, 209, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                title: { display: true, text: 'Bitcoin Price History (5 Years)', color: '#f7931a' },
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Price: $' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

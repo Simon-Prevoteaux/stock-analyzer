@@ -132,7 +132,7 @@ def macro_rates():
 
 @macro_bp.route('/macro/global-economy')
 def macro_global_economy():
-    """Global economic indicators - Buffett Indicator, M2/GDP, Debt/GDP, M2 Velocity"""
+    """Global economic indicators - Buffett Indicator, M2/GDP, Debt/GDP, M2 Velocity, Money Market Funds"""
     try:
         macro_fetcher, analyzer, error = _get_fetcher_and_analyzer()
         if error:
@@ -162,6 +162,14 @@ def macro_global_economy():
             velocity_data.get('historical_avg')
         )
 
+        # NEW: Money Market Funds
+        mmf_data = macro_fetcher.fetch_money_market_funds(lookback_years=15)
+        mmf_interp = analyzer.interpret_money_market_funds(
+            mmf_data.get('current_trillions'),
+            mmf_data.get('yoy_change_pct'),
+            mmf_data.get('at_all_time_high')
+        )
+
         # Generate summary
         summary = analyzer.get_global_economy_summary(
             buffett_data, m2_gdp_data, debt_gdp_data, velocity_data
@@ -183,7 +191,10 @@ def macro_global_economy():
             velocity=velocity_data,
             velocity_interp=velocity_interp,
             summary=summary,
-            last_update=last_update
+            last_update=last_update,
+            # NEW: Money Market Funds
+            mmf=mmf_data,
+            mmf_interp=mmf_interp
         )
 
     except Exception as e:
@@ -435,6 +446,31 @@ def macro_sentiment():
             sp500_trend
         )
 
+        # NEW: S&P 500 vs Consumer Sentiment comparison
+        consumer_sentiment = macro_fetcher.fetch_consumer_sentiment(lookback_years=10)
+        sp500_sentiment_data = macro_fetcher.fetch_sp500_vs_sentiment(
+            lookback_years=10,
+            adjust_for_inflation=True
+        )
+
+        # Calculate S&P 500 1Y return for divergence analysis
+        sp500_returns = macro_fetcher.calculate_sp500_returns()
+        sp500_1y_return = sp500_returns.get('1y')
+
+        sentiment_divergence = analyzer.interpret_sp500_sentiment_divergence(
+            sp500_1y_return,
+            consumer_sentiment.get('current'),
+            consumer_sentiment.get('one_year_ago')
+        )
+
+        # NEW: Small Cap vs Large Cap ratio
+        small_large_ratio = macro_fetcher.fetch_small_large_cap_ratio(lookback_years=10)
+        small_large_interp = analyzer.interpret_small_large_cap_ratio(
+            small_large_ratio.get('current_ratio'),
+            small_large_ratio.get('percentile'),
+            small_large_ratio.get('trend')
+        )
+
         return render_template(
             'macro_sentiment.html',
             vix=vix_data,
@@ -444,7 +480,14 @@ def macro_sentiment():
             fear_greed_interp=fear_greed_interp,
             sp500_trend=sp500_trend,
             credit_spreads=credit_spreads,
-            sentiment_summary=sentiment_summary
+            sentiment_summary=sentiment_summary,
+            # New data for S&P vs Consumer Sentiment
+            consumer_sentiment=consumer_sentiment,
+            sp500_sentiment_data=sp500_sentiment_data,
+            sentiment_divergence=sentiment_divergence,
+            # New data for Small/Large Cap ratio
+            small_large_ratio=small_large_ratio,
+            small_large_interp=small_large_interp
         )
 
     except Exception as e:
@@ -452,3 +495,52 @@ def macro_sentiment():
         import traceback
         traceback.print_exc()
         return f"<h1>Error loading sentiment page</h1><pre>{str(e)}\n\n{traceback.format_exc()}</pre>", 500
+
+
+# =============================================================================
+# CRYPTOCURRENCY PAGE (NEW)
+# =============================================================================
+
+@macro_bp.route('/macro/crypto')
+def macro_crypto():
+    """Cryptocurrency analysis - Bitcoin vs currencies"""
+    try:
+        macro_fetcher, analyzer, error = _get_fetcher_and_analyzer()
+        if error:
+            return render_template('error.html', error=error)
+
+        # Fetch BTC data
+        btc_returns = macro_fetcher.calculate_btc_returns()
+        btc_vs_currencies = macro_fetcher.calculate_btc_vs_currencies()
+        btc_market_data = macro_fetcher.fetch_btc_market_data()
+
+        # Fetch market cap comparison (BTC vs Gold vs Silver)
+        asset_market_caps = macro_fetcher.fetch_asset_market_caps()
+
+        # Get BTC price history for chart (weekly to reduce noise)
+        btc_df = macro_fetcher.fetch_btc_price(lookback_days=1825)
+        if not btc_df.empty:
+            # Resample to weekly
+            btc_df_weekly = btc_df.set_index('date').resample('W').last().reset_index()
+            btc_df_weekly = btc_df_weekly.dropna()
+            btc_history = {
+                'dates': btc_df_weekly['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'prices': btc_df_weekly['value'].round(0).tolist()
+            }
+        else:
+            btc_history = {'dates': [], 'prices': []}
+
+        return render_template(
+            'macro_crypto.html',
+            btc_returns=btc_returns,
+            btc_vs_currencies=btc_vs_currencies,
+            btc_market_data=btc_market_data,
+            btc_history=btc_history,
+            asset_market_caps=asset_market_caps
+        )
+
+    except Exception as e:
+        print(f"Error in macro_crypto route: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return f"<h1>Error loading crypto page</h1><pre>{str(e)}\n\n{traceback.format_exc()}</pre>", 500

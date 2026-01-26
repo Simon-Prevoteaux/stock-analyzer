@@ -1484,3 +1484,282 @@ class MacroAnalyzer:
             'summary': summary,
             'signals': signals
         }
+
+    # =========================================================================
+    # CONSUMER SENTIMENT INTERPRETATION
+    # =========================================================================
+
+    @staticmethod
+    def interpret_sp500_sentiment_divergence(
+        sp500_1y_return: float,
+        sentiment_current: float,
+        sentiment_1y_ago: float
+    ) -> Dict:
+        """
+        Analyze divergence between S&P 500 performance and consumer sentiment
+
+        A divergence can signal:
+        - Market rising + sentiment falling = potential exhaustion
+        - Market falling + sentiment rising = potential bottoming
+
+        Args:
+            sp500_1y_return: S&P 500 1-year return percentage
+            sentiment_current: Current consumer sentiment value
+            sentiment_1y_ago: Consumer sentiment 1 year ago
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        if sp500_1y_return is None or sentiment_current is None or sentiment_1y_ago is None:
+            return {
+                'status': 'INSUFFICIENT DATA',
+                'interpretation': 'Not enough data to analyze divergence.',
+                'status_class': 'neutral'
+            }
+
+        sentiment_change = sentiment_current - sentiment_1y_ago
+        sentiment_change_pct = (sentiment_change / sentiment_1y_ago) * 100
+
+        # Bullish divergence: market up, sentiment down
+        if sp500_1y_return > 10 and sentiment_change < -5:
+            status = 'BULLISH DIVERGENCE'
+            interpretation = (
+                f'Market up {sp500_1y_return:.1f}% while consumer sentiment fell {-sentiment_change:.1f} pts. '
+                'This disconnect may signal late-cycle exhaustion - consumers are not feeling the market gains.'
+            )
+            status_class = 'warning'
+
+        # Bearish divergence: market down, sentiment up
+        elif sp500_1y_return < -10 and sentiment_change > 5:
+            status = 'BEARISH DIVERGENCE'
+            interpretation = (
+                f'Market down {-sp500_1y_return:.1f}% while consumer sentiment rose {sentiment_change:.1f} pts. '
+                'Consumers may be underestimating economic headwinds, or market overreacted.'
+            )
+            status_class = 'warning'
+
+        # Contrarian buy signal: both very negative
+        elif sp500_1y_return < -15 and sentiment_current < 65:
+            status = 'CONTRARIAN BUY SIGNAL'
+            interpretation = (
+                f'Both market ({sp500_1y_return:.1f}%) and sentiment ({sentiment_current:.0f}) deeply negative. '
+                'Historically, extreme pessimism has preceded market rebounds.'
+            )
+            status_class = 'positive'
+
+        # Contrarian sell signal: both very positive
+        elif sp500_1y_return > 25 and sentiment_current > 95:
+            status = 'CONTRARIAN SELL SIGNAL'
+            interpretation = (
+                f'Both market ({sp500_1y_return:.1f}%) and sentiment ({sentiment_current:.0f}) very elevated. '
+                'Extreme optimism often precedes corrections.'
+            )
+            status_class = 'warning'
+
+        # Aligned positive
+        elif sp500_1y_return > 5 and sentiment_change > 0:
+            status = 'ALIGNED POSITIVE'
+            interpretation = (
+                f'Market and sentiment moving together positively. '
+                'Healthy bull market confirmation.'
+            )
+            status_class = 'positive'
+
+        # Aligned negative
+        elif sp500_1y_return < -5 and sentiment_change < 0:
+            status = 'ALIGNED NEGATIVE'
+            interpretation = (
+                f'Market and sentiment moving together negatively. '
+                'Economic concerns reflected in both indicators.'
+            )
+            status_class = 'warning'
+
+        else:
+            status = 'NEUTRAL'
+            interpretation = 'Market and sentiment showing no significant divergence.'
+            status_class = 'neutral'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class,
+            'sp500_return': sp500_1y_return,
+            'sentiment_change': round(sentiment_change, 1),
+            'sentiment_change_pct': round(sentiment_change_pct, 1)
+        }
+
+    # =========================================================================
+    # MONEY MARKET FUNDS INTERPRETATION
+    # =========================================================================
+
+    @staticmethod
+    def interpret_money_market_funds(
+        current_trillions: float,
+        yoy_change: float,
+        at_ath: bool
+    ) -> Dict:
+        """
+        Interpret Money Market Fund levels as liquidity indicator
+
+        High MMF assets = cash on sidelines (potential buying power)
+        Low/declining MMF = money flowing into risk assets
+
+        Args:
+            current_trillions: Current MMF total assets in trillions
+            yoy_change: Year-over-year change percentage
+            at_ath: Whether currently at or near all-time high
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        if current_trillions is None:
+            return {
+                'status': 'NO DATA',
+                'interpretation': 'Money market fund data not available.',
+                'status_class': 'neutral'
+            }
+
+        if at_ath and yoy_change and yoy_change > 10:
+            status = 'RECORD HIGH LIQUIDITY'
+            interpretation = (
+                f'Money market funds at record ${current_trillions:.1f}T (+{yoy_change:.0f}% YoY). '
+                'Unprecedented cash on sidelines. Investors defensive, but this represents '
+                'significant potential buying power if sentiment shifts.'
+            )
+            status_class = 'warning'
+
+        elif yoy_change and yoy_change > 15:
+            status = 'RAPIDLY RISING'
+            interpretation = (
+                f'MMF assets growing fast (+{yoy_change:.0f}% YoY to ${current_trillions:.1f}T). '
+                'Cash accumulating quickly - investors seeking safety. '
+                'Could signal fear or preparation for opportunities.'
+            )
+            status_class = 'warning'
+
+        elif yoy_change and yoy_change > 5:
+            status = 'ELEVATED'
+            interpretation = (
+                f'MMF assets at ${current_trillions:.1f}T (+{yoy_change:.0f}% YoY). '
+                'Above-average cash levels. Some caution in the market.'
+            )
+            status_class = 'neutral'
+
+        elif yoy_change and yoy_change < -10:
+            status = 'DECLINING FAST'
+            interpretation = (
+                f'MMF assets falling ({yoy_change:.0f}% YoY to ${current_trillions:.1f}T). '
+                'Cash leaving money markets - likely flowing into risk assets. '
+                'Strong risk-on behavior.'
+            )
+            status_class = 'positive'
+
+        elif yoy_change and yoy_change < -5:
+            status = 'DECLINING'
+            interpretation = (
+                f'MMF assets declining ({yoy_change:.0f}% YoY to ${current_trillions:.1f}T). '
+                'Money moving from cash to investments. Modest risk-on signal.'
+            )
+            status_class = 'positive'
+
+        else:
+            status = 'STABLE'
+            interpretation = (
+                f'MMF assets at ${current_trillions:.1f}T. '
+                'Normal cash levels with no strong directional signal.'
+            )
+            status_class = 'neutral'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class
+        }
+
+    # =========================================================================
+    # SMALL CAP VS LARGE CAP INTERPRETATION
+    # =========================================================================
+
+    @staticmethod
+    def interpret_small_large_cap_ratio(
+        current_ratio: float,
+        percentile: float,
+        trend: str
+    ) -> Dict:
+        """
+        Interpret small cap vs large cap ratio
+
+        Low ratio = small caps underperforming (risk-off, quality preference)
+        High ratio = small caps outperforming (risk-on, economic optimism)
+
+        Args:
+            current_ratio: Current Russell 2000 / S&P 500 ratio
+            percentile: Historical percentile (0-100)
+            trend: 3-month trend description
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        if current_ratio is None or percentile is None:
+            return {
+                'status': 'NO DATA',
+                'interpretation': 'Small/large cap ratio data not available.',
+                'status_class': 'neutral'
+            }
+
+        trend_text = ""
+        if trend == 'SMALL CAPS GAINING':
+            trend_text = " Small caps gaining momentum recently."
+        elif trend == 'LARGE CAPS GAINING':
+            trend_text = " Large caps gaining momentum recently."
+
+        if percentile < 15:
+            status = 'SMALL CAPS VERY CHEAP'
+            interpretation = (
+                f'Russell 2000/S&P 500 ratio at {percentile:.0f}th percentile (10Y). '
+                'Small caps trading at historically low valuations relative to large caps. '
+                'Could signal opportunity if economic outlook improves, '
+                'or continued risk-off/quality preference.' + trend_text
+            )
+            status_class = 'warning'
+
+        elif percentile < 35:
+            status = 'SMALL CAPS UNDERPERFORMING'
+            interpretation = (
+                f'Ratio at {percentile:.0f}th percentile - below average small cap valuations. '
+                'Investors preferring large cap quality/safety. '
+                'Value investors may find opportunities in smaller companies.' + trend_text
+            )
+            status_class = 'neutral'
+
+        elif percentile > 85:
+            status = 'SMALL CAPS EXPENSIVE'
+            interpretation = (
+                f'Ratio at {percentile:.0f}th percentile - small caps at premium vs large caps. '
+                'Strong risk-on sentiment. '
+                'Be cautious of overheating in speculative names.' + trend_text
+            )
+            status_class = 'warning'
+
+        elif percentile > 65:
+            status = 'FAVORING SMALL CAPS'
+            interpretation = (
+                f'Ratio at {percentile:.0f}th percentile - above average small cap performance. '
+                'Risk appetite elevated. Economic optimism supporting smaller companies.' + trend_text
+            )
+            status_class = 'positive'
+
+        else:
+            status = 'BALANCED'
+            interpretation = (
+                f'Ratio at {percentile:.0f}th percentile - normal relationship. '
+                'No extreme preference for small or large caps.' + trend_text
+            )
+            status_class = 'neutral'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class,
+            'trend': trend
+        }

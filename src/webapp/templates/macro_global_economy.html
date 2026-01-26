@@ -231,6 +231,56 @@
         </div>
     </div>
 
+    <!-- Section 5: Money Market Funds -->
+    <div class="macro-section">
+        <h2>
+            Money Market Funds - Cash on Sidelines
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Liquidity Indicator</strong><br><br>
+                    Total assets in money market funds show how much cash investors are holding.<br><br>
+                    <strong>Interpretation:</strong><br>
+                    - High/Rising: Investors defensive, cash ready to deploy<br>
+                    - Low/Falling: Risk-on, money flowing to equities<br><br>
+                    <strong>Warren Buffett's approach:</strong><br>
+                    "Cash is king" during uncertainty. High MMF levels represent significant potential buying power waiting on sidelines.
+                </span>
+            </span>
+        </h2>
+
+        {% if mmf %}
+        <div class="indicator-box {{ mmf_interp.status_class if mmf_interp else 'neutral' }}">
+            <div class="indicator-header">
+                <span class="indicator-label">Total Money Market Fund Assets</span>
+                {% if mmf.at_all_time_high %}
+                <span class="badge danger">Near All-Time High</span>
+                {% endif %}
+            </div>
+            <div class="indicator-value">${{ mmf.current_trillions if mmf.current_trillions else 'N/A' }}T</div>
+            {% if mmf.yoy_change_pct %}
+            <div class="indicator-change {{ 'positive' if mmf.yoy_change_pct > 0 else 'negative' }}">
+                YoY Change: {% if mmf.yoy_change_pct >= 0 %}+{% endif %}{{ mmf.yoy_change_pct }}%
+            </div>
+            {% endif %}
+        </div>
+
+        {% if mmf_interp %}
+        <div class="interpretation-box {{ mmf_interp.status_class }}">
+            <div class="interpretation-status">{{ mmf_interp.status }}</div>
+            <p class="interpretation-text">{{ mmf_interp.interpretation }}</p>
+        </div>
+        {% endif %}
+
+        <div class="chart-container">
+            <canvas id="mmfChart"></canvas>
+        </div>
+
+        <div class="explanation-box">
+            <p><strong>Cash on the sidelines:</strong> Money market funds hold short-term, liquid assets like Treasury bills. When investors are fearful or uncertain, they park cash in MMFs. This represents "dry powder" that could flow into equities if sentiment improves. Record high MMF assets can be both a warning sign (investors are scared) and a bullish signal (lots of potential buying power).</p>
+        </div>
+        {% endif %}
+    </div>
+
     <!-- Refresh Button -->
     <div class="actions">
         <button id="refresh-data" class="btn btn-primary" onclick="location.reload();">Refresh Data</button>
@@ -296,6 +346,18 @@ document.addEventListener('DOMContentLoaded', function() {
             { value: 1.7, label: 'Normal', color: 'rgba(40, 167, 69, 0.3)' }
         ],
         invertThresholds: true
+    });
+    {% endif %}
+
+    // Money Market Funds Chart
+    {% if mmf and mmf.history and mmf.history['dates'] %}
+    renderHistoricalChart('mmfChart', {
+        dates: {{ mmf.history['dates'] | tojson }},
+        values: {{ mmf.history['values'] | tojson }},
+        label: 'Money Market Funds ($T)',
+        title: 'Money Market Fund Total Assets - 15 Year History',
+        thresholds: [],
+        lineColor: '#9c27b0'
     });
     {% endif %}
 });
