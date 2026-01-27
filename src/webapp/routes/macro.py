@@ -517,6 +517,9 @@ def macro_crypto():
         # Fetch market cap comparison (BTC vs Gold vs Silver)
         asset_market_caps = macro_fetcher.fetch_asset_market_caps()
 
+        # Fetch normalized asset comparison (BTC, Gold, Silver, S&P 500)
+        asset_comparison = macro_fetcher.fetch_normalized_asset_comparison(lookback_years=5)
+
         # Get BTC price history for chart (weekly to reduce noise)
         btc_df = macro_fetcher.fetch_btc_price(lookback_days=1825)
         if not btc_df.empty:
@@ -536,7 +539,8 @@ def macro_crypto():
             btc_vs_currencies=btc_vs_currencies,
             btc_market_data=btc_market_data,
             btc_history=btc_history,
-            asset_market_caps=asset_market_caps
+            asset_market_caps=asset_market_caps,
+            asset_comparison=asset_comparison
         )
 
     except Exception as e:

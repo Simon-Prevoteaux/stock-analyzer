@@ -3006,3 +3006,86 @@ class MacroDataFetcher:
                 'silver': {'name': 'Silver', 'market_cap_trillions': None, 'percentage': None},
                 'total_trillions': None
             }
+
+    def fetch_normalized_asset_comparison(self, lookback_years: int = 5) -> Dict:
+        """
+        Fetch BTC, Gold, Silver, and S&P 500 prices normalized to 100 at start date.
+        Allows comparison of relative performance from same starting point.
+
+        Args:
+            lookback_years: Years of history (default 5)
+
+        Returns:
+            Dict with dates and normalized values for each asset
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        try:
+            # Fetch all assets
+            assets = {
+                'btc': {'ticker': 'BTC-USD', 'name': 'Bitcoin', 'color': '#f7931a'},
+                'gold': {'ticker': 'GC=F', 'name': 'Gold', 'color': '#ffd700'},
+                'silver': {'ticker': 'SI=F', 'name': 'Silver', 'color': '#c0c0c0'},
+                'sp500': {'ticker': '^GSPC', 'name': 'S&P 500', 'color': '#00ff88'},
+            }
+
+            all_data = {}
+
+            for key, info in assets.items():
+                ticker = yf.Ticker(info['ticker'])
+                hist = ticker.history(start=start_date)
+
+                if not hist.empty:
+                    df = pd.DataFrame({
+                        'date': hist.index,
+                        'price': hist['Close']
+                    })
+                    df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
+                    df = df.sort_values('date').reset_index(drop=True)
+                    all_data[key] = df
+
+            if not all_data:
+                return {'dates': [], 'datasets': []}
+
+            # Find common date range (weekly resampling for cleaner chart)
+            # Use BTC as reference since it might have shortest history
+            ref_key = 'btc' if 'btc' in all_data else list(all_data.keys())[0]
+            ref_df = all_data[ref_key].set_index('date').resample('W').last().reset_index()
+            ref_df = ref_df.dropna()
+
+            dates = ref_df['date'].tolist()
+            result = {
+                'dates': [d.strftime('%Y-%m-%d') for d in dates],
+                'datasets': []
+            }
+
+            for key, info in assets.items():
+                if key not in all_data:
+                    continue
+
+                df = all_data[key].set_index('date').resample('W').last().reset_index()
+                df = df.dropna()
+
+                # Align with reference dates
+                df = df[df['date'].isin(dates)]
+
+                if len(df) < 2:
+                    continue
+
+                # Normalize to 100 at start
+                start_price = df.iloc[0]['price']
+                df['normalized'] = (df['price'] / start_price) * 100
+
+                result['datasets'].append({
+                    'key': key,
+                    'name': info['name'],
+                    'color': info['color'],
+                    'data': df['normalized'].round(2).tolist()
+                })
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error fetching normalized asset comparison: {e}")
+            return {'dates': [], 'datasets': []}
