@@ -1763,3 +1763,174 @@ class MacroAnalyzer:
             'status_class': status_class,
             'trend': trend
         }
+
+    @staticmethod
+    def interpret_credit_spread(spread_data: Dict) -> Dict:
+        """
+        Interpret a single credit spread indicator.
+
+        Args:
+            spread_data: Dict with spread info (current, percentile, trend, etc.)
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        if not spread_data:
+            return {
+                'status': 'UNAVAILABLE',
+                'interpretation': 'Data not available.',
+                'status_class': 'neutral'
+            }
+
+        percentile = spread_data.get('percentile', 50)
+        current = spread_data.get('current', 0)
+        trend = spread_data.get('trend', 'unknown')
+        name = spread_data.get('name', 'Credit Spread')
+
+        # Trend description
+        trend_text = ''
+        if trend == 'widening':
+            trend_text = ' Spreads are currently WIDENING (risk-off signal).'
+        elif trend == 'tightening':
+            trend_text = ' Spreads are currently TIGHTENING (risk-on signal).'
+
+        # Interpret based on percentile (remember: lower percentile = tighter spreads = better)
+        if percentile <= 15:
+            status = 'VERY TIGHT'
+            interpretation = (
+                f'{name} spread at {current:.2f}% ({percentile:.0f}th percentile) - '
+                'exceptionally tight. Strong credit conditions, high risk appetite. '
+                'Caution: may indicate complacency.' + trend_text
+            )
+            status_class = 'positive'
+
+        elif percentile <= 35:
+            status = 'TIGHT'
+            interpretation = (
+                f'{name} spread at {current:.2f}% ({percentile:.0f}th percentile) - '
+                'below average. Healthy credit market conditions, investors comfortable with risk.' + trend_text
+            )
+            status_class = 'positive'
+
+        elif percentile <= 65:
+            status = 'NORMAL'
+            interpretation = (
+                f'{name} spread at {current:.2f}% ({percentile:.0f}th percentile) - '
+                'near historical average. Balanced credit conditions.' + trend_text
+            )
+            status_class = 'neutral'
+
+        elif percentile <= 85:
+            status = 'ELEVATED'
+            interpretation = (
+                f'{name} spread at {current:.2f}% ({percentile:.0f}th percentile) - '
+                'above average. Markets showing some stress, credit risk premium rising.' + trend_text
+            )
+            status_class = 'warning'
+
+        else:
+            status = 'VERY WIDE'
+            interpretation = (
+                f'{name} spread at {current:.2f}% ({percentile:.0f}th percentile) - '
+                'significantly elevated. High credit stress, possible recession fears or crisis conditions.' + trend_text
+            )
+            status_class = 'danger'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class
+        }
+
+    @staticmethod
+    def interpret_bond_etf_performance(etf_data: Dict) -> Dict:
+        """
+        Interpret bond ETF performance.
+
+        Args:
+            etf_data: Dict with ETF price and returns data
+
+        Returns:
+            Dict with status, interpretation, and status_class
+        """
+        if not etf_data:
+            return {
+                'status': 'UNAVAILABLE',
+                'interpretation': 'Data not available.',
+                'status_class': 'neutral'
+            }
+
+        returns_1y = etf_data.get('returns', {}).get('1y')
+        returns_3m = etf_data.get('returns', {}).get('3m')
+        pct_from_high = etf_data.get('pct_from_high')
+        name = etf_data.get('name', 'Bond ETF')
+
+        if returns_1y is None:
+            return {
+                'status': 'INSUFFICIENT DATA',
+                'interpretation': 'Not enough historical data for analysis.',
+                'status_class': 'neutral'
+            }
+
+        # Determine recent momentum
+        momentum = 'neutral'
+        if returns_3m is not None:
+            if returns_3m > 2:
+                momentum = 'strong upward'
+            elif returns_3m > 0:
+                momentum = 'mild upward'
+            elif returns_3m > -2:
+                momentum = 'mild downward'
+            else:
+                momentum = 'strong downward'
+
+        # Interpret based on 1-year return and distance from high
+        if returns_1y > 5:
+            status = 'STRONG PERFORMANCE'
+            interpretation = (
+                f'{name} up {returns_1y:.1f}% over the past year. '
+                f'Bond prices rising (yields falling). Recent momentum: {momentum}.'
+            )
+            status_class = 'positive'
+
+        elif returns_1y > 0:
+            status = 'POSITIVE'
+            interpretation = (
+                f'{name} up {returns_1y:.1f}% over the past year. '
+                f'Modest gains. Recent momentum: {momentum}.'
+            )
+            status_class = 'positive'
+
+        elif returns_1y > -5:
+            status = 'SLIGHT DECLINE'
+            interpretation = (
+                f'{name} down {abs(returns_1y):.1f}% over the past year. '
+                f'Bond prices under some pressure. Recent momentum: {momentum}.'
+            )
+            status_class = 'neutral'
+
+        elif returns_1y > -15:
+            status = 'UNDERPERFORMING'
+            interpretation = (
+                f'{name} down {abs(returns_1y):.1f}% over the past year. '
+                f'Significant price pressure (yields rising). Recent momentum: {momentum}.'
+            )
+            status_class = 'warning'
+
+        else:
+            status = 'SEVERE DECLINE'
+            interpretation = (
+                f'{name} down {abs(returns_1y):.1f}% over the past year. '
+                f'Major bond market stress. Recent momentum: {momentum}.'
+            )
+            status_class = 'danger'
+
+        # Add context about distance from high
+        if pct_from_high is not None:
+            interpretation += f' Currently {abs(pct_from_high):.1f}% below 52-week high.'
+
+        return {
+            'status': status,
+            'interpretation': interpretation,
+            'status_class': status_class
+        }

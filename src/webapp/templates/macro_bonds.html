@@ -1,0 +1,629 @@
+{% extends "base.html" %}
+
+{% block title %}Bond Market - Macro Signals{% endblock %}
+
+{% block content %}
+<div class="macro-dashboard">
+    <div class="page-header">
+        <h1>Corporate Bond Market</h1>
+        <p class="subtitle">Credit spreads, bond ETF performance, and market health indicators</p>
+    </div>
+
+    <!-- Section 1: Bond Market Health Score -->
+    <div class="macro-section">
+        <h2>
+            Bond Market Health Score
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>How to interpret this score</strong><br><br>
+                    <strong>80-100:</strong> Excellent - Very tight spreads, strong risk appetite<br>
+                    <strong>60-79:</strong> Good - Below average spreads, favorable conditions<br>
+                    <strong>40-59:</strong> Neutral - Average spreads, normal conditions<br>
+                    <strong>20-39:</strong> Stressed - Elevated spreads, market showing stress<br>
+                    <strong>0-19:</strong> Crisis - Very wide spreads, recession/crisis signal
+                </span>
+            </span>
+        </h2>
+
+        {% if health_score and health_score.score is not none %}
+        <div class="health-score-container">
+            <div class="health-gauge">
+                <div class="gauge-background">
+                    <div class="gauge-fill" style="width: {{ health_score.score }}%; background-color: {{ health_score.color }};"></div>
+                </div>
+                <div class="gauge-labels">
+                    <span>0 (Crisis)</span>
+                    <span>50 (Neutral)</span>
+                    <span>100 (Excellent)</span>
+                </div>
+            </div>
+            <div class="health-details">
+                <div class="health-score-value" style="color: {{ health_score.color }};">
+                    {{ health_score.score }}
+                </div>
+                <div class="health-status" style="color: {{ health_score.color }};">
+                    {{ health_score.status }}
+                </div>
+            </div>
+        </div>
+        <div class="explanation-box" style="margin-top: 1rem;">
+            <p>{{ health_score.interpretation }}</p>
+        </div>
+        {% else %}
+        <p class="text-muted">Unable to calculate health score.</p>
+        {% endif %}
+    </div>
+
+    <!-- Section 2: Credit Spreads -->
+    <div class="macro-section">
+        <h2>
+            Corporate Credit Spreads
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>What are credit spreads?</strong><br><br>
+                    Credit spread = Corporate bond yield - Treasury yield<br><br>
+                    <strong>Tight spreads:</strong> Low credit risk perception, risk-on<br>
+                    <strong>Wide spreads:</strong> High credit risk perception, risk-off<br><br>
+                    OAS = Option-Adjusted Spread (accounts for embedded options)
+                </span>
+            </span>
+        </h2>
+        <p class="table-description">
+            Option-Adjusted Spreads (OAS) vs Treasuries - Lower = healthier credit markets
+        </p>
+
+        {% if spreads %}
+        <div class="metrics-grid">
+            {% for spread_key in ['corporate_master', 'bbb', 'high_yield'] %}
+            {% set spread = spreads[spread_key] %}
+            {% if spread %}
+            {% set interp = spread_interpretations.get(spread_key, {}) %}
+            <div class="metric-card spread-card" style="border-left: 3px solid {{ spread.color }};">
+                <div class="metric-label">{{ spread.name }}</div>
+                <div class="metric-value">{{ spread.current }}%</div>
+                <div class="metric-sublabel">{{ spread.current_bps }} bps</div>
+                <div class="spread-percentile">
+                    <div class="percentile-bar">
+                        <div class="percentile-fill" style="width: {{ spread.percentile }}%;"></div>
+                        <div class="percentile-marker" style="left: {{ spread.percentile }}%;"></div>
+                    </div>
+                    <span class="percentile-label">{{ spread.percentile }}th percentile (10Y)</span>
+                </div>
+                <div class="spread-changes">
+                    <span class="change-item {{ 'positive' if spread.change_1m and spread.change_1m < 0 else 'negative' if spread.change_1m and spread.change_1m > 0 else '' }}">
+                        1M: {% if spread.change_1m is not none %}{{ '+' if spread.change_1m > 0 else '' }}{{ spread.change_1m }}%{% else %}N/A{% endif %}
+                    </span>
+                    <span class="change-item {{ 'positive' if spread.change_3m and spread.change_3m < 0 else 'negative' if spread.change_3m and spread.change_3m > 0 else '' }}">
+                        3M: {% if spread.change_3m is not none %}{{ '+' if spread.change_3m > 0 else '' }}{{ spread.change_3m }}%{% else %}N/A{% endif %}
+                    </span>
+                </div>
+                <div class="spread-trend {{ spread.trend }}">
+                    {% if spread.trend == 'widening' %}
+                    <span class="trend-icon">&#9650;</span> Widening
+                    {% elif spread.trend == 'tightening' %}
+                    <span class="trend-icon">&#9660;</span> Tightening
+                    {% else %}
+                    <span class="trend-icon">&#9644;</span> Stable
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Spread Range Context -->
+        <div class="spread-context">
+            <h3>10-Year Range Context</h3>
+            <table class="macro-table">
+                <thead>
+                    <tr>
+                        <th>Spread Type</th>
+                        <th>Current</th>
+                        <th>10Y Min</th>
+                        <th>10Y Avg</th>
+                        <th>10Y Max</th>
+                        <th>Percentile</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for spread_key in ['corporate_master', 'bbb', 'high_yield'] %}
+                    {% set spread = spreads[spread_key] %}
+                    {% if spread %}
+                    <tr>
+                        <td><strong>{{ spread.name }}</strong></td>
+                        <td>{{ spread.current }}%</td>
+                        <td class="positive">{{ spread.min_10y }}%</td>
+                        <td>{{ spread.avg_10y }}%</td>
+                        <td class="negative">{{ spread.max_10y }}%</td>
+                        <td>{{ spread.percentile }}th</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Section 3: Credit Spread History Chart -->
+    <div class="macro-section">
+        <h2>Credit Spread History (5 Years)</h2>
+
+        {% if spread_history and spread_history.datasets %}
+        <div class="chart-container" style="height: 400px;">
+            <canvas id="spreadHistoryChart"></canvas>
+        </div>
+        <div class="explanation-box" style="margin-top: 1rem;">
+            <p><strong>How to read:</strong> Rising spreads indicate increasing credit risk concerns (risk-off). Falling spreads indicate improving credit conditions (risk-on). Spikes often coincide with market stress events.</p>
+        </div>
+        {% else %}
+        <p class="text-muted">Historical data not available.</p>
+        {% endif %}
+    </div>
+
+    <!-- Section 4: Bond ETF Performance -->
+    <div class="macro-section">
+        <h2>
+            Bond ETF Performance
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Major Bond ETFs</strong><br><br>
+                    <strong>LQD:</strong> Investment Grade Corporate Bonds<br>
+                    <strong>HYG:</strong> High Yield Corporate Bonds<br>
+                    <strong>TLT:</strong> Long-Term Treasury Bonds<br>
+                    <strong>AGG:</strong> US Aggregate Bond Index<br><br>
+                    Bond prices move inverse to yields.
+                </span>
+            </span>
+        </h2>
+        <p class="table-description">
+            Returns across different timeframes - tracks how bond prices have performed
+        </p>
+
+        {% if etf_performance %}
+        <table class="macro-table">
+            <thead>
+                <tr>
+                    <th>ETF</th>
+                    <th>Price</th>
+                    <th>1 Day</th>
+                    <th>1 Week</th>
+                    <th>1 Month</th>
+                    <th>3 Months</th>
+                    <th>1 Year</th>
+                    <th>3 Years</th>
+                    <th>From 52W High</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for etf_key in ['lqd', 'hyg', 'agg', 'tlt'] %}
+                {% set etf = etf_performance[etf_key] %}
+                {% if etf %}
+                <tr>
+                    <td>
+                        <strong style="color: {{ etf.color }};">{{ etf.ticker }}</strong>
+                        <span class="etf-name">{{ etf.name }}</span>
+                    </td>
+                    <td>${{ etf.price }}</td>
+                    {% for period in ['1d', '1w', '1m', '3m', '1y', '3y'] %}
+                    <td class="{{ 'positive' if etf.returns[period] and etf.returns[period] > 0 else 'negative' if etf.returns[period] and etf.returns[period] < 0 else '' }}">
+                        {% if etf.returns[period] is not none %}
+                            {{ '+' if etf.returns[period] > 0 else '' }}{{ etf.returns[period] }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                    <td class="{{ 'positive' if etf.pct_from_high and etf.pct_from_high > -5 else 'negative' }}">
+                        {% if etf.pct_from_high is not none %}
+                            {{ etf.pct_from_high }}%
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- ETF Interpretation Cards -->
+        <div class="metrics-grid" style="margin-top: 1.5rem;">
+            {% for etf_key in ['lqd', 'hyg', 'tlt'] %}
+            {% set etf = etf_performance[etf_key] %}
+            {% set interp = etf_interpretations.get(etf_key, {}) %}
+            {% if etf and interp %}
+            <div class="metric-card interpretation-card {{ interp.status_class }}">
+                <div class="metric-label">{{ etf.name }} ({{ etf.ticker }})</div>
+                <div class="metric-status">{{ interp.status }}</div>
+                <p class="interpretation-text">{{ interp.interpretation }}</p>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Section 5: What This Means -->
+    <div class="macro-section">
+        <h2>Understanding Corporate Bond Signals</h2>
+
+        <div class="guide-grid">
+            <div class="guide-card bullish">
+                <h3>Bullish Signals (Risk-On)</h3>
+                <ul>
+                    <li>Credit spreads tightening</li>
+                    <li>Health score above 60</li>
+                    <li>HYG outperforming LQD</li>
+                    <li>Corporate bonds outperforming Treasuries</li>
+                    <li>Spreads in lower percentile range</li>
+                </ul>
+            </div>
+            <div class="guide-card bearish">
+                <h3>Bearish Signals (Risk-Off)</h3>
+                <ul>
+                    <li>Credit spreads widening rapidly</li>
+                    <li>Health score below 40</li>
+                    <li>Flight to quality (TLT up, HYG down)</li>
+                    <li>High yield spreads spiking</li>
+                    <li>Spreads in upper percentile range</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="explanation-box" style="margin-top: 1.5rem;">
+            <p><strong>Key Insight:</strong> Corporate bond spreads are a leading indicator of economic health. When investors demand more yield (wider spreads) to hold corporate bonds vs. Treasuries, it signals concern about corporate defaults and economic weakness. Conversely, tight spreads indicate confidence in corporate creditworthiness and economic growth.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Health Score Gauge */
+.health-score-container {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 1.5rem;
+    background: #1a1a1a;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.health-gauge {
+    flex: 1;
+}
+
+.gauge-background {
+    height: 30px;
+    background: linear-gradient(to right, #f44336, #ff9800, #ffeb3b, #8bc34a, #4caf50);
+    border-radius: 15px;
+    overflow: hidden;
+    position: relative;
+}
+
+.gauge-fill {
+    height: 100%;
+    border-radius: 15px;
+    transition: width 0.5s ease;
+}
+
+.gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.health-details {
+    text-align: center;
+    min-width: 120px;
+}
+
+.health-score-value {
+    font-size: 3rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.health-status {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+/* Spread Cards */
+.spread-card {
+    position: relative;
+}
+
+.spread-percentile {
+    margin: 1rem 0;
+}
+
+.percentile-bar {
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    position: relative;
+    overflow: visible;
+}
+
+.percentile-fill {
+    height: 100%;
+    background: linear-gradient(to right, #4caf50, #ff9800, #f44336);
+    border-radius: 4px;
+}
+
+.percentile-marker {
+    position: absolute;
+    top: -4px;
+    width: 4px;
+    height: 16px;
+    background: #fff;
+    border-radius: 2px;
+    transform: translateX(-50%);
+}
+
+.percentile-label {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #888;
+    text-align: center;
+}
+
+.spread-changes {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 0.5rem 0;
+    font-size: 0.8rem;
+}
+
+.change-item.positive {
+    color: #4caf50;
+}
+
+.change-item.negative {
+    color: #f44336;
+}
+
+.spread-trend {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+    padding: 0.3rem;
+    border-radius: 4px;
+}
+
+.spread-trend.widening {
+    color: #f44336;
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.spread-trend.tightening {
+    color: #4caf50;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.spread-trend.stable {
+    color: #888;
+    background: rgba(136, 136, 136, 0.1);
+}
+
+.trend-icon {
+    font-size: 0.8rem;
+}
+
+/* Spread Context */
+.spread-context {
+    margin-top: 2rem;
+}
+
+.spread-context h3 {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    color: #ccc;
+}
+
+/* ETF Table */
+.etf-name {
+    display: block;
+    font-size: 0.75rem;
+    color: #888;
+    font-weight: normal;
+}
+
+/* Interpretation Cards */
+.interpretation-card {
+    text-align: left;
+}
+
+.interpretation-card.positive {
+    border-left-color: #4caf50;
+}
+
+.interpretation-card.neutral {
+    border-left-color: #ff9800;
+}
+
+.interpretation-card.warning {
+    border-left-color: #ff5722;
+}
+
+.interpretation-card.danger {
+    border-left-color: #f44336;
+}
+
+.metric-status {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #ccc;
+    margin: 0.5rem 0;
+}
+
+.interpretation-text {
+    font-size: 0.8rem;
+    color: #888;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Guide Cards */
+.guide-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin: 1rem 0;
+}
+
+.guide-card {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid #333;
+}
+
+.guide-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+}
+
+.guide-card.bullish h3 {
+    color: #4caf50;
+}
+
+.guide-card.bearish h3 {
+    color: #f44336;
+}
+
+.guide-card ul {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: #aaa;
+}
+
+.guide-card li {
+    margin: 0.5rem 0;
+}
+
+/* Common Macro Styles */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.metric-card {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid #333;
+}
+
+.metric-label {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.metric-sublabel {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.3rem;
+}
+
+.chart-container {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #1a1a1a;
+    border-radius: 8px;
+}
+
+.explanation-box {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+}
+
+.explanation-box p {
+    color: #aaa;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.text-muted {
+    color: #666;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Credit Spread History Chart
+    {% if spread_history and spread_history.datasets %}
+    const spreadDatasets = [];
+    {% for dataset in spread_history.datasets %}
+    spreadDatasets.push({
+        label: '{{ dataset.name }}',
+        data: {{ dataset.data | tojson }},
+        borderColor: '{{ dataset.color }}',
+        backgroundColor: 'transparent',
+        tension: 0.3,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        borderWidth: 2
+    });
+    {% endfor %}
+
+    new Chart(document.getElementById('spreadHistoryChart'), {
+        type: 'line',
+        data: {
+            labels: {{ spread_history.dates | tojson }},
+            datasets: spreadDatasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: {
+                    title: { display: true, text: 'Spread (%)', color: '#888' },
+                    ticks: { color: '#888' },
+                    grid: { color: 'rgba(168, 178, 209, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                title: { display: true, text: 'Corporate Credit Spreads Over Time', color: '#ccc' },
+                legend: {
+                    display: true,
+                    labels: { color: '#ccc' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

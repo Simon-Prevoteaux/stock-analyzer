@@ -548,3 +548,49 @@ def macro_crypto():
         import traceback
         traceback.print_exc()
         return f"<h1>Error loading crypto page</h1><pre>{str(e)}\n\n{traceback.format_exc()}</pre>", 500
+
+
+# =============================================================================
+# BOND MARKET PAGE
+# =============================================================================
+
+@macro_bp.route('/macro/bonds')
+def macro_bonds():
+    """Corporate bond market analysis and health indicators"""
+    try:
+        macro_fetcher, analyzer, error = _get_fetcher_and_analyzer()
+        if error:
+            return render_template('error.html', error=error)
+
+        # Fetch comprehensive bond market data
+        bond_data = macro_fetcher.fetch_bond_market_overview()
+
+        # Get interpretations for each spread
+        spread_interpretations = {}
+        if bond_data.get('spreads'):
+            for spread_key, spread_data in bond_data['spreads'].items():
+                if spread_data:
+                    spread_interpretations[spread_key] = analyzer.interpret_credit_spread(spread_data)
+
+        # Get interpretations for ETFs
+        etf_interpretations = {}
+        if bond_data.get('etf_performance'):
+            for etf_key, etf_data in bond_data['etf_performance'].items():
+                if etf_data:
+                    etf_interpretations[etf_key] = analyzer.interpret_bond_etf_performance(etf_data)
+
+        return render_template(
+            'macro_bonds.html',
+            spreads=bond_data.get('spreads', {}),
+            etf_performance=bond_data.get('etf_performance', {}),
+            spread_history=bond_data.get('spread_history', {}),
+            health_score=bond_data.get('health_score', {}),
+            spread_interpretations=spread_interpretations,
+            etf_interpretations=etf_interpretations
+        )
+
+    except Exception as e:
+        print(f"Error in macro_bonds route: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return f"<h1>Error loading bond market page</h1><pre>{str(e)}\n\n{traceback.format_exc()}</pre>", 500

@@ -3089,3 +3089,371 @@ class MacroDataFetcher:
         except Exception as e:
             logger.error(f"Error fetching normalized asset comparison: {e}")
             return {'dates': [], 'datasets': []}
+
+    # =========================================================================
+    # BOND MARKET INDICATORS
+    # =========================================================================
+
+    def fetch_bond_market_overview(self) -> Dict:
+        """
+        Fetch comprehensive bond market data for the Bond Market page.
+
+        Returns:
+            Dict with credit spreads, ETF performance, and health score
+        """
+        try:
+            # Get credit spreads with extended data
+            spreads = self.fetch_credit_spreads_extended()
+
+            # Get bond ETF performance
+            etf_performance = self.fetch_bond_etf_performance()
+
+            # Get spread history for charting
+            spread_history = self.fetch_spread_history()
+
+            # Calculate overall bond market health score
+            health_score = self.calculate_bond_health_score(spreads)
+
+            return {
+                'spreads': spreads,
+                'etf_performance': etf_performance,
+                'spread_history': spread_history,
+                'health_score': health_score,
+            }
+        except Exception as e:
+            logger.error(f"Error fetching bond market overview: {e}")
+            return {}
+
+    def fetch_credit_spreads_extended(self) -> Dict:
+        """
+        Fetch corporate credit spreads with extended historical context and trends.
+
+        Returns:
+            Dict with current spreads, percentile rankings, and trend data
+        """
+        lookback_days = 3650  # 10 years for percentile calc
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        spreads = {}
+
+        spread_info = {
+            'corporate_master': {
+                'name': 'Investment Grade',
+                'description': 'ICE BofA US Corporate Master OAS',
+                'color': '#4caf50',
+            },
+            'high_yield': {
+                'name': 'High Yield',
+                'description': 'ICE BofA US High Yield Master II OAS',
+                'color': '#f44336',
+            },
+            'bbb': {
+                'name': 'BBB Corporate',
+                'description': 'ICE BofA BBB US Corporate Index OAS',
+                'color': '#ff9800',
+            },
+        }
+
+        for spread_type, series_id in self.CREDIT_SPREAD_SERIES.items():
+            df = self._fetch_series(series_id, start_date=start_date)
+
+            if not df.empty:
+                current_value = df.iloc[-1]['value']
+
+                # Calculate percentile (lower is better for spreads)
+                percentile = (df['value'] <= current_value).sum() / len(df) * 100
+
+                # Calculate changes
+                change_1w = None
+                change_1m = None
+                change_3m = None
+                change_1y = None
+
+                if len(df) >= 5:
+                    change_1w = current_value - df.iloc[-5]['value']
+                if len(df) >= 22:
+                    change_1m = current_value - df.iloc[-22]['value']
+                if len(df) >= 66:
+                    change_3m = current_value - df.iloc[-66]['value']
+                if len(df) >= 252:
+                    change_1y = current_value - df.iloc[-252]['value']
+
+                # Get min/max for context
+                min_val = df['value'].min()
+                max_val = df['value'].max()
+                avg_val = df['value'].mean()
+
+                # Determine trend (comparing 1-month change)
+                if change_1m is not None:
+                    if change_1m > 0.1:
+                        trend = 'widening'
+                    elif change_1m < -0.1:
+                        trend = 'tightening'
+                    else:
+                        trend = 'stable'
+                else:
+                    trend = 'unknown'
+
+                info = spread_info.get(spread_type, {})
+                spreads[spread_type] = {
+                    'name': info.get('name', spread_type),
+                    'description': info.get('description', ''),
+                    'color': info.get('color', '#888'),
+                    'current': round(current_value, 2),
+                    'current_bps': int(current_value * 100),  # Convert to basis points
+                    'percentile': round(percentile, 1),
+                    'change_1w': round(change_1w, 2) if change_1w else None,
+                    'change_1m': round(change_1m, 2) if change_1m else None,
+                    'change_3m': round(change_3m, 2) if change_3m else None,
+                    'change_1y': round(change_1y, 2) if change_1y else None,
+                    'min_10y': round(min_val, 2),
+                    'max_10y': round(max_val, 2),
+                    'avg_10y': round(avg_val, 2),
+                    'trend': trend,
+                }
+            else:
+                spreads[spread_type] = None
+
+        return spreads
+
+    def fetch_bond_etf_performance(self) -> Dict:
+        """
+        Fetch performance data for major bond ETFs.
+
+        ETFs tracked:
+        - LQD: iShares Investment Grade Corporate Bond ETF
+        - HYG: iShares High Yield Corporate Bond ETF
+        - TLT: iShares 20+ Year Treasury Bond ETF
+        - AGG: iShares Core US Aggregate Bond ETF
+
+        Returns:
+            Dict with ETF prices and returns
+        """
+        etfs = {
+            'lqd': {
+                'ticker': 'LQD',
+                'name': 'Investment Grade Corp',
+                'description': 'iShares iBoxx $ Investment Grade Corporate Bond ETF',
+                'color': '#4caf50',
+            },
+            'hyg': {
+                'ticker': 'HYG',
+                'name': 'High Yield Corp',
+                'description': 'iShares iBoxx $ High Yield Corporate Bond ETF',
+                'color': '#f44336',
+            },
+            'tlt': {
+                'ticker': 'TLT',
+                'name': 'Long-Term Treasury',
+                'description': 'iShares 20+ Year Treasury Bond ETF',
+                'color': '#2196f3',
+            },
+            'agg': {
+                'ticker': 'AGG',
+                'name': 'US Aggregate Bond',
+                'description': 'iShares Core US Aggregate Bond ETF',
+                'color': '#9c27b0',
+            },
+        }
+
+        results = {}
+
+        for key, info in etfs.items():
+            try:
+                ticker = yf.Ticker(info['ticker'])
+                hist = ticker.history(period='5y')
+
+                if not hist.empty:
+                    current_price = hist['Close'].iloc[-1]
+
+                    # Calculate returns for different periods
+                    returns = {}
+                    periods = {
+                        '1d': 1,
+                        '1w': 5,
+                        '1m': 22,
+                        '3m': 66,
+                        '6m': 126,
+                        '1y': 252,
+                        '3y': 756,
+                        '5y': 1260,
+                    }
+
+                    for period_name, days in periods.items():
+                        if len(hist) > days:
+                            past_price = hist['Close'].iloc[-days-1]
+                            returns[period_name] = round(((current_price / past_price) - 1) * 100, 2)
+                        else:
+                            returns[period_name] = None
+
+                    # Get 52-week high/low
+                    year_data = hist.tail(252)
+                    high_52w = year_data['High'].max() if len(year_data) > 0 else None
+                    low_52w = year_data['Low'].min() if len(year_data) > 0 else None
+
+                    # Calculate % from 52w high
+                    pct_from_high = ((current_price / high_52w) - 1) * 100 if high_52w else None
+
+                    results[key] = {
+                        'ticker': info['ticker'],
+                        'name': info['name'],
+                        'description': info['description'],
+                        'color': info['color'],
+                        'price': round(current_price, 2),
+                        'returns': returns,
+                        'high_52w': round(high_52w, 2) if high_52w else None,
+                        'low_52w': round(low_52w, 2) if low_52w else None,
+                        'pct_from_high': round(pct_from_high, 1) if pct_from_high else None,
+                    }
+                else:
+                    results[key] = None
+
+            except Exception as e:
+                logger.error(f"Error fetching {info['ticker']}: {e}")
+                results[key] = None
+
+        return results
+
+    def fetch_spread_history(self, lookback_years: int = 5) -> Dict:
+        """
+        Fetch historical credit spread data for charting.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with dates and spread values for each type
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        spread_colors = {
+            'corporate_master': '#4caf50',
+            'high_yield': '#f44336',
+            'bbb': '#ff9800',
+        }
+
+        spread_names = {
+            'corporate_master': 'Investment Grade',
+            'high_yield': 'High Yield',
+            'bbb': 'BBB Corporate',
+        }
+
+        all_data = {}
+
+        for spread_type, series_id in self.CREDIT_SPREAD_SERIES.items():
+            df = self._fetch_series(series_id, start_date=start_date)
+
+            if not df.empty:
+                # Resample to weekly for cleaner chart
+                df = df.set_index('date').resample('W').last().reset_index()
+                df = df.dropna()
+                all_data[spread_type] = df
+
+        if not all_data:
+            return {'dates': [], 'datasets': []}
+
+        # Use corporate_master as reference for dates
+        ref_key = 'corporate_master' if 'corporate_master' in all_data else list(all_data.keys())[0]
+        ref_dates = all_data[ref_key]['date'].tolist()
+
+        result = {
+            'dates': [d.strftime('%Y-%m-%d') for d in ref_dates],
+            'datasets': []
+        }
+
+        for spread_type, df in all_data.items():
+            # Align with reference dates
+            df = df[df['date'].isin(ref_dates)]
+
+            if len(df) > 0:
+                result['datasets'].append({
+                    'key': spread_type,
+                    'name': spread_names.get(spread_type, spread_type),
+                    'color': spread_colors.get(spread_type, '#888'),
+                    'data': df['value'].round(2).tolist()
+                })
+
+        return result
+
+    def calculate_bond_health_score(self, spreads: Dict) -> Dict:
+        """
+        Calculate an overall bond market health score (0-100).
+
+        Higher score = healthier bond market (tighter spreads, less stress)
+        Lower score = stressed bond market (wider spreads, risk-off)
+
+        Methodology:
+        - Uses percentile rankings of credit spreads
+        - Lower spread percentile = tighter spreads = better health
+        - Inverts percentile (100 - percentile) so higher score = better
+
+        Args:
+            spreads: Dict from fetch_credit_spreads_extended()
+
+        Returns:
+            Dict with score, status, and interpretation
+        """
+        if not spreads:
+            return {
+                'score': None,
+                'status': 'Unknown',
+                'color': '#888',
+                'interpretation': 'Unable to calculate bond market health score.',
+            }
+
+        # Weight the spreads (high yield is most important indicator)
+        weights = {
+            'high_yield': 0.5,
+            'corporate_master': 0.3,
+            'bbb': 0.2,
+        }
+
+        weighted_score = 0
+        total_weight = 0
+
+        for spread_type, weight in weights.items():
+            if spreads.get(spread_type) and spreads[spread_type].get('percentile') is not None:
+                # Invert percentile: low percentile (tight spreads) = high health score
+                health_contribution = 100 - spreads[spread_type]['percentile']
+                weighted_score += health_contribution * weight
+                total_weight += weight
+
+        if total_weight == 0:
+            return {
+                'score': None,
+                'status': 'Unknown',
+                'color': '#888',
+                'interpretation': 'Unable to calculate bond market health score.',
+            }
+
+        score = round(weighted_score / total_weight, 0)
+
+        # Determine status and interpretation
+        if score >= 80:
+            status = 'Excellent'
+            color = '#4caf50'
+            interpretation = 'Credit spreads are very tight. Strong risk appetite, low default expectations. Corporate bonds are performing well relative to Treasuries.'
+        elif score >= 60:
+            status = 'Good'
+            color = '#8bc34a'
+            interpretation = 'Credit spreads are below average. Market conditions are favorable for corporate bonds. Investors are comfortable taking credit risk.'
+        elif score >= 40:
+            status = 'Neutral'
+            color = '#ff9800'
+            interpretation = 'Credit spreads are near historical average. Normal market conditions with balanced risk sentiment.'
+        elif score >= 20:
+            status = 'Stressed'
+            color = '#ff5722'
+            interpretation = 'Credit spreads are elevated. Markets showing signs of stress. Investors demanding higher compensation for credit risk.'
+        else:
+            status = 'Crisis'
+            color = '#f44336'
+            interpretation = 'Credit spreads are very wide. Significant market stress. High default expectations and risk-off sentiment. Historically occurs during recessions or financial crises.'
+
+        return {
+            'score': int(score),
+            'status': status,
+            'color': color,
+            'interpretation': interpretation,
+        }
