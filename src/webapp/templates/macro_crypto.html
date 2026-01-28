@@ -126,7 +126,182 @@
         {% endif %}
     </div>
 
-    <!-- Section 4: BTC Returns -->
+    <!-- Section 4: BTC-Gold Correlation Analysis -->
+    <div class="macro-section">
+        <h2>
+            Bitcoin vs Gold Correlation
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Correlation Analysis</strong><br><br>
+                    Correlation ranges from -1 to +1:<br>
+                    - +1: Perfect positive (move together)<br>
+                    - 0: No correlation (independent)<br>
+                    - -1: Perfect negative (opposite)<br><br>
+                    Rolling correlation shows how the relationship changes over time.
+                </span>
+            </span>
+        </h2>
+
+        {% if btc_gold_correlation and btc_gold_correlation.dates %}
+        <div class="correlation-summary">
+            <div class="metrics-grid">
+                <div class="metric-card" style="border-left: 3px solid {{ btc_gold_correlation.correlation_color }};">
+                    <div class="metric-label">5-Year Correlation</div>
+                    <div class="metric-value" style="color: {{ btc_gold_correlation.correlation_color }};">
+                        {{ btc_gold_correlation.overall_correlation if btc_gold_correlation.overall_correlation is not none else 'N/A' }}
+                    </div>
+                    <div class="metric-sublabel">BTC vs Gold daily returns</div>
+                </div>
+                <div class="metric-card" style="border-left: 3px solid #f7931a;">
+                    <div class="metric-label">Correlation Strength</div>
+                    <div class="metric-value" style="font-size: 1.1rem;">
+                        {% if btc_gold_correlation.overall_correlation is not none %}
+                            {% if btc_gold_correlation.overall_correlation >= 0.7 %}Strong Positive
+                            {% elif btc_gold_correlation.overall_correlation >= 0.3 %}Moderate Positive
+                            {% elif btc_gold_correlation.overall_correlation >= -0.3 %}Weak/None
+                            {% elif btc_gold_correlation.overall_correlation >= -0.7 %}Moderate Negative
+                            {% else %}Strong Negative
+                            {% endif %}
+                        {% else %}N/A{% endif %}
+                    </div>
+                    <div class="metric-sublabel">Based on {{ btc_gold_correlation.data_points }} data points</div>
+                </div>
+                <div class="metric-card" style="border-left: 3px solid #ffd700;">
+                    <div class="metric-label">Diversification Benefit</div>
+                    <div class="metric-value" style="font-size: 1.1rem;">
+                        {% if btc_gold_correlation.overall_correlation is not none %}
+                            {% if btc_gold_correlation.overall_correlation < 0.3 %}High
+                            {% elif btc_gold_correlation.overall_correlation < 0.6 %}Moderate
+                            {% else %}Low
+                            {% endif %}
+                        {% else %}N/A{% endif %}
+                    </div>
+                    <div class="metric-sublabel">Lower correlation = better diversification</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Yearly Correlation Breakdown -->
+        {% if btc_gold_correlation.period_correlations %}
+        <h3 style="margin-top: 1.5rem; color: #ccc;">Correlation by Year</h3>
+        <div class="correlation-periods">
+            {% for period in btc_gold_correlation.period_correlations %}
+            <div class="correlation-period-card" style="border-left: 3px solid {{ period.color }};">
+                <div class="period-year">{{ period.period }}</div>
+                <div class="period-correlation" style="color: {{ period.color }};">{{ period.correlation }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Rolling Correlation Chart -->
+        <h3 style="margin-top: 1.5rem; color: #ccc;">Rolling 90-Day Correlation</h3>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="rollingCorrelationChart"></canvas>
+        </div>
+
+        <!-- Weekly Return Comparison Chart -->
+        <h3 style="margin-top: 1.5rem; color: #ccc;">Weekly Return Comparison</h3>
+        <div class="chart-container" style="height: 350px;">
+            <canvas id="returnComparisonChart"></canvas>
+        </div>
+
+        <div class="explanation-box" style="margin-top: 1rem;">
+            <p>{{ btc_gold_correlation.interpretation }}</p>
+        </div>
+        {% else %}
+        <p class="text-muted">Correlation data not available.</p>
+        {% endif %}
+    </div>
+
+    <!-- Section 5: BTC-SP500 Correlation Analysis -->
+    <div class="macro-section">
+        <h2>
+            Bitcoin vs S&P 500 Correlation
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Risk Asset Correlation</strong><br><br>
+                    Measures how BTC moves with equities:<br>
+                    - High correlation: BTC trades as risk asset<br>
+                    - Low correlation: BTC is independent<br><br>
+                    Important for portfolio diversification decisions.
+                </span>
+            </span>
+        </h2>
+
+        {% if btc_sp500_correlation and btc_sp500_correlation.dates %}
+        <div class="correlation-summary">
+            <div class="metrics-grid">
+                <div class="metric-card" style="border-left: 3px solid {{ btc_sp500_correlation.correlation_color }};">
+                    <div class="metric-label">5-Year Correlation</div>
+                    <div class="metric-value" style="color: {{ btc_sp500_correlation.correlation_color }};">
+                        {{ btc_sp500_correlation.overall_correlation if btc_sp500_correlation.overall_correlation is not none else 'N/A' }}
+                    </div>
+                    <div class="metric-sublabel">BTC vs S&P 500 daily returns</div>
+                </div>
+                <div class="metric-card" style="border-left: 3px solid #f7931a;">
+                    <div class="metric-label">Correlation Strength</div>
+                    <div class="metric-value" style="font-size: 1.1rem;">
+                        {% if btc_sp500_correlation.overall_correlation is not none %}
+                            {% if btc_sp500_correlation.overall_correlation >= 0.7 %}Strong Positive
+                            {% elif btc_sp500_correlation.overall_correlation >= 0.3 %}Moderate Positive
+                            {% elif btc_sp500_correlation.overall_correlation >= -0.3 %}Weak/None
+                            {% elif btc_sp500_correlation.overall_correlation >= -0.7 %}Moderate Negative
+                            {% else %}Strong Negative
+                            {% endif %}
+                        {% else %}N/A{% endif %}
+                    </div>
+                    <div class="metric-sublabel">Based on {{ btc_sp500_correlation.data_points }} data points</div>
+                </div>
+                <div class="metric-card" style="border-left: 3px solid #00ff88;">
+                    <div class="metric-label">Risk Asset Behavior</div>
+                    <div class="metric-value" style="font-size: 1.1rem;">
+                        {% if btc_sp500_correlation.overall_correlation is not none %}
+                            {% if btc_sp500_correlation.overall_correlation >= 0.5 %}High
+                            {% elif btc_sp500_correlation.overall_correlation >= 0.2 %}Moderate
+                            {% else %}Low
+                            {% endif %}
+                        {% else %}N/A{% endif %}
+                    </div>
+                    <div class="metric-sublabel">Higher = more like stocks</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Yearly Correlation Breakdown -->
+        {% if btc_sp500_correlation.period_correlations %}
+        <h3 style="margin-top: 1.5rem; color: #ccc;">Correlation by Year</h3>
+        <div class="correlation-periods">
+            {% for period in btc_sp500_correlation.period_correlations %}
+            <div class="correlation-period-card" style="border-left: 3px solid {{ period.color }};">
+                <div class="period-year">{{ period.period }}</div>
+                <div class="period-correlation" style="color: {{ period.color }};">{{ period.correlation }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Rolling Correlation Chart -->
+        <h3 style="margin-top: 1.5rem; color: #ccc;">Rolling 90-Day Correlation</h3>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="rollingSP500CorrelationChart"></canvas>
+        </div>
+
+        <!-- Weekly Return Comparison Chart -->
+        <h3 style="margin-top: 1.5rem; color: #ccc;">Weekly Return Comparison</h3>
+        <div class="chart-container" style="height: 350px;">
+            <canvas id="sp500ReturnComparisonChart"></canvas>
+        </div>
+
+        <div class="explanation-box" style="margin-top: 1rem;">
+            <p>{{ btc_sp500_correlation.interpretation }}</p>
+        </div>
+        {% else %}
+        <p class="text-muted">Correlation data not available.</p>
+        {% endif %}
+    </div>
+
+    <!-- Section 6: BTC Returns -->
     <div class="macro-section">
         <h2>Bitcoin Performance (USD)</h2>
         <p class="table-description">
@@ -626,6 +801,38 @@
 .text-muted {
     color: #666;
 }
+
+/* Correlation Period Cards */
+.correlation-periods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 1rem 0;
+}
+
+.correlation-period-card {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    min-width: 80px;
+    text-align: center;
+}
+
+.period-year {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 0.25rem;
+}
+
+.period-correlation {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.correlation-summary {
+    margin: 1rem 0;
+}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -878,6 +1085,246 @@ document.addEventListener('DOMContentLoaded', function() {
                             const change = (context.parsed.y - 100).toFixed(1);
                             const sign = change >= 0 ? '+' : '';
                             return context.dataset.label + ': ' + context.parsed.y.toFixed(0) + ' (' + sign + change + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // BTC-Gold Correlation Charts
+    {% if btc_gold_correlation and btc_gold_correlation.dates %}
+    // Rolling Correlation Chart
+    new Chart(document.getElementById('rollingCorrelationChart'), {
+        type: 'line',
+        data: {
+            labels: {{ btc_gold_correlation.dates | tojson }},
+            datasets: [{
+                label: '90-Day Rolling Correlation',
+                data: {{ btc_gold_correlation.rolling_correlation | tojson }},
+                borderColor: '#9c27b0',
+                backgroundColor: 'rgba(156, 39, 176, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: -1,
+                    max: 1,
+                    title: { display: true, text: 'Correlation Coefficient', color: '#888' },
+                    ticks: { color: '#888' },
+                    grid: { color: 'rgba(168, 178, 209, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                title: { display: false },
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.parsed.y;
+                            if (val === null) return 'N/A';
+                            let strength = '';
+                            if (val >= 0.7) strength = ' (Strong +)';
+                            else if (val >= 0.3) strength = ' (Moderate +)';
+                            else if (val >= -0.3) strength = ' (Weak)';
+                            else if (val >= -0.7) strength = ' (Moderate -)';
+                            else strength = ' (Strong -)';
+                            return 'Correlation: ' + val.toFixed(3) + strength;
+                        }
+                    }
+                },
+                annotation: {
+                    annotations: {
+                        zeroLine: {
+                            type: 'line',
+                            yMin: 0,
+                            yMax: 0,
+                            borderColor: 'rgba(255, 255, 255, 0.3)',
+                            borderWidth: 1,
+                            borderDash: [5, 5]
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Weekly Return Comparison Chart (Bar chart showing BTC vs Gold returns side by side)
+    new Chart(document.getElementById('returnComparisonChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ btc_gold_correlation.dates | tojson }},
+            datasets: [
+                {
+                    label: 'BTC Weekly Return (%)',
+                    data: {{ btc_gold_correlation.btc_weekly_returns | tojson }},
+                    backgroundColor: 'rgba(247, 147, 26, 0.7)',
+                    borderColor: '#f7931a',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Gold Weekly Return (%)',
+                    data: {{ btc_gold_correlation.gold_weekly_returns | tojson }},
+                    backgroundColor: 'rgba(255, 215, 0, 0.7)',
+                    borderColor: '#ffd700',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: {
+                    title: { display: true, text: 'Weekly Return (%)', color: '#888' },
+                    ticks: { color: '#888' },
+                    grid: { color: 'rgba(168, 178, 209, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                title: { display: true, text: 'Weekly Returns: Bitcoin vs Gold', color: '#ccc' },
+                legend: {
+                    display: true,
+                    labels: { color: '#ccc' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.parsed.y;
+                            const sign = val >= 0 ? '+' : '';
+                            return context.dataset.label + ': ' + sign + val.toFixed(2) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // BTC-SP500 Correlation Charts
+    {% if btc_sp500_correlation and btc_sp500_correlation.dates %}
+    // Rolling Correlation Chart for SP500
+    new Chart(document.getElementById('rollingSP500CorrelationChart'), {
+        type: 'line',
+        data: {
+            labels: {{ btc_sp500_correlation.dates | tojson }},
+            datasets: [{
+                label: '90-Day Rolling Correlation',
+                data: {{ btc_sp500_correlation.rolling_correlation | tojson }},
+                borderColor: '#00ff88',
+                backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: -1,
+                    max: 1,
+                    title: { display: true, text: 'Correlation Coefficient', color: '#888' },
+                    ticks: { color: '#888' },
+                    grid: { color: 'rgba(168, 178, 209, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                title: { display: false },
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.parsed.y;
+                            if (val === null) return 'N/A';
+                            let strength = '';
+                            if (val >= 0.7) strength = ' (Strong +)';
+                            else if (val >= 0.3) strength = ' (Moderate +)';
+                            else if (val >= -0.3) strength = ' (Weak)';
+                            else if (val >= -0.7) strength = ' (Moderate -)';
+                            else strength = ' (Strong -)';
+                            return 'Correlation: ' + val.toFixed(3) + strength;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Weekly Return Comparison Chart for SP500
+    new Chart(document.getElementById('sp500ReturnComparisonChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ btc_sp500_correlation.dates | tojson }},
+            datasets: [
+                {
+                    label: 'BTC Weekly Return (%)',
+                    data: {{ btc_sp500_correlation.btc_weekly_returns | tojson }},
+                    backgroundColor: 'rgba(247, 147, 26, 0.7)',
+                    borderColor: '#f7931a',
+                    borderWidth: 1
+                },
+                {
+                    label: 'S&P 500 Weekly Return (%)',
+                    data: {{ btc_sp500_correlation.sp500_weekly_returns | tojson }},
+                    backgroundColor: 'rgba(0, 255, 136, 0.7)',
+                    borderColor: '#00ff88',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: {
+                    title: { display: true, text: 'Weekly Return (%)', color: '#888' },
+                    ticks: { color: '#888' },
+                    grid: { color: 'rgba(168, 178, 209, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                title: { display: true, text: 'Weekly Returns: Bitcoin vs S&P 500', color: '#ccc' },
+                legend: {
+                    display: true,
+                    labels: { color: '#ccc' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.parsed.y;
+                            const sign = val >= 0 ? '+' : '';
+                            return context.dataset.label + ': ' + sign + val.toFixed(2) + '%';
                         }
                     }
                 }

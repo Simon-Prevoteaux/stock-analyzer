@@ -3090,6 +3090,329 @@ class MacroDataFetcher:
             logger.error(f"Error fetching normalized asset comparison: {e}")
             return {'dates': [], 'datasets': []}
 
+    def fetch_btc_gold_correlation(self, lookback_years: int = 5) -> Dict:
+        """
+        Calculate correlation analysis between Bitcoin and Gold.
+
+        Returns:
+            Dict with:
+            - overall_correlation: Pearson correlation coefficient for the full period
+            - rolling_correlation: Time series of rolling 90-day correlation
+            - daily_return_diff: Daily return difference (BTC return - Gold return)
+            - period_correlations: Correlation broken down by year
+            - interpretation: Text explanation of the correlation
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        try:
+            # Fetch BTC and Gold daily prices
+            btc = yf.Ticker('BTC-USD')
+            gold = yf.Ticker('GC=F')
+
+            btc_hist = btc.history(start=start_date)
+            gold_hist = gold.history(start=start_date)
+
+            if btc_hist.empty or gold_hist.empty:
+                return self._empty_correlation_result()
+
+            # Create DataFrames with daily prices
+            btc_df = pd.DataFrame({
+                'date': btc_hist.index,
+                'btc_price': btc_hist['Close']
+            })
+            btc_df['date'] = pd.to_datetime(btc_df['date']).dt.tz_localize(None)
+
+            gold_df = pd.DataFrame({
+                'date': gold_hist.index,
+                'gold_price': gold_hist['Close']
+            })
+            gold_df['date'] = pd.to_datetime(gold_df['date']).dt.tz_localize(None)
+
+            # Merge on date (inner join to get common dates)
+            df = pd.merge(btc_df, gold_df, on='date', how='inner')
+            df = df.sort_values('date').reset_index(drop=True)
+
+            if len(df) < 30:
+                return self._empty_correlation_result()
+
+            # Calculate daily returns
+            df['btc_return'] = df['btc_price'].pct_change() * 100  # Percentage
+            df['gold_return'] = df['gold_price'].pct_change() * 100
+            df['return_diff'] = df['btc_return'] - df['gold_return']
+
+            # Drop NaN from pct_change
+            df = df.dropna()
+
+            # Overall correlation
+            overall_corr = df['btc_return'].corr(df['gold_return'])
+
+            # Rolling 90-day correlation
+            df['rolling_corr'] = df['btc_return'].rolling(window=90).corr(df['gold_return'])
+
+            # Resample to weekly for cleaner chart
+            df_weekly = df.set_index('date').resample('W').agg({
+                'btc_return': 'sum',  # Compound weekly return
+                'gold_return': 'sum',
+                'return_diff': 'sum',
+                'rolling_corr': 'last'
+            }).reset_index()
+            df_weekly = df_weekly.dropna()
+
+            # Period correlations (by year)
+            df['year'] = df['date'].dt.year
+            period_correlations = []
+            for year in sorted(df['year'].unique()):
+                year_data = df[df['year'] == year]
+                if len(year_data) >= 30:
+                    year_corr = year_data['btc_return'].corr(year_data['gold_return'])
+                    period_correlations.append({
+                        'period': str(year),
+                        'correlation': round(year_corr, 3),
+                        'color': self._correlation_color(year_corr)
+                    })
+
+            # Interpretation
+            interpretation = self._interpret_btc_gold_correlation(overall_corr, period_correlations)
+
+            return {
+                'overall_correlation': round(overall_corr, 3),
+                'correlation_color': self._correlation_color(overall_corr),
+                'dates': df_weekly['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'rolling_correlation': [round(x, 3) if pd.notna(x) else None for x in df_weekly['rolling_corr'].tolist()],
+                'btc_weekly_returns': df_weekly['btc_return'].round(2).tolist(),
+                'gold_weekly_returns': df_weekly['gold_return'].round(2).tolist(),
+                'return_diff': df_weekly['return_diff'].round(2).tolist(),
+                'period_correlations': period_correlations,
+                'interpretation': interpretation,
+                'data_points': len(df),
+            }
+
+        except Exception as e:
+            logger.error(f"Error calculating BTC-Gold correlation: {e}")
+            return self._empty_correlation_result()
+
+    def _empty_correlation_result(self) -> Dict:
+        """Return empty correlation result structure."""
+        return {
+            'overall_correlation': None,
+            'correlation_color': '#888',
+            'dates': [],
+            'rolling_correlation': [],
+            'btc_weekly_returns': [],
+            'gold_weekly_returns': [],
+            'return_diff': [],
+            'period_correlations': [],
+            'interpretation': 'Data not available.',
+            'data_points': 0,
+        }
+
+    def _correlation_color(self, corr: float) -> str:
+        """Return color based on correlation strength."""
+        if corr is None or pd.isna(corr):
+            return '#888'
+        if corr >= 0.7:
+            return '#4caf50'  # Strong positive - green
+        elif corr >= 0.3:
+            return '#8bc34a'  # Moderate positive - light green
+        elif corr >= -0.3:
+            return '#ff9800'  # Weak/no correlation - orange
+        elif corr >= -0.7:
+            return '#ff5722'  # Moderate negative - deep orange
+        else:
+            return '#f44336'  # Strong negative - red
+
+    def _interpret_btc_gold_correlation(self, overall_corr: float, period_correlations: list) -> str:
+        """Generate interpretation text for BTC-Gold correlation."""
+        if overall_corr is None or pd.isna(overall_corr):
+            return "Insufficient data for correlation analysis."
+
+        # Describe overall correlation
+        if overall_corr >= 0.7:
+            strength = "strongly positively correlated"
+            implication = "tend to move together"
+        elif overall_corr >= 0.3:
+            strength = "moderately positively correlated"
+            implication = "often move in the same direction"
+        elif overall_corr >= -0.3:
+            strength = "weakly correlated"
+            implication = "move largely independently"
+        elif overall_corr >= -0.7:
+            strength = "moderately negatively correlated"
+            implication = "often move in opposite directions"
+        else:
+            strength = "strongly negatively correlated"
+            implication = "tend to move in opposite directions"
+
+        text = f"Bitcoin and Gold are {strength} ({overall_corr:.2f}) over this period, meaning they {implication}. "
+
+        # Check for correlation trend changes
+        if len(period_correlations) >= 2:
+            recent_corr = period_correlations[-1]['correlation']
+            older_corr = period_correlations[0]['correlation']
+            if recent_corr > older_corr + 0.2:
+                text += "The correlation has strengthened in recent years, suggesting increasing co-movement as both are viewed as inflation hedges. "
+            elif recent_corr < older_corr - 0.2:
+                text += "The correlation has weakened in recent years, suggesting diverging market dynamics. "
+
+        text += "A low correlation means BTC can provide diversification benefits in a portfolio that includes Gold."
+
+        return text
+
+    def fetch_btc_sp500_correlation(self, lookback_years: int = 5) -> Dict:
+        """
+        Calculate correlation analysis between Bitcoin and S&P 500.
+
+        Returns:
+            Dict with:
+            - overall_correlation: Pearson correlation coefficient for the full period
+            - rolling_correlation: Time series of rolling 90-day correlation
+            - daily_return_diff: Daily return difference (BTC return - SP500 return)
+            - period_correlations: Correlation broken down by year
+            - interpretation: Text explanation of the correlation
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        try:
+            # Fetch BTC and S&P 500 daily prices
+            btc = yf.Ticker('BTC-USD')
+            sp500 = yf.Ticker('^GSPC')
+
+            btc_hist = btc.history(start=start_date)
+            sp500_hist = sp500.history(start=start_date)
+
+            if btc_hist.empty or sp500_hist.empty:
+                return self._empty_sp500_correlation_result()
+
+            # Create DataFrames with daily prices
+            btc_df = pd.DataFrame({
+                'date': btc_hist.index,
+                'btc_price': btc_hist['Close']
+            })
+            btc_df['date'] = pd.to_datetime(btc_df['date']).dt.tz_localize(None)
+
+            sp500_df = pd.DataFrame({
+                'date': sp500_hist.index,
+                'sp500_price': sp500_hist['Close']
+            })
+            sp500_df['date'] = pd.to_datetime(sp500_df['date']).dt.tz_localize(None)
+
+            # Merge on date (inner join to get common dates)
+            df = pd.merge(btc_df, sp500_df, on='date', how='inner')
+            df = df.sort_values('date').reset_index(drop=True)
+
+            if len(df) < 30:
+                return self._empty_sp500_correlation_result()
+
+            # Calculate daily returns
+            df['btc_return'] = df['btc_price'].pct_change() * 100  # Percentage
+            df['sp500_return'] = df['sp500_price'].pct_change() * 100
+            df['return_diff'] = df['btc_return'] - df['sp500_return']
+
+            # Drop NaN from pct_change
+            df = df.dropna()
+
+            # Overall correlation
+            overall_corr = df['btc_return'].corr(df['sp500_return'])
+
+            # Rolling 90-day correlation
+            df['rolling_corr'] = df['btc_return'].rolling(window=90).corr(df['sp500_return'])
+
+            # Resample to weekly for cleaner chart
+            df_weekly = df.set_index('date').resample('W').agg({
+                'btc_return': 'sum',  # Compound weekly return
+                'sp500_return': 'sum',
+                'return_diff': 'sum',
+                'rolling_corr': 'last'
+            }).reset_index()
+            df_weekly = df_weekly.dropna()
+
+            # Period correlations (by year)
+            df['year'] = df['date'].dt.year
+            period_correlations = []
+            for year in sorted(df['year'].unique()):
+                year_data = df[df['year'] == year]
+                if len(year_data) >= 30:
+                    year_corr = year_data['btc_return'].corr(year_data['sp500_return'])
+                    period_correlations.append({
+                        'period': str(year),
+                        'correlation': round(year_corr, 3),
+                        'color': self._correlation_color(year_corr)
+                    })
+
+            # Interpretation
+            interpretation = self._interpret_btc_sp500_correlation(overall_corr, period_correlations)
+
+            return {
+                'overall_correlation': round(overall_corr, 3),
+                'correlation_color': self._correlation_color(overall_corr),
+                'dates': df_weekly['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'rolling_correlation': [round(x, 3) if pd.notna(x) else None for x in df_weekly['rolling_corr'].tolist()],
+                'btc_weekly_returns': df_weekly['btc_return'].round(2).tolist(),
+                'sp500_weekly_returns': df_weekly['sp500_return'].round(2).tolist(),
+                'return_diff': df_weekly['return_diff'].round(2).tolist(),
+                'period_correlations': period_correlations,
+                'interpretation': interpretation,
+                'data_points': len(df),
+            }
+
+        except Exception as e:
+            logger.error(f"Error calculating BTC-SP500 correlation: {e}")
+            return self._empty_sp500_correlation_result()
+
+    def _empty_sp500_correlation_result(self) -> Dict:
+        """Return empty SP500 correlation result structure."""
+        return {
+            'overall_correlation': None,
+            'correlation_color': '#888',
+            'dates': [],
+            'rolling_correlation': [],
+            'btc_weekly_returns': [],
+            'sp500_weekly_returns': [],
+            'return_diff': [],
+            'period_correlations': [],
+            'interpretation': 'Data not available.',
+            'data_points': 0,
+        }
+
+    def _interpret_btc_sp500_correlation(self, overall_corr: float, period_correlations: list) -> str:
+        """Generate interpretation text for BTC-SP500 correlation."""
+        if overall_corr is None or pd.isna(overall_corr):
+            return "Insufficient data for correlation analysis."
+
+        # Describe overall correlation
+        if overall_corr >= 0.7:
+            strength = "strongly positively correlated"
+            implication = "tend to move together, suggesting BTC trades as a risk asset"
+        elif overall_corr >= 0.3:
+            strength = "moderately positively correlated"
+            implication = "often move in the same direction during risk-on/risk-off periods"
+        elif overall_corr >= -0.3:
+            strength = "weakly correlated"
+            implication = "move largely independently, providing diversification"
+        elif overall_corr >= -0.7:
+            strength = "moderately negatively correlated"
+            implication = "often move in opposite directions"
+        else:
+            strength = "strongly negatively correlated"
+            implication = "tend to move in opposite directions"
+
+        text = f"Bitcoin and S&P 500 are {strength} ({overall_corr:.2f}) over this period, meaning they {implication}. "
+
+        # Check for correlation trend changes
+        if len(period_correlations) >= 2:
+            recent_corr = period_correlations[-1]['correlation']
+            older_corr = period_correlations[0]['correlation']
+            if recent_corr > older_corr + 0.2:
+                text += "The correlation has increased in recent years, suggesting BTC is increasingly trading like a risk asset alongside equities. "
+            elif recent_corr < older_corr - 0.2:
+                text += "The correlation has decreased in recent years, suggesting BTC may be developing its own market dynamics independent of equities. "
+
+        text += "High correlation with stocks means BTC may not provide protection during equity market downturns."
+
+        return text
+
     # =========================================================================
     # BOND MARKET INDICATORS
     # =========================================================================

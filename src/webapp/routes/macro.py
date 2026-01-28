@@ -538,6 +538,12 @@ def macro_crypto():
         btc_vs_m2 = macro_fetcher.fetch_btc_vs_m2(lookback_years=10)
         liquidity_indicators = macro_fetcher.fetch_liquidity_indicators()
 
+        # Fetch BTC-Gold correlation analysis
+        btc_gold_correlation = macro_fetcher.fetch_btc_gold_correlation(lookback_years=5)
+
+        # Fetch BTC-SP500 correlation analysis
+        btc_sp500_correlation = macro_fetcher.fetch_btc_sp500_correlation(lookback_years=5)
+
         return render_template(
             'macro_crypto.html',
             btc_returns=btc_returns,
@@ -548,7 +554,9 @@ def macro_crypto():
             asset_comparison=asset_comparison,
             halving_cycle=halving_cycle,
             btc_vs_m2=btc_vs_m2,
-            liquidity_indicators=liquidity_indicators
+            liquidity_indicators=liquidity_indicators,
+            btc_gold_correlation=btc_gold_correlation,
+            btc_sp500_correlation=btc_sp500_correlation
         )
 
     except Exception as e:
