@@ -217,6 +217,203 @@
             <p><strong>Digital Gold Thesis:</strong> Some investors view Bitcoin as "digital gold" - a store of value that may appreciate against fiat currencies over time due to its fixed supply. Compare these returns to the <a href="{{ url_for('macro.macro_currencies') }}">Gold vs Currencies table</a> to see how both assets perform as inflation hedges and stores of value.</p>
         </div>
     </div>
+
+    <!-- Section 6: Bitcoin Halving Cycle -->
+    <div class="macro-section">
+        <h2>
+            Bitcoin Halving Cycle
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>What is the Halving?</strong><br><br>
+                    Every ~4 years (210,000 blocks), Bitcoin's block reward is cut in half.<br><br>
+                    This reduces new BTC supply, increasing scarcity.<br><br>
+                    Historically, the 12-18 months after halvings have been the strongest periods for BTC price.
+                </span>
+            </span>
+        </h2>
+
+        {% if halving_cycle %}
+        <div class="halving-container">
+            <div class="cycle-progress-container">
+                <div class="cycle-progress-bar">
+                    <div class="cycle-progress-fill" style="width: {{ halving_cycle.cycle_progress }}%; background-color: {{ halving_cycle.phase_color }};"></div>
+                </div>
+                <div class="cycle-labels">
+                    <span>Halving {{ halving_cycle.last_halving.number }}</span>
+                    <span>{{ halving_cycle.phase }}</span>
+                    <span>Next Halving (~{{ halving_cycle.next_halving_estimate[:4] }})</span>
+                </div>
+            </div>
+
+            <div class="metrics-grid" style="margin-top: 1.5rem;">
+                <div class="metric-card" style="border-left: 3px solid {{ halving_cycle.phase_color }};">
+                    <div class="metric-label">Days Since Halving</div>
+                    <div class="metric-value">{{ halving_cycle.days_since_halving }}</div>
+                    <div class="metric-sublabel">{{ halving_cycle.last_halving.date }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 3px solid #2196f3;">
+                    <div class="metric-label">Days Until Next</div>
+                    <div class="metric-value">~{{ halving_cycle.days_until_next }}</div>
+                    <div class="metric-sublabel">Estimate: {{ halving_cycle.next_halving_estimate }}</div>
+                </div>
+                <div class="metric-card" style="border-left: 3px solid #f7931a;">
+                    <div class="metric-label">Current Block Reward</div>
+                    <div class="metric-value">{{ halving_cycle.current_reward }} BTC</div>
+                    <div class="metric-sublabel">Per block (~10 min)</div>
+                </div>
+                <div class="metric-card" style="border-left: 3px solid {{ halving_cycle.phase_color }};">
+                    <div class="metric-label">Cycle Phase</div>
+                    <div class="metric-value" style="font-size: 1.2rem; color: {{ halving_cycle.phase_color }};">{{ halving_cycle.phase }}</div>
+                    <div class="metric-sublabel">{{ halving_cycle.cycle_progress }}% through cycle</div>
+                </div>
+            </div>
+
+            <div class="explanation-box" style="margin-top: 1rem;">
+                <p>{{ halving_cycle.interpretation }}</p>
+            </div>
+
+            <!-- Historical Cycle Performance -->
+            <h3 style="margin-top: 1.5rem; color: #ccc;">Historical Cycle Performance</h3>
+            <table class="macro-table">
+                <thead>
+                    <tr>
+                        <th>Cycle</th>
+                        <th>Halving Price</th>
+                        <th>Cycle High</th>
+                        <th>Return</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cycle in halving_cycle.cycle_history %}
+                    <tr>
+                        <td>{{ cycle.cycle }}</td>
+                        <td>${{ cycle.halving_price | int if cycle.halving_price is number else cycle.halving_price }}</td>
+                        <td>${{ cycle.cycle_high | int if cycle.cycle_high is number else cycle.cycle_high }}</td>
+                        <td class="positive">{{ cycle.return }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Section 7: BTC vs M2 Money Supply -->
+    <div class="macro-section">
+        <h2>
+            Bitcoin vs M2 Money Supply
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Liquidity Thesis</strong><br><br>
+                    BTC price often follows global liquidity (M2 money supply).<br><br>
+                    When central banks print money (M2 rises), risk assets including BTC tend to benefit.<br><br>
+                    This chart shows the relationship between money printing and BTC price.
+                </span>
+            </span>
+        </h2>
+
+        {% if btc_vs_m2 and btc_vs_m2.dates %}
+        <div class="metrics-grid">
+            <div class="metric-card" style="border-left: 3px solid #4caf50;">
+                <div class="metric-label">M2 Money Supply</div>
+                <div class="metric-value">${{ btc_vs_m2.current_m2_trillions }}T</div>
+                <div class="metric-sublabel">US M2 (Trillions)</div>
+            </div>
+            <div class="metric-card {{ 'positive' if btc_vs_m2.m2_yoy_change and btc_vs_m2.m2_yoy_change > 0 else 'negative' if btc_vs_m2.m2_yoy_change and btc_vs_m2.m2_yoy_change < 0 else 'neutral' }}" style="border-left: 3px solid {{ '#4caf50' if btc_vs_m2.m2_yoy_change and btc_vs_m2.m2_yoy_change > 0 else '#f44336' if btc_vs_m2.m2_yoy_change and btc_vs_m2.m2_yoy_change < 0 else '#888' }};">
+                <div class="metric-label">M2 YoY Change</div>
+                <div class="metric-value">{% if btc_vs_m2.m2_yoy_change is not none %}{{ '+' if btc_vs_m2.m2_yoy_change > 0 else '' }}{{ btc_vs_m2.m2_yoy_change }}%{% else %}N/A{% endif %}</div>
+                <div class="metric-sublabel">Money supply growth</div>
+            </div>
+            <div class="metric-card" style="border-left: 3px solid #f7931a;">
+                <div class="metric-label">BTC-M2 Correlation</div>
+                <div class="metric-value">{{ btc_vs_m2.correlation }}</div>
+                <div class="metric-sublabel">10-year correlation</div>
+            </div>
+        </div>
+
+        <div class="chart-container" style="height: 400px;">
+            <canvas id="btcM2Chart"></canvas>
+        </div>
+
+        <div class="explanation-box" style="margin-top: 1rem;">
+            <p><strong>How to read:</strong> Both series normalized to 100 at the start. When BTC (orange) rises faster than M2 (green), it's outperforming money supply growth. When M2 expands (green rising), it often precedes BTC rallies. A correlation of {{ btc_vs_m2.correlation }} indicates a {% if btc_vs_m2.correlation > 0.7 %}strong{% elif btc_vs_m2.correlation > 0.4 %}moderate{% else %}weak{% endif %} relationship.</p>
+        </div>
+        {% else %}
+        <p class="text-muted">M2 data not available.</p>
+        {% endif %}
+    </div>
+
+    <!-- Section 8: Liquidity Indicators -->
+    <div class="macro-section">
+        <h2>
+            Liquidity Environment
+            <span class="tooltip">i
+                <span class="tooltiptext">
+                    <strong>Cash on the Sidelines</strong><br><br>
+                    Money Market Funds represent cash waiting to be deployed.<br><br>
+                    High MMF + Growing M2 = Abundant liquidity (bullish for risk assets)<br><br>
+                    Low MMF + Shrinking M2 = Tight liquidity (headwind for risk assets)
+                </span>
+            </span>
+        </h2>
+
+        {% if liquidity_indicators %}
+        <div class="liquidity-status-container" style="background: {{ liquidity_indicators.color }}20; border-left: 4px solid {{ liquidity_indicators.color }};">
+            <div class="liquidity-status" style="color: {{ liquidity_indicators.color }};">
+                {{ liquidity_indicators.status }}
+            </div>
+            <p class="liquidity-interpretation">{{ liquidity_indicators.interpretation }}</p>
+        </div>
+
+        <div class="metrics-grid" style="margin-top: 1.5rem;">
+            {% if liquidity_indicators.m2 %}
+            <div class="metric-card" style="border-left: 3px solid #4caf50;">
+                <div class="metric-label">M2 Money Supply</div>
+                <div class="metric-value">${{ liquidity_indicators.m2.current_trillions }}T</div>
+                <div class="metric-sublabel">
+                    {% if liquidity_indicators.m2.yoy_change is defined %}
+                    YoY: {{ '+' if liquidity_indicators.m2.yoy_change > 0 else '' }}{{ liquidity_indicators.m2.yoy_change }}%
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if liquidity_indicators.money_market %}
+            <div class="metric-card" style="border-left: 3px solid #2196f3;">
+                <div class="metric-label">Money Market Funds</div>
+                <div class="metric-value">${{ liquidity_indicators.money_market.current_trillions }}T</div>
+                <div class="metric-sublabel">
+                    {% if liquidity_indicators.money_market.near_ath %}
+                    <span style="color: #ff9800;">Near All-Time High</span>
+                    {% else %}
+                    {{ liquidity_indicators.money_market.pct_from_ath }}% from ATH
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if liquidity_indicators.m2 and liquidity_indicators.m2.cagr_5y is defined %}
+            <div class="metric-card" style="border-left: 3px solid #9c27b0;">
+                <div class="metric-label">M2 5Y CAGR</div>
+                <div class="metric-value">{{ liquidity_indicators.m2.cagr_5y }}%</div>
+                <div class="metric-sublabel">Annual growth rate</div>
+            </div>
+            {% endif %}
+
+            {% if liquidity_indicators.money_market and liquidity_indicators.money_market.yoy_change is defined %}
+            <div class="metric-card {{ 'positive' if liquidity_indicators.money_market.yoy_change > 0 else 'negative' }}" style="border-left: 3px solid {{ '#4caf50' if liquidity_indicators.money_market.yoy_change > 0 else '#f44336' }};">
+                <div class="metric-label">MMF YoY Change</div>
+                <div class="metric-value">{{ '+' if liquidity_indicators.money_market.yoy_change > 0 else '' }}{{ liquidity_indicators.money_market.yoy_change }}%</div>
+                <div class="metric-sublabel">Cash accumulation</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="explanation-box" style="margin-top: 1rem;">
+            <p><strong>Investment Thesis:</strong> When money market funds are at record highs, it means investors are holding large amounts of cash earning low returns. This "dry powder" can fuel significant rallies when sentiment shifts and investors move from cash to risk assets like BTC. Combined with M2 expansion, this creates favorable liquidity conditions for Bitcoin.</p>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
 <style>
@@ -361,6 +558,73 @@
     background: #f7931a;
     border-color: #f7931a;
     color: #000;
+}
+
+/* Halving Cycle Styles */
+.halving-container {
+    margin: 1rem 0;
+}
+
+.cycle-progress-container {
+    margin: 1.5rem 0;
+}
+
+.cycle-progress-bar {
+    height: 24px;
+    background: #333;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.cycle-progress-fill {
+    height: 100%;
+    border-radius: 12px;
+    transition: width 0.5s ease;
+    position: relative;
+}
+
+.cycle-progress-fill::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 4px;
+    background: #fff;
+    border-radius: 2px;
+}
+
+.cycle-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+/* Liquidity Status */
+.liquidity-status-container {
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.liquidity-status {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.liquidity-interpretation {
+    color: #ccc;
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* Text color utilities */
+.text-muted {
+    color: #666;
 }
 </style>
 
@@ -550,6 +814,75 @@ document.addEventListener('DOMContentLoaded', function() {
             assetComparisonChart.options.plugins.title.text = `Relative Performance (${periodLabels[period]}, Normalized to 100)`;
             assetComparisonChart.update();
         });
+    });
+    {% endif %}
+
+    // BTC vs M2 Money Supply Chart
+    {% if btc_vs_m2 and btc_vs_m2.dates %}
+    new Chart(document.getElementById('btcM2Chart'), {
+        type: 'line',
+        data: {
+            labels: {{ btc_vs_m2.dates | tojson }},
+            datasets: [
+                {
+                    label: 'Bitcoin (Normalized)',
+                    data: {{ btc_vs_m2.btc_normalized | tojson }},
+                    borderColor: '#f7931a',
+                    backgroundColor: 'rgba(247, 147, 26, 0.1)',
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'M2 Money Supply (Normalized)',
+                    data: {{ btc_vs_m2.m2_normalized | tojson }},
+                    borderColor: '#4caf50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: {
+                    type: 'logarithmic',
+                    title: { display: true, text: 'Normalized Value (Log Scale, Start = 100)', color: '#888' },
+                    ticks: { color: '#888' },
+                    grid: { color: 'rgba(168, 178, 209, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#888', maxTicksLimit: 12 },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                title: { display: true, text: 'Bitcoin vs M2 Money Supply (10 Years, Normalized)', color: '#ccc' },
+                legend: {
+                    display: true,
+                    labels: { color: '#ccc' }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const change = (context.parsed.y - 100).toFixed(1);
+                            const sign = change >= 0 ? '+' : '';
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(0) + ' (' + sign + change + '%)';
+                        }
+                    }
+                }
+            }
+        }
     });
     {% endif %}
 });

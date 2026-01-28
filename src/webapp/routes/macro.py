@@ -533,6 +533,11 @@ def macro_crypto():
         else:
             btc_history = {'dates': [], 'prices': []}
 
+        # Fetch investment indicators
+        halving_cycle = macro_fetcher.fetch_btc_halving_cycle()
+        btc_vs_m2 = macro_fetcher.fetch_btc_vs_m2(lookback_years=10)
+        liquidity_indicators = macro_fetcher.fetch_liquidity_indicators()
+
         return render_template(
             'macro_crypto.html',
             btc_returns=btc_returns,
@@ -540,7 +545,10 @@ def macro_crypto():
             btc_market_data=btc_market_data,
             btc_history=btc_history,
             asset_market_caps=asset_market_caps,
-            asset_comparison=asset_comparison
+            asset_comparison=asset_comparison,
+            halving_cycle=halving_cycle,
+            btc_vs_m2=btc_vs_m2,
+            liquidity_indicators=liquidity_indicators
         )
 
     except Exception as e:

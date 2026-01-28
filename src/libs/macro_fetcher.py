@@ -3457,3 +3457,303 @@ class MacroDataFetcher:
             'color': color,
             'interpretation': interpretation,
         }
+
+    # =========================================================================
+    # BITCOIN INVESTMENT INDICATORS
+    # =========================================================================
+
+    def fetch_btc_halving_cycle(self) -> Dict:
+        """
+        Calculate Bitcoin halving cycle information.
+
+        Bitcoin halvings occur approximately every 4 years (210,000 blocks).
+        Historical halvings:
+        - Genesis: Jan 3, 2009
+        - Halving 1: Nov 28, 2012 (block 210,000)
+        - Halving 2: Jul 9, 2016 (block 420,000)
+        - Halving 3: May 11, 2020 (block 630,000)
+        - Halving 4: Apr 20, 2024 (block 840,000)
+        - Halving 5: ~2028 (estimated)
+
+        Returns:
+            Dict with halving cycle data and interpretation
+        """
+        from datetime import datetime, timedelta
+
+        # Historical halving dates
+        halvings = [
+            {'number': 0, 'date': datetime(2009, 1, 3), 'block': 0, 'reward': 50},
+            {'number': 1, 'date': datetime(2012, 11, 28), 'block': 210000, 'reward': 25},
+            {'number': 2, 'date': datetime(2016, 7, 9), 'block': 420000, 'reward': 12.5},
+            {'number': 3, 'date': datetime(2020, 5, 11), 'block': 630000, 'reward': 6.25},
+            {'number': 4, 'date': datetime(2024, 4, 20), 'block': 840000, 'reward': 3.125},
+        ]
+
+        # Estimate next halving (~4 years after last)
+        last_halving = halvings[-1]
+        next_halving_estimate = last_halving['date'] + timedelta(days=4*365)
+
+        now = datetime.now()
+
+        # Days since last halving
+        days_since_halving = (now - last_halving['date']).days
+
+        # Days until next halving (estimate)
+        days_until_next = (next_halving_estimate - now).days
+        if days_until_next < 0:
+            days_until_next = 0
+
+        # Cycle progress (0-100%)
+        cycle_length_days = 4 * 365  # ~1460 days
+        cycle_progress = min(100, (days_since_halving / cycle_length_days) * 100)
+
+        # Determine cycle phase and interpretation
+        if days_since_halving < 180:
+            phase = 'Early Post-Halving'
+            phase_color = '#4caf50'
+            interpretation = (
+                f"Only {days_since_halving} days since halving. Historically, the 12-18 months "
+                "after a halving have been the strongest period for BTC price appreciation as "
+                "reduced supply meets steady/growing demand."
+            )
+        elif days_since_halving < 365:
+            phase = 'Mid Post-Halving'
+            phase_color = '#8bc34a'
+            interpretation = (
+                f"{days_since_halving} days since halving. Still in the historically bullish "
+                "post-halving period. Previous cycles saw major price appreciation in this phase."
+            )
+        elif days_since_halving < 730:
+            phase = 'Late Post-Halving'
+            phase_color = '#ff9800'
+            interpretation = (
+                f"{days_since_halving} days since halving. In previous cycles, this period saw "
+                "cycle tops followed by significant corrections. Exercise caution on new entries."
+            )
+        else:
+            phase = 'Pre-Halving'
+            phase_color = '#2196f3'
+            interpretation = (
+                f"Approximately {days_until_next} days until next halving. Historically, BTC has "
+                "consolidated or declined in this phase before the next halving catalyst."
+            )
+
+        # Historical cycle returns (approximate, for context)
+        cycle_history = [
+            {'cycle': '2012-2016', 'halving_price': 12, 'cycle_high': 1150, 'return': '9,500%'},
+            {'cycle': '2016-2020', 'halving_price': 650, 'cycle_high': 19800, 'return': '2,950%'},
+            {'cycle': '2020-2024', 'halving_price': 8600, 'cycle_high': 69000, 'return': '700%'},
+            {'cycle': '2024-2028', 'halving_price': 64000, 'cycle_high': 'TBD', 'return': 'In Progress'},
+        ]
+
+        return {
+            'last_halving': {
+                'number': last_halving['number'],
+                'date': last_halving['date'].strftime('%Y-%m-%d'),
+                'block': last_halving['block'],
+                'reward': last_halving['reward'],
+            },
+            'next_halving_estimate': next_halving_estimate.strftime('%Y-%m-%d'),
+            'days_since_halving': days_since_halving,
+            'days_until_next': days_until_next,
+            'cycle_progress': round(cycle_progress, 1),
+            'phase': phase,
+            'phase_color': phase_color,
+            'interpretation': interpretation,
+            'current_reward': last_halving['reward'],
+            'cycle_history': cycle_history,
+        }
+
+    def fetch_btc_vs_m2(self, lookback_years: int = 10) -> Dict:
+        """
+        Fetch Bitcoin price overlaid with M2 money supply.
+
+        The thesis: BTC price often follows global liquidity expansion.
+        When central banks print money (M2 increases), risk assets like BTC benefit.
+
+        Args:
+            lookback_years: Years of history to fetch
+
+        Returns:
+            Dict with dates, BTC prices, and M2 values for charting
+        """
+        lookback_days = lookback_years * 365
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+
+        try:
+            # Fetch M2 money supply from FRED
+            m2_df = self._fetch_series(self.GLOBAL_ECONOMY_SERIES['m2'], start_date=start_date)
+
+            # Fetch BTC price
+            btc = yf.Ticker('BTC-USD')
+            btc_hist = btc.history(start=start_date)
+
+            if m2_df.empty or btc_hist.empty:
+                return {'dates': [], 'btc': [], 'm2': []}
+
+            # Prepare BTC data
+            btc_df = pd.DataFrame({
+                'date': btc_hist.index,
+                'btc_price': btc_hist['Close']
+            })
+            btc_df['date'] = pd.to_datetime(btc_df['date']).dt.tz_localize(None)
+
+            # M2 is monthly, resample BTC to monthly for alignment
+            btc_df = btc_df.set_index('date').resample('M').last().reset_index()
+            m2_df = m2_df.set_index('date').resample('M').last().reset_index()
+
+            # Merge on date
+            merged = pd.merge(btc_df, m2_df, on='date', how='inner')
+            merged = merged.dropna()
+
+            if merged.empty:
+                return {'dates': [], 'btc': [], 'm2': []}
+
+            # Calculate correlation
+            correlation = merged['btc_price'].corr(merged['value'])
+
+            # Normalize both to 100 at start for visual comparison
+            btc_start = merged.iloc[0]['btc_price']
+            m2_start = merged.iloc[0]['value']
+
+            merged['btc_normalized'] = (merged['btc_price'] / btc_start) * 100
+            merged['m2_normalized'] = (merged['value'] / m2_start) * 100
+
+            # Current values
+            current_m2 = merged.iloc[-1]['value']
+            current_m2_trillions = round(current_m2 / 1000, 2)  # M2 is in billions
+
+            # YoY M2 change
+            if len(merged) >= 12:
+                m2_1y_ago = merged.iloc[-12]['value']
+                m2_yoy_change = ((current_m2 / m2_1y_ago) - 1) * 100
+            else:
+                m2_yoy_change = None
+
+            return {
+                'dates': merged['date'].dt.strftime('%Y-%m-%d').tolist(),
+                'btc_prices': merged['btc_price'].round(0).tolist(),
+                'btc_normalized': merged['btc_normalized'].round(2).tolist(),
+                'm2_values': merged['value'].round(0).tolist(),
+                'm2_normalized': merged['m2_normalized'].round(2).tolist(),
+                'correlation': round(correlation, 2),
+                'current_m2_trillions': current_m2_trillions,
+                'm2_yoy_change': round(m2_yoy_change, 1) if m2_yoy_change else None,
+            }
+
+        except Exception as e:
+            logger.error(f"Error fetching BTC vs M2: {e}")
+            return {'dates': [], 'btc': [], 'm2': []}
+
+    def fetch_liquidity_indicators(self) -> Dict:
+        """
+        Fetch liquidity indicators relevant to Bitcoin investment thesis.
+
+        Combines:
+        - M2 Money Supply (money printing)
+        - Money Market Funds (cash on sidelines)
+
+        Returns:
+            Dict with liquidity metrics and interpretation
+        """
+        try:
+            # Fetch M2
+            m2_df = self._fetch_series(
+                self.GLOBAL_ECONOMY_SERIES['m2'],
+                start_date=(datetime.now() - timedelta(days=365*5)).strftime('%Y-%m-%d')
+            )
+
+            # Fetch Money Market Funds
+            mmf_df = self._fetch_series(
+                self.MONEY_MARKET_SERIES['total_assets'],
+                start_date=(datetime.now() - timedelta(days=365*5)).strftime('%Y-%m-%d')
+            )
+
+            result = {}
+
+            # M2 metrics
+            if not m2_df.empty:
+                current_m2 = m2_df.iloc[-1]['value']
+                result['m2'] = {
+                    'current_trillions': round(current_m2 / 1000, 2),
+                    'current_billions': round(current_m2, 0),
+                }
+
+                # YoY change
+                if len(m2_df) >= 12:
+                    m2_1y = m2_df.iloc[-12]['value'] if len(m2_df) >= 12 else None
+                    if m2_1y:
+                        result['m2']['yoy_change'] = round(((current_m2 / m2_1y) - 1) * 100, 1)
+
+                # 5Y CAGR
+                if len(m2_df) >= 60:
+                    m2_5y = m2_df.iloc[0]['value']
+                    years = len(m2_df) / 12
+                    cagr = ((current_m2 / m2_5y) ** (1/years) - 1) * 100
+                    result['m2']['cagr_5y'] = round(cagr, 1)
+
+            # Money Market Funds metrics
+            if not mmf_df.empty:
+                current_mmf = mmf_df.iloc[-1]['value']
+                result['money_market'] = {
+                    'current_trillions': round(current_mmf / 1000, 2),
+                    'current_billions': round(current_mmf, 0),
+                }
+
+                # Is it at/near all-time high?
+                max_mmf = mmf_df['value'].max()
+                pct_from_ath = ((current_mmf / max_mmf) - 1) * 100
+                result['money_market']['pct_from_ath'] = round(pct_from_ath, 1)
+                result['money_market']['near_ath'] = pct_from_ath >= -5
+
+                # YoY change
+                if len(mmf_df) >= 4:  # Quarterly data
+                    mmf_1y = mmf_df.iloc[-4]['value'] if len(mmf_df) >= 4 else None
+                    if mmf_1y:
+                        result['money_market']['yoy_change'] = round(((current_mmf / mmf_1y) - 1) * 100, 1)
+
+            # Combined interpretation
+            m2_growing = result.get('m2', {}).get('yoy_change', 0) > 0
+            mmf_high = result.get('money_market', {}).get('near_ath', False)
+
+            if m2_growing and mmf_high:
+                liquidity_status = 'Abundant'
+                liquidity_color = '#4caf50'
+                interpretation = (
+                    "Money supply is expanding and cash on sidelines is near record highs. "
+                    "This is historically bullish for risk assets including Bitcoin. "
+                    "Large amounts of cash could flow into BTC if sentiment improves."
+                )
+            elif m2_growing:
+                liquidity_status = 'Expanding'
+                liquidity_color = '#8bc34a'
+                interpretation = (
+                    "Money supply is growing, providing liquidity tailwind for risk assets. "
+                    "Bitcoin has historically benefited from monetary expansion."
+                )
+            elif mmf_high:
+                liquidity_status = 'Cash Heavy'
+                liquidity_color = '#ff9800'
+                interpretation = (
+                    "Record cash sitting in money market funds indicates risk aversion. "
+                    "However, this dry powder could fuel a rally if sentiment shifts. "
+                    "Watch for rotation from cash to risk assets."
+                )
+            else:
+                liquidity_status = 'Tightening'
+                liquidity_color = '#f44336'
+                interpretation = (
+                    "Money supply is contracting and cash levels are normal. "
+                    "This is a headwind for risk assets including Bitcoin. "
+                    "Be cautious until liquidity conditions improve."
+                )
+
+            result['status'] = liquidity_status
+            result['color'] = liquidity_color
+            result['interpretation'] = interpretation
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error fetching liquidity indicators: {e}")
+            return {}
